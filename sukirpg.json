@@ -1,40 +1,8 @@
 {
   "personajes": [
     {
-      "nombre": "🟠Goku_Ultra_Instinto",
-      "imagen": "https://cdn.dorratz.com/files/1741587472394.jpg",
-      "precio": 80000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Reflejos_Divinos",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Kamehameha_Supremo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🟣Vegeta_Ultra_Ego",
-      "imagen": "https://cdn.dorratz.com/files/1741587670980.jpg",
-      "precio": 99000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "💪Poder_Desbordante",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Golpe_Destrucción",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🔵Jiren",
-      "imagen": "https://cdn.dorratz.com/files/1741587759297.jpg",
+      "imagen": "https://cdn.russellxz.click/2cb95a2c.jpeg",
       "precio": 98000,
       "nivel": 1,
       "habilidades": [
@@ -50,7 +18,7 @@
     },
     {
       "nombre": "🟢Broly_Legendario",
-      "imagen": "https://cdn.dorratz.com/files/1741587812054.jpg",
+      "imagen": "https://cdn.russellxz.click/8422d428.jpeg",
       "precio": 77000,
       "nivel": 1,
       "habilidades": [
@@ -66,7 +34,7 @@
     },
     {
       "nombre": "🟡Gohan_Beast",
-      "imagen": "https://cdn.dorratz.com/files/1741587871768.jpg",
+      "imagen": "https://cdn.russellxz.click/1e9e83e7.jpeg",
       "precio": 76000,
       "nivel": 1,
       "habilidades": [
@@ -82,7 +50,7 @@
     },
     {
       "nombre": "🟠Goku_Black",
-      "imagen": "https://cdn.dorratz.com/files/1741587924527.jpg",
+      "imagen": "https://cdn.russellxz.click/01a7ee04.jpeg",
       "precio": 85000,
       "nivel": 1,
       "habilidades": [
@@ -98,7 +66,7 @@
     },
     {
       "nombre": "🟣Hit",
-      "imagen": "https://cdn.dorratz.com/files/1741587978819.jpg",
+      "imagen": "https://cdn.russellxz.click/981e91c4.jpeg",
       "precio": 114000,
       "nivel": 1,
       "habilidades": [
@@ -114,7 +82,7 @@
     },
     {
       "nombre": "🔵Toppo_Dios_Del_Destr",
-      "imagen": "https://cdn.dorratz.com/files/1741588017420.jpg",
+      "imagen": "https://cdn.russellxz.click/8ec37dd6.jpeg",
       "precio": 83000,
       "nivel": 1,
       "habilidades": [
@@ -130,7 +98,7 @@
     },
     {
       "nombre": "🟠Caulifla",
-      "imagen": "https://cdn.dorratz.com/files/1741588085861.jpg",
+      "imagen": "https://cdn.russellxz.click/6956981e.jpeg",
       "precio": 112000,
       "nivel": 1,
       "habilidades": [
@@ -146,7 +114,7 @@
     },
     {
       "nombre": "🟣Kefla",
-      "imagen": "https://cdn.dorratz.com/files/1741588172636.jpg",
+      "imagen": "https://cdn.russellxz.click/fc09ca0b.jpeg",
       "precio": 71000,
       "nivel": 1,
       "habilidades": [
@@ -161,24 +129,8 @@
       ]
     },
     {
-      "nombre": "🔥Goku",
-      "imagen": "https://cdn.dorratz.com/files/1740562887688.jpg",
-      "precio": 76000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Kamehameha",
-          "nivel": 1
-        },
-        {
-          "nombre": "🐉Ultra_Instinto",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🌀Satoru_Gojo",
-      "imagen": "https://cdn.dorratz.com/files/1740562815350.jpg",
+      "imagen": "https://cdn.russellxz.click/bf27f4b4.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -194,7 +146,7 @@
     },
     {
       "nombre": "⚫Sukuna",
-      "imagen": "https://cdn.dorratz.com/files/1741599557829.jpg",
+      "imagen": "https://cdn.russellxz.click/603217f7.jpeg",
       "precio": 99000,
       "nivel": 1,
       "habilidades": [
@@ -210,7 +162,7 @@
     },
     {
       "nombre": "🔵Yuji_Itadori",
-      "imagen": "https://cdn.dorratz.com/files/1741599625903.jpg",
+      "imagen": "https://cdn.russellxz.click/828ef079.jpeg",
       "precio": 118000,
       "nivel": 1,
       "habilidades": [
@@ -226,7 +178,7 @@
     },
     {
       "nombre": "🔴Megumi_Fushiguro",
-      "imagen": "https://cdn.dorratz.com/files/1741599690464.jpg",
+      "imagen": "https://cdn.russellxz.click/e3ff1fa8.jpeg",
       "precio": 87000,
       "nivel": 1,
       "habilidades": [
@@ -242,7 +194,7 @@
     },
     {
       "nombre": "🟡Nobara_Kugisaki",
-      "imagen": "https://cdn.dorratz.com/files/1741599795047.jpg",
+      "imagen": "https://cdn.russellxz.click/64b2b714.jpeg",
       "precio": 96000,
       "nivel": 1,
       "habilidades": [
@@ -258,7 +210,7 @@
     },
     {
       "nombre": "🟢Yuta_Okkotsu",
-      "imagen": "https://cdn.dorratz.com/files/1741599863541.jpg",
+      "imagen": "https://cdn.russellxz.click/2fa955b2.jpeg",
       "precio": 85000,
       "nivel": 1,
       "habilidades": [
@@ -274,7 +226,7 @@
     },
     {
       "nombre": "🟠Toji_Fushiguro",
-      "imagen": "https://cdn.dorratz.com/files/1741599915118.jpg",
+      "imagen": "https://cdn.russellxz.click/6f269ede.jpeg",
       "precio": 84000,
       "nivel": 1,
       "habilidades": [
@@ -290,7 +242,7 @@
     },
     {
       "nombre": "🟣Kenjaku",
-      "imagen": "https://cdn.dorratz.com/files/1741599970464.jpg",
+      "imagen": "https://cdn.russellxz.click/6b37e2be.jpeg",
       "precio": 83000,
       "nivel": 1,
       "habilidades": [
@@ -306,7 +258,7 @@
     },
     {
       "nombre": "🔵Choso",
-      "imagen": "https://cdn.dorratz.com/files/1741600042015.jpg",
+      "imagen": "https://cdn.russellxz.click/dc831983.jpeg",
       "precio": 82000,
       "nivel": 1,
       "habilidades": [
@@ -322,7 +274,7 @@
     },
     {
       "nombre": "🟤Mahito",
-      "imagen": "https://cdn.dorratz.com/files/1741600097426.jpg",
+      "imagen": "https://cdn.russellxz.click/40470bb8.jpeg",
       "precio": 91000,
       "nivel": 1,
       "habilidades": [
@@ -338,7 +290,7 @@
     },
     {
       "nombre": "🥼Senku_Ishigami",
-      "imagen": "https://cdn.dorratz.com/files/1741600165752.jpg",
+      "imagen": "https://cdn.russellxz.click/fcaf9d3e.jpeg",
       "precio": 120000,
       "nivel": 1,
       "habilidades": [
@@ -354,7 +306,7 @@
     },
     {
       "nombre": "🛠️Chrome",
-      "imagen": "https://cdn.dorratz.com/files/1741679040959.jpg",
+      "imagen": "https://cdn.russellxz.click/0467753e.jpeg",
       "precio": 99000,
       "nivel": 1,
       "habilidades": [
@@ -370,7 +322,7 @@
     },
     {
       "nombre": "🏋️Tsukasa_Shishio",
-      "imagen": "https://cdn.dorratz.com/files/1741679141294.jpg",
+      "imagen": "https://cdn.russellxz.click/fe3ac84c.jpeg",
       "precio": 91000,
       "nivel": 1,
       "habilidades": [
@@ -386,7 +338,7 @@
     },
     {
       "nombre": "🏹Kohaku",
-      "imagen": "https://cdn.dorratz.com/files/1741679203431.jpg",
+      "imagen": "https://cdn.russellxz.click/785dfe53.jpeg",
       "precio": 98500,
       "nivel": 1,
       "habilidades": [
@@ -401,24 +353,8 @@
       ]
     },
     {
-      "nombre": "🔬Gen_Asagiri",
-      "imagen": "https://cdn.dorratz.com/files/1741679373398.jpg",
-      "precio": 89700,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🗣️Maestro_de_la_Persuasión",
-          "nivel": 1
-        },
-        {
-          "nombre": "🧠Estratega_Agudo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🛠️Ryusui_Nanami",
-      "imagen": "https://cdn.dorratz.com/files/1741679255091.jpg",
+      "imagen": "https://cdn.russellxz.click/9a81528d.jpeg",
       "precio": 90500,
       "nivel": 1,
       "habilidades": [
@@ -433,8 +369,24 @@
       ]
     },
     {
+      "nombre": "🔬Gen_Asagiri",
+      "imagen": "https://cdn.russellxz.click/3fdaabcb.jpeg",
+      "precio": 89700,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🗣️Maestro_de_la_Persuasión",
+          "nivel": 1
+        },
+        {
+          "nombre": "🧠Estratega_Agudo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
       "nombre": "🏗️Kaseki",
-      "imagen": "https://cdn.dorratz.com/files/1741679445577.jpg",
+      "imagen": "https://cdn.russellxz.click/c1f6fcd4.jpeg",
       "precio": 79200,
       "nivel": 1,
       "habilidades": [
@@ -450,7 +402,7 @@
     },
     {
       "nombre": "🍽️Francois",
-      "imagen": "https://cdn.dorratz.com/files/1741679594531.jpg",
+      "imagen": "https://cdn.russellxz.click/0e421aa8.jpeg",
       "precio": 93800,
       "nivel": 1,
       "habilidades": [
@@ -466,7 +418,7 @@
     },
     {
       "nombre": "🔥Ukyo_Saionji",
-      "imagen": "https://cdn.dorratz.com/files/1741679664509.jpg",
+      "imagen": "https://cdn.russellxz.click/55d15cae.jpeg",
       "precio": 89400,
       "nivel": 1,
       "habilidades": [
@@ -482,7 +434,7 @@
     },
     {
       "nombre": "🏺Hyoga",
-      "imagen": "https://cdn.dorratz.com/files/1741679745425.jpg",
+      "imagen": "https://cdn.russellxz.click/2899b9a9.jpeg",
       "precio": 90800,
       "nivel": 1,
       "habilidades": [
@@ -498,7 +450,7 @@
     },
     {
       "nombre": "☠️Monkey_D_Luffy",
-      "imagen": "https://cdn.dorratz.com/files/1740562855603.jpg",
+      "imagen": "https://cdn.russellxz.click/5f9cd4a1.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -514,7 +466,7 @@
     },
     {
       "nombre": "☠️Roronoa_Zoro",
-      "imagen": "https://cdn.dorratz.com/files/1741679821079.jpg",
+      "imagen": "https://cdn.russellxz.click/d58f243f.jpeg",
       "precio": 119000,
       "nivel": 1,
       "habilidades": [
@@ -530,7 +482,7 @@
     },
     {
       "nombre": "☠️Sanji",
-      "imagen": "https://cdn.dorratz.com/files/1741679870689.jpg",
+      "imagen": "https://cdn.russellxz.click/b12ff771.jpeg",
       "precio": 88000,
       "nivel": 1,
       "habilidades": [
@@ -546,7 +498,7 @@
     },
     {
       "nombre": "☠️Nami",
-      "imagen": "https://cdn.dorratz.com/files/1741679908349.jpg",
+      "imagen": "https://cdn.russellxz.click/58c111cb.jpeg",
       "precio": 97000,
       "nivel": 1,
       "habilidades": [
@@ -562,7 +514,7 @@
     },
     {
       "nombre": "☠️Usopp",
-      "imagen": "https://cdn.dorratz.com/files/1741679978167.jpg",
+      "imagen": "https://cdn.russellxz.click/0e0bec68.jpeg",
       "precio": 86000,
       "nivel": 1,
       "habilidades": [
@@ -577,24 +529,8 @@
       ]
     },
     {
-      "nombre": "☠️Tony_Tony_Chopper",
-      "imagen": "https://cdn.dorratz.com/files/1741680037891.jpg",
-      "precio": 75000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🏥Medicina_Milagrosa",
-          "nivel": 1
-        },
-        {
-          "nombre": "🐾Transformación_Monstruosa",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "☠️Nico_Robin",
-      "imagen": "https://cdn.dorratz.com/files/1741680949273.jpg",
+      "imagen": "https://cdn.russellxz.click/7c093fcd.jpeg",
       "precio": 74000,
       "nivel": 1,
       "habilidades": [
@@ -610,7 +546,7 @@
     },
     {
       "nombre": "☠️Franky",
-      "imagen": "https://cdn.dorratz.com/files/1741681025809.jpg",
+      "imagen": "https://cdn.russellxz.click/05aee0d4.jpeg",
       "precio": 83000,
       "nivel": 1,
       "habilidades": [
@@ -626,7 +562,7 @@
     },
     {
       "nombre": "☠️Brook",
-      "imagen": "https://cdn.dorratz.com/files/1741681090217.jpg",
+      "imagen": "https://cdn.russellxz.click/198679d1.jpeg",
       "precio": 92000,
       "nivel": 1,
       "habilidades": [
@@ -642,7 +578,7 @@
     },
     {
       "nombre": "☠️Jinbe",
-      "imagen": "https://cdn.dorratz.com/files/1741681128852.jpg",
+      "imagen": "https://cdn.russellxz.click/9d70061c.jpeg",
       "precio": 111000,
       "nivel": 1,
       "habilidades": [
@@ -658,7 +594,7 @@
     },
     {
       "nombre": "🐉Meliodas",
-      "imagen": "https://cdn.dorratz.com/files/1741766178789.jpg",
+      "imagen": "https://cdn.russellxz.click/9b9625c6.jpeg",
       "precio": 90000,
       "nivel": 1,
       "habilidades": [
@@ -674,7 +610,7 @@
     },
     {
       "nombre": "🦊Ban",
-      "imagen": "https://cdn.dorratz.com/files/1741766245069.jpg",
+      "imagen": "https://cdn.russellxz.click/f63e185c.jpeg",
       "precio": 99000,
       "nivel": 1,
       "habilidades": [
@@ -690,7 +626,7 @@
     },
     {
       "nombre": "🐻King",
-      "imagen": "https://cdn.dorratz.com/files/1741766298443.jpg",
+      "imagen": "https://cdn.russellxz.click/42f08a97.jpeg",
       "precio": 98000,
       "nivel": 1,
       "habilidades": [
@@ -706,7 +642,7 @@
     },
     {
       "nombre": "🐍Diane",
-      "imagen": "https://cdn.dorratz.com/files/1741766381118.jpg",
+      "imagen": "https://cdn.russellxz.click/041fd2ea.jpeg",
       "precio": 117000,
       "nivel": 1,
       "habilidades": [
@@ -722,7 +658,7 @@
     },
     {
       "nombre": "🐐Gowther",
-      "imagen": "https://cdn.dorratz.com/files/1741766445114.jpg",
+      "imagen": "https://cdn.russellxz.click/5abd25aa.jpeg",
       "precio": 96000,
       "nivel": 1,
       "habilidades": [
@@ -738,7 +674,7 @@
     },
     {
       "nombre": "✨️Merlin",
-      "imagen": "https://cdn.dorratz.com/files/1741766497819.jpg",
+      "imagen": "https://cdn.russellxz.click/34bc3a90.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -754,7 +690,7 @@
     },
     {
       "nombre": "🦁Escanor",
-      "imagen": "https://cdn.dorratz.com/files/1741766573161.jpg",
+      "imagen": "https://cdn.russellxz.click/46807cfa.jpeg",
       "precio": 91000,
       "nivel": 1,
       "habilidades": [
@@ -770,7 +706,7 @@
     },
     {
       "nombre": "🔥Zeldris",
-      "imagen": "https://cdn.dorratz.com/files/1741766665699.jpg",
+      "imagen": "https://cdn.russellxz.click/6549a410.jpeg",
       "precio": 90000,
       "nivel": 1,
       "habilidades": [
@@ -785,24 +721,8 @@
       ]
     },
     {
-      "nombre": "🔥Estarossa",
-      "imagen": "https://cdn.dorratz.com/files/1741766819464.jpg",
-      "precio": 99000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🖤Mandamiento_del_Amor",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌑Corrupción_Oscura",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🔥Melascula",
-      "imagen": "https://cdn.dorratz.com/files/1741766882463.jpg",
+      "imagen": "https://cdn.russellxz.click/61020eaa.jpeg",
       "precio": 98000,
       "nivel": 1,
       "habilidades": [
@@ -818,7 +738,7 @@
     },
     {
       "nombre": "🔥Galand",
-      "imagen": "https://cdn.dorratz.com/files/1741766915637.jpg",
+      "imagen": "https://cdn.russellxz.click/13d51ef6.jpeg",
       "precio": 97000,
       "nivel": 1,
       "habilidades": [
@@ -834,7 +754,7 @@
     },
     {
       "nombre": "🔥Monspeet",
-      "imagen": "https://cdn.dorratz.com/files/1741766973206.jpg",
+      "imagen": "https://cdn.russellxz.click/f2bc8dc9.jpeg",
       "precio": 96000,
       "nivel": 1,
       "habilidades": [
@@ -850,7 +770,7 @@
     },
     {
       "nombre": "🔥Derriere",
-      "imagen": "https://cdn.dorratz.com/files/1741767081750.jpg",
+      "imagen": "https://cdn.russellxz.click/2f757de9.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -866,7 +786,7 @@
     },
     {
       "nombre": "🔥Fraudrin",
-      "imagen": "https://cdn.dorratz.com/files/1741767128509.jpg",
+      "imagen": "https://cdn.russellxz.click/f7e76d56.jpeg",
       "precio": 94000,
       "nivel": 1,
       "habilidades": [
@@ -882,7 +802,7 @@
     },
     {
       "nombre": "🔥Grayroad",
-      "imagen": "https://cdn.dorratz.com/files/1741767177686.jpg",
+      "imagen": "https://cdn.russellxz.click/830659a9.jpeg",
       "precio": 93000,
       "nivel": 1,
       "habilidades": [
@@ -898,7 +818,7 @@
     },
     {
       "nombre": "🔥Drole",
-      "imagen": "https://cdn.dorratz.com/files/1741767329835.jpg",
+      "imagen": "https://cdn.russellxz.click/27174a1a.jpeg",
       "precio": 82000,
       "nivel": 1,
       "habilidades": [
@@ -914,7 +834,7 @@
     },
     {
       "nombre": "🔥Gloxinia",
-      "imagen": "https://cdn.dorratz.com/files/1741767401022.jpg",
+      "imagen": "https://cdn.russellxz.click/745169dc.jpeg",
       "precio": 91000,
       "nivel": 1,
       "habilidades": [
@@ -930,7 +850,7 @@
     },
     {
       "nombre": "👼Elizabeth_Liones",
-      "imagen": "https://cdn.dorratz.com/files/1741767529262.jpg",
+      "imagen": "https://cdn.russellxz.click/f8c1e9dd.jpeg",
       "precio": 98000,
       "nivel": 1,
       "habilidades": [
@@ -946,7 +866,7 @@
     },
     {
       "nombre": "🔥Ludociel",
-      "imagen": "https://cdn.dorratz.com/files/1741767578662.jpg",
+      "imagen": "https://cdn.russellxz.click/9a33ebe5.jpeg",
       "precio": 99000,
       "nivel": 1,
       "habilidades": [
@@ -962,7 +882,7 @@
     },
     {
       "nombre": "🔥Mael",
-      "imagen": "https://cdn.dorratz.com/files/1741767615252.jpg",
+      "imagen": "https://cdn.russellxz.click/c64deb33.jpeg",
       "precio": 80000,
       "nivel": 1,
       "habilidades": [
@@ -978,7 +898,7 @@
     },
     {
       "nombre": "🔥Hendrickson",
-      "imagen": "https://cdn.dorratz.com/files/1741767656141.jpg",
+      "imagen": "https://cdn.russellxz.click/88fec713.jpeg",
       "precio": 96000,
       "nivel": 1,
       "habilidades": [
@@ -994,7 +914,7 @@
     },
     {
       "nombre": "🔥Dreyfus",
-      "imagen": "https://cdn.dorratz.com/files/1741767705847.jpg",
+      "imagen": "https://cdn.russellxz.click/f191c2a6.jpeg",
       "precio": 115000,
       "nivel": 1,
       "habilidades": [
@@ -1010,7 +930,7 @@
     },
     {
       "nombre": "🔥Gilthunder",
-      "imagen": "https://cdn.dorratz.com/files/1741767744621.jpg",
+      "imagen": "https://cdn.russellxz.click/95418830.jpeg",
       "precio": 114000,
       "nivel": 1,
       "habilidades": [
@@ -1026,7 +946,7 @@
     },
     {
       "nombre": "🔥Howzer",
-      "imagen": "https://cdn.dorratz.com/files/1741767833958.jpg",
+      "imagen": "https://cdn.russellxz.click/99a6697e.jpeg",
       "precio": 93000,
       "nivel": 1,
       "habilidades": [
@@ -1042,7 +962,7 @@
     },
     {
       "nombre": "🐉Percival",
-      "imagen": "https://cdn.dorratz.com/files/1741767898602.jpg",
+      "imagen": "https://cdn.russellxz.click/61adadc9.jpeg",
       "precio": 118000,
       "nivel": 1,
       "habilidades": [
@@ -1058,7 +978,7 @@
     },
     {
       "nombre": "🦊Lancelot",
-      "imagen": "https://cdn.dorratz.com/files/1741768062347.jpg",
+      "imagen": "https://cdn.russellxz.click/1106174f.jpeg",
       "precio": 99000,
       "nivel": 1,
       "habilidades": [
@@ -1074,7 +994,7 @@
     },
     {
       "nombre": "✨️Tristan",
-      "imagen": "https://cdn.dorratz.com/files/1741768165485.jpg",
+      "imagen": "https://cdn.russellxz.click/390e223d.jpeg",
       "precio": 90000,
       "nivel": 1,
       "habilidades": [
@@ -1090,7 +1010,7 @@
     },
     {
       "nombre": "🦁Gawain",
-      "imagen": "https://cdn.dorratz.com/files/1741768252480.jpg",
+      "imagen": "https://cdn.russellxz.click/b40fddc1.jpeg",
       "precio": 99500,
       "nivel": 1,
       "habilidades": [
@@ -1106,7 +1026,7 @@
     },
     {
       "nombre": "⚔️Hajime_Nagumo",
-      "imagen": "https://cdn.dorratz.com/files/1742082385738.jpg",
+      "imagen": "https://cdn.russellxz.click/42d45a8f.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -1122,7 +1042,7 @@
     },
     {
       "nombre": "🦇Yue",
-      "imagen": "https://cdn.dorratz.com/files/1742082587580.jpg",
+      "imagen": "https://cdn.russellxz.click/6a280212.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -1138,7 +1058,7 @@
     },
     {
       "nombre": "🐲Shea_Haulia",
-      "imagen": "https://cdn.dorratz.com/files/1742082670464.jpg",
+      "imagen": "https://cdn.russellxz.click/f4316934.jpeg",
       "precio": 123000,
       "nivel": 1,
       "habilidades": [
@@ -1154,7 +1074,7 @@
     },
     {
       "nombre": "🦸Tio_Klarus",
-      "imagen": "https://cdn.dorratz.com/files/1742082740150.jpg",
+      "imagen": "https://cdn.russellxz.click/ac123d39.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -1170,7 +1090,7 @@
     },
     {
       "nombre": "⚔️Kaori_Shurasaka",
-      "imagen": "https://cdn.dorratz.com/files/1742082819866.jpg",
+      "imagen": "https://cdn.russellxz.click/868d8aba.jpeg",
       "precio": 121000,
       "nivel": 1,
       "habilidades": [
@@ -1186,7 +1106,7 @@
     },
     {
       "nombre": "🔥Shizuku_Yaegashi",
-      "imagen": "https://cdn.dorratz.com/files/1742082875267.jpg",
+      "imagen": "https://cdn.russellxz.click/72194800.jpeg",
       "precio": 120000,
       "nivel": 1,
       "habilidades": [
@@ -1202,7 +1122,7 @@
     },
     {
       "nombre": "🦊Myu",
-      "imagen": "https://cdn.dorratz.com/files/1742082979006.jpg",
+      "imagen": "https://cdn.russellxz.click/86ee31b6.jpeg",
       "precio": 120500,
       "nivel": 1,
       "habilidades": [
@@ -1218,7 +1138,7 @@
     },
     {
       "nombre": "🏹Freid_Bagwa",
-      "imagen": "https://cdn.dorratz.com/files/1742083016886.jpg",
+      "imagen": "https://cdn.russellxz.click/6414461f.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -1234,7 +1154,7 @@
     },
     {
       "nombre": "💀Ainz_Ooal_Gown",
-      "imagen": "https://cdn.dorratz.com/files/1742083115776.jpg",
+      "imagen": "https://cdn.russellxz.click/29b04f6e.jpeg",
       "precio": 930000,
       "nivel": 1,
       "habilidades": [
@@ -1250,7 +1170,7 @@
     },
     {
       "nombre": "👹Albedo",
-      "imagen": "https://cdn.dorratz.com/files/1742083160299.jpg",
+      "imagen": "https://cdn.russellxz.click/9d7bfadb.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -1266,7 +1186,7 @@
     },
     {
       "nombre": "🦇Shalltear_Bloodfallen",
-      "imagen": "https://cdn.dorratz.com/files/1742083224823.jpg",
+      "imagen": "https://cdn.russellxz.click/3e1b778c.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -1282,7 +1202,7 @@
     },
     {
       "nombre": "🐍Demiurge",
-      "imagen": "https://cdn.dorratz.com/files/1742083304962.jpg",
+      "imagen": "https://cdn.russellxz.click/ddbfaca1.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -1298,7 +1218,7 @@
     },
     {
       "nombre": "🦂Cocytus",
-      "imagen": "https://cdn.dorratz.com/files/1742083403971.jpg",
+      "imagen": "https://cdn.russellxz.click/54bbd0d8.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -1314,7 +1234,7 @@
     },
     {
       "nombre": "🦗Aura_Bella_Fiora",
-      "imagen": "https://cdn.dorratz.com/files/1742083461577.jpg",
+      "imagen": "https://cdn.russellxz.click/f6316e60.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -1330,7 +1250,7 @@
     },
     {
       "nombre": "🐺Mare_Bello_Fiora",
-      "imagen": "https://cdn.dorratz.com/files/1742083508539.jpg",
+      "imagen": "https://cdn.russellxz.click/09cde768.jpeg",
       "precio": 123000,
       "nivel": 1,
       "habilidades": [
@@ -1346,7 +1266,7 @@
     },
     {
       "nombre": "🏴‍☠️Sebas_Tian",
-      "imagen": "https://cdn.dorratz.com/files/1742083554923.jpg",
+      "imagen": "https://cdn.russellxz.click/84a4d72f.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -1362,7 +1282,7 @@
     },
     {
       "nombre": "⚔️Pandora’s_Actor",
-      "imagen": "https://cdn.dorratz.com/files/1742083623116.jpg",
+      "imagen": "https://cdn.russellxz.click/0f9fde0d.jpeg",
       "precio": 121000,
       "nivel": 1,
       "habilidades": [
@@ -1378,7 +1298,7 @@
     },
     {
       "nombre": "🏹Narberal_Gamma",
-      "imagen": "https://cdn.dorratz.com/files/1742083767677.jpg",
+      "imagen": "https://cdn.russellxz.click/6a816654.jpeg",
       "precio": 120000,
       "nivel": 1,
       "habilidades": [
@@ -1388,694 +1308,6 @@
         },
         {
           "nombre": "🛡️Lealtad_Absoluta",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Tanjiro_Kamado",
-      "imagen": "https://cdn.dorratz.com/files/1742083878827.jpg",
-      "precio": 925000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Respiración_del_Sol",
-          "nivel": 1
-        },
-        {
-          "nombre": "🩸Marca_del_Cazador",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚡Zenitsu_Agatsuma",
-      "imagen": "https://cdn.dorratz.com/files/1742084051146.jpg",
-      "precio": 924000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Respiración_del_Rayo",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌩️Velocidad_Divina",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐗Inosuke_Hashibira",
-      "imagen": "https://cdn.dorratz.com/files/1742084034993.jpg",
-      "precio": 923000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🐗Respiración_de_la_Bestia",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔪Combate_Instintivo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👹Nezuko_Kamado",
-      "imagen": "https://cdn.dorratz.com/files/1742084019165.jpg",
-      "precio": 922000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Sangre_Demoníaca",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌙Regeneración_Rápida",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "💀Muzan_Kibutsuji",
-      "imagen": "https://cdn.dorratz.com/files/1742084108939.jpg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "👹Rey_de_los_Demonios",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Sangre_Maldita",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🟣Giyu_Tomioka",
-      "imagen": "https://cdn.dorratz.com/files/1742084200256.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌊Pilar_del_Agua",
-          "nivel": 1
-        },
-        {
-          "nombre": "❄️Calma_Inquebrantable",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Kyojuro_Rengoku",
-      "imagen": "https://cdn.dorratz.com/files/1742084257037.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Pilar_de_la_Llama",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Espíritu_Ardiente",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🍃Sanemi_Shinazugawa",
-      "imagen": "https://cdn.dorratz.com/files/1742084293585.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🍃Pilar_del_Viento",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚡Furia_Descontrolada",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏔️Gyomei_Himejima",
-      "imagen": "https://cdn.dorratz.com/files/1742084430798.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🏔️Pilar_de_la_Roca",
-          "nivel": 1
-        },
-        {
-          "nombre": "💪Fuerza_Colosal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "💖Mitsuri_Kanroji",
-      "imagen": "https://cdn.dorratz.com/files/1742084503631.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "💖Pilar_del_Amor",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Espada_Flexible",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦋Shinobu_Kocho",
-      "imagen": "https://cdn.dorratz.com/files/1742088363371.jpg",
-      "precio": 123000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🦋Pilar_del_Insecto",
-          "nivel": 1
-        },
-        {
-          "nombre": "☠️Veneno_Letal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🎭Tengen_Uzui",
-      "imagen": "https://cdn.dorratz.com/files/1742088411280.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎵Pilar_del_Sonido",
-          "nivel": 1
-        },
-        {
-          "nombre": "💥Explosión_Mortal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐍Obanai_Iguro",
-      "imagen": "https://cdn.dorratz.com/files/1742088459246.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🐍Pilar_de_la_Serpiente",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Ataque_Impredecible",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🌑Muichiro_Tokito",
-      "imagen": "https://cdn.dorratz.com/files/1742088508407.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌫️Pilar_de_la_Niebla",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚡Reflejos_Sobrehumanos",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "😈Akaza",
-      "imagen": "https://cdn.dorratz.com/files/1742088603119.jpg",
-      "precio": 927000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "👊Luna_Superior_Tres",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Combate_Total",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "💀Doma",
-      "imagen": "https://cdn.dorratz.com/files/1742088669345.jpg",
-      "precio": 928000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "❄️Luna_Superior_Dos",
-          "nivel": 1
-        },
-        {
-          "nombre": "🧊Hielo_Mortal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦋Kokushibo",
-      "imagen": "https://cdn.dorratz.com/files/1742088749250.jpg",
-      "precio": 929000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌑Luna_Superior_Uno",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌀Respiración_de_la_Luna",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👹Gyutaro",
-      "imagen": "https://cdn.dorratz.com/files/1742088798633.jpg",
-      "precio": 923000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🩸Luna_Superior_Seis",
-          "nivel": 1
-        },
-        {
-          "nombre": "💀Guadañas_Envenenadas",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👹Daki",
-      "imagen": "https://cdn.dorratz.com/files/1742088859395.jpg",
-      "precio": 922000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎭Luna_Superior_Seis",
-          "nivel": 1
-        },
-        {
-          "nombre": "🕸️Cintas_Mortales",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Hantengu",
-      "imagen": "https://cdn.dorratz.com/files/1742088902387.jpg",
-      "precio": 925000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌪️Luna_Superior_Cuatro",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌀Múltiples_Clones",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔄Subaru_Natsuki",
-      "imagen": "https://cdn.dorratz.com/files/1742088961427.jpg",
-      "precio": 925000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⏳Regreso_de_la_Muerte",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏁Voluntad_Inquebrantable",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👑Emilia",
-      "imagen": "https://cdn.dorratz.com/files/1742089099019.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "❄️Magia_de_Hielo",
-          "nivel": 1
-        },
-        {
-          "nombre": "💖Bendición_Espiritual",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏹Rem",
-      "imagen": "https://cdn.dorratz.com/files/1742089170415.jpg",
-      "precio": 123000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔨Maza_Demoledora",
-          "nivel": 1
-        },
-        {
-          "nombre": "💙Lealtad_Absoluta",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🌺Ram",
-      "imagen": "https://cdn.dorratz.com/files/1742089285771.jpg",
-      "precio": 122000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌬️Magia_del_Viento",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Clarividencia",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "💀Beatrice",
-      "imagen": "https://cdn.dorratz.com/files/1742089361423.jpg",
-      "precio": 123000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "📖Guardiana_de_la_Biblioteca",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔮Magia_Espacial",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐺Garfield_Tinsel",
-      "imagen": "https://cdn.dorratz.com/files/1742089441150.jpg",
-      "precio": 122000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🏋️Fuerza_Bestial",
-          "nivel": 1
-        },
-        {
-          "nombre": "🐯Transformación_Tigre",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Roswaal_L_Mathers",
-      "imagen": "https://cdn.dorratz.com/files/1742089493820.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔮Mago_Supremo",
-          "nivel": 1
-        },
-        {
-          "nombre": "💀Magia_de_Todos_los_Elementos",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👹Echidna",
-      "imagen": "https://cdn.dorratz.com/files/1742089557164.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🧠Bruja_de_la_Codicia",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Conocimiento_Infinito",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Asta",
-      "imagen": "https://cdn.dorratz.com/files/1742090837439.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "💪Antimagia",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Modo_Demoníaco",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👑Yuno",
-      "imagen": "https://cdn.dorratz.com/files/1742090877134.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌪️Magia_del_Viento",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌟Bendición_Real",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏹Noelle_Silva",
-      "imagen": "https://cdn.dorratz.com/files/1742090994302.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌊Magia_del_Agua",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏰Armadura_Valquiria",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Yami_Sukehiro",
-      "imagen": "https://cdn.dorratz.com/files/1742091030230.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚔️Magia_Oscura",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌀Zona_Maná",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Julius_Novachrono",
-      "imagen": "https://cdn.dorratz.com/files/1742091101264.jpg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⏳Magia_del_Tiempo",
-          "nivel": 1
-        },
-        {
-          "nombre": "👑Rey_Mago",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦁Mereoleona_Vermillion",
-      "imagen": "https://cdn.dorratz.com/files/1742091145123.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Magia_de_Fuego",
-          "nivel": 1
-        },
-        {
-          "nombre": "💪Instinto_Bestial",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐂Nacht_Faust",
-      "imagen": "https://cdn.dorratz.com/files/1742091186787.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "👹Magia_de_Sombra",
-          "nivel": 1
-        },
-        {
-          "nombre": "🦇Dominio_Demoníaco",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "❄️Fuegoleon_Vermillion",
-      "imagen": "https://cdn.dorratz.com/files/1742091247849.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Magia_de_Fuego",
-          "nivel": 1
-        },
-        {
-          "nombre": "🦁Espíritu_de_Salamandra",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "💀Zagred",
-      "imagen": "https://cdn.dorratz.com/files/1742091316957.jpg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "💀Demonio_Supremo",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Magia_de_Palabras",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏹Luck_Volta",
-      "imagen": "https://cdn.dorratz.com/files/1742091386976.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Magia_del_Rayo",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚡Velocidad_Electrizante",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🎭Vanessa_Enoteca",
-      "imagen": "https://cdn.dorratz.com/files/1742091476684.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🕸️Hilos_del_Destino",
-          "nivel": 1
-        },
-        {
-          "nombre": "🍷Magia_del_Hilo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🎩Finral_Roulacase",
-      "imagen": "https://cdn.dorratz.com/files/1742091563048.jpg",
-      "precio": 123000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔄Magia_Espacial",
-          "nivel": 1
-        },
-        {
-          "nombre": "🚀Portal_Instantáneo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏴‍☠️Charlotte_Roselei",
-      "imagen": "https://cdn.dorratz.com/files/1742091818332.jpg",
-      "precio": 122000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌿Magia_de_Espinas",
-          "nivel": 1
-        },
-        {
-          "nombre": "💙Caballero_Azul",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Rill_Boismortier",
-      "imagen": "https://cdn.dorratz.com/files/1742091920697.jpg",
-      "precio": 121000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎨Magia_de_Pintura",
-          "nivel": 1
-        },
-        {
-          "nombre": "🎭Creatividad_Infinita",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "👹Liebe",
-      "imagen": "https://cdn.dorratz.com/files/1742091962595.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🖤Demonio_de_Antimagia",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Modo_Unión",
           "nivel": 1
         }
       ]
@@ -2370,7 +1602,7 @@
     },
     {
       "nombre": "🏆Baam",
-      "imagen": "https://cdn.dorratz.com/files/1742095827875.jpg",
+      "imagen": "https://cdn.russellxz.click/e03404ce.jpeg",
       "precio": 95000,
       "nivel": 1,
       "habilidades": [
@@ -2386,7 +1618,7 @@
     },
     {
       "nombre": "🏹Khun_Aguero_Agnis",
-      "imagen": "https://cdn.dorratz.com/files/1742095885217.jpg",
+      "imagen": "https://cdn.russellxz.click/fb667ce6.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -2402,7 +1634,7 @@
     },
     {
       "nombre": "🐊Rak_Wraithraiser",
-      "imagen": "https://cdn.dorratz.com/files/1742095938810.jpg",
+      "imagen": "https://cdn.russellxz.click/27bfbf72.jpeg",
       "precio": 923000,
       "nivel": 1,
       "habilidades": [
@@ -2418,7 +1650,7 @@
     },
     {
       "nombre": "🏴‍☠️Rachel",
-      "imagen": "https://cdn.dorratz.com/files/1742095999376.jpg",
+      "imagen": "https://cdn.russellxz.click/87003174.jpeg",
       "precio": 82000,
       "nivel": 1,
       "habilidades": [
@@ -2434,7 +1666,7 @@
     },
     {
       "nombre": "⚔️Androssi_Zahard",
-      "imagen": "https://cdn.dorratz.com/files/1742096057832.jpg",
+      "imagen": "https://cdn.russellxz.click/c82443c8.jpeg",
       "precio": 85000,
       "nivel": 1,
       "habilidades": [
@@ -2450,7 +1682,7 @@
     },
     {
       "nombre": "🌊Ha_Yuri_Zahard",
-      "imagen": "https://cdn.dorratz.com/files/1742096123621.jpg",
+      "imagen": "https://cdn.russellxz.click/df92fb44.jpeg",
       "precio": 26000,
       "nivel": 1,
       "habilidades": [
@@ -2466,7 +1698,7 @@
     },
     {
       "nombre": "🏯Evan_Edrok",
-      "imagen": "https://cdn.dorratz.com/files/1742096175670.jpg",
+      "imagen": "https://cdn.russellxz.click/5f11e529.jpeg",
       "precio": 81000,
       "nivel": 1,
       "habilidades": [
@@ -2482,7 +1714,7 @@
     },
     {
       "nombre": "🏴‍☠️Hwa_Ryun",
-      "imagen": "https://cdn.dorratz.com/files/1742096281629.jpg",
+      "imagen": "https://cdn.russellxz.click/6777c6cf.jpeg",
       "precio": 82000,
       "nivel": 1,
       "habilidades": [
@@ -2497,24 +1729,8 @@
       ]
     },
     {
-      "nombre": "🎭White",
-      "imagen": "https://cdn.dorratz.com/files/1742096330229.jpg",
-      "precio": 87000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚔️Espadachín_Demoníaco",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌀Magia_Negra",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🔥Kallavan",
-      "imagen": "https://cdn.dorratz.com/files/1742096392268.jpg",
+      "imagen": "https://cdn.russellxz.click/58af4ae3.jpeg",
       "precio": 98000,
       "nivel": 1,
       "habilidades": [
@@ -2530,7 +1746,7 @@
     },
     {
       "nombre": "🔵Rimuru_Tempest",
-      "imagen": "https://cdn.dorratz.com/files/1742103084548.jpg",
+      "imagen": "https://cdn.russellxz.click/d48e82f3.jpeg",
       "precio": 150000,
       "nivel": 1,
       "habilidades": [
@@ -2546,7 +1762,7 @@
     },
     {
       "nombre": "🔥Veldora_Tempest",
-      "imagen": "https://cdn.dorratz.com/files/1742103134693.jpg",
+      "imagen": "https://cdn.russellxz.click/65c4f2b7.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -2562,7 +1778,7 @@
     },
     {
       "nombre": "⚔️Benimaru",
-      "imagen": "https://cdn.dorratz.com/files/1742103185479.jpg",
+      "imagen": "https://cdn.russellxz.click/2de9a2e4.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2578,7 +1794,7 @@
     },
     {
       "nombre": "🌊Shion",
-      "imagen": "https://cdn.dorratz.com/files/1742103333565.jpg",
+      "imagen": "https://cdn.russellxz.click/eb2d56b8.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -2594,7 +1810,7 @@
     },
     {
       "nombre": "🏹Shuna",
-      "imagen": "https://cdn.dorratz.com/files/1742103503307.jpg",
+      "imagen": "https://cdn.russellxz.click/89676e3b.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -2610,7 +1826,7 @@
     },
     {
       "nombre": "💀Diablo",
-      "imagen": "https://cdn.dorratz.com/files/1742103765231.jpg",
+      "imagen": "https://cdn.russellxz.click/4fcf7274.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -2626,7 +1842,7 @@
     },
     {
       "nombre": "🐉Milim_Nava",
-      "imagen": "https://cdn.dorratz.com/files/1742104511254.jpg",
+      "imagen": "https://cdn.russellxz.click/658ca8be.jpeg",
       "precio": 131000,
       "nivel": 1,
       "habilidades": [
@@ -2642,7 +1858,7 @@
     },
     {
       "nombre": "🦊Ranga",
-      "imagen": "https://cdn.dorratz.com/files/1742104610103.jpg",
+      "imagen": "https://cdn.russellxz.click/f9ed9119.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -2658,7 +1874,7 @@
     },
     {
       "nombre": "🏯Hakuro",
-      "imagen": "https://cdn.dorratz.com/files/1742104819674.jpg",
+      "imagen": "https://cdn.russellxz.click/8a871323.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -2673,24 +1889,8 @@
       ]
     },
     {
-      "nombre": "🔥Geld",
-      "imagen": "https://cdn.dorratz.com/files/1742104891242.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🛡️Guardián_Orco",
-          "nivel": 1
-        },
-        {
-          "nombre": "💪Fuerza_Brutal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🏴‍☠️Souei",
-      "imagen": "https://cdn.dorratz.com/files/1742104938639.jpg",
+      "imagen": "https://cdn.russellxz.click/073bd965.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -2706,7 +1906,7 @@
     },
     {
       "nombre": "🎭Guy_Crimson",
-      "imagen": "https://cdn.dorratz.com/files/1742104979312.jpg",
+      "imagen": "https://cdn.russellxz.click/37529a56.jpeg",
       "precio": 132000,
       "nivel": 1,
       "habilidades": [
@@ -2722,7 +1922,7 @@
     },
     {
       "nombre": "🔥Leon_Cromwell",
-      "imagen": "https://cdn.dorratz.com/files/1742105035378.jpg",
+      "imagen": "https://cdn.russellxz.click/fa0da4d3.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -2738,7 +1938,7 @@
     },
     {
       "nombre": "🌑Daggrull",
-      "imagen": "https://cdn.dorratz.com/files/1742105091092.jpg",
+      "imagen": "https://cdn.russellxz.click/d9aac974.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -2754,7 +1954,7 @@
     },
     {
       "nombre": "🔥Luminous_Valentine",
-      "imagen": "https://cdn.dorratz.com/files/1742105219754.jpg",
+      "imagen": "https://cdn.russellxz.click/a03b2233.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2770,7 +1970,7 @@
     },
     {
       "nombre": "👹Zegion",
-      "imagen": "https://cdn.dorratz.com/files/1742105264924.jpg",
+      "imagen": "https://cdn.russellxz.click/9a3cccfe.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -2786,7 +1986,7 @@
     },
     {
       "nombre": "🌪️Hinata_Sakaguchi",
-      "imagen": "https://cdn.dorratz.com/files/1742105353009.jpg",
+      "imagen": "https://cdn.russellxz.click/1f5e1ffb.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -2802,7 +2002,7 @@
     },
     {
       "nombre": "💀Testarossa",
-      "imagen": "https://cdn.dorratz.com/files/1742105437544.jpg",
+      "imagen": "https://cdn.russellxz.click/174f2b0a.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -2818,7 +2018,7 @@
     },
     {
       "nombre": "🔥Ultima",
-      "imagen": "https://cdn.dorratz.com/files/1742105489799.jpg",
+      "imagen": "https://cdn.russellxz.click/d62fdf26.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2834,7 +2034,7 @@
     },
     {
       "nombre": "🏹Carrera",
-      "imagen": "https://cdn.dorratz.com/files/1742105572385.jpg",
+      "imagen": "https://cdn.russellxz.click/80ada0e3.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -2850,7 +2050,7 @@
     },
     {
       "nombre": "🏋️Kafka_Hibino",
-      "imagen": "https://cdn.dorratz.com/files/1742105614986.jpg",
+      "imagen": "https://cdn.russellxz.click/dd6b3aeb.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2866,7 +2066,7 @@
     },
     {
       "nombre": "🎯Mina_Ashiro",
-      "imagen": "https://cdn.dorratz.com/files/1742105653748.jpg",
+      "imagen": "https://cdn.russellxz.click/c92b0509.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -2882,7 +2082,7 @@
     },
     {
       "nombre": "⚔️Reno_Ichikawa",
-      "imagen": "https://cdn.dorratz.com/files/1742105684044.jpg",
+      "imagen": "https://cdn.russellxz.click/47cc3927.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -2897,24 +2097,8 @@
       ]
     },
     {
-      "nombre": "🔥Kikoru_Shinomiya",
-      "imagen": "https://cdn.dorratz.com/files/1742105727449.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "💥Hacha_Descomunal",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚡Heredera_de_Élite",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "👹Kaiju_No_9",
-      "imagen": "https://cdn.dorratz.com/files/1742105804191.jpg",
+      "imagen": "https://cdn.russellxz.click/0733409f.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -2930,7 +2114,7 @@
     },
     {
       "nombre": "🏴‍☠️Soshiro_Hoshina",
-      "imagen": "https://cdn.dorratz.com/files/1742105862869.jpg",
+      "imagen": "https://cdn.russellxz.click/e7997173.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -2946,7 +2130,7 @@
     },
     {
       "nombre": "💀Kaiju_No_10",
-      "imagen": "https://cdn.dorratz.com/files/1742105940051.jpg",
+      "imagen": "https://cdn.russellxz.click/14fb9d78.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2962,7 +2146,7 @@
     },
     {
       "nombre": "🏯Isao_Shinomiya",
-      "imagen": "https://cdn.dorratz.com/files/1742105994021.jpg",
+      "imagen": "https://cdn.russellxz.click/178f1ff2.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -2978,7 +2162,7 @@
     },
     {
       "nombre": "🎯Chisato_Nishikigi",
-      "imagen": "https://cdn.dorratz.com/files/1742106075038.jpg",
+      "imagen": "https://cdn.russellxz.click/11c9d238.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -2994,7 +2178,7 @@
     },
     {
       "nombre": "🔥Takina_Inoue",
-      "imagen": "https://cdn.dorratz.com/files/1742106135939.jpg",
+      "imagen": "https://cdn.russellxz.click/edaeee27.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3010,7 +2194,7 @@
     },
     {
       "nombre": "🏹Mizuki_Nakahara",
-      "imagen": "https://cdn.dorratz.com/files/1742106179206.jpg",
+      "imagen": "https://cdn.russellxz.click/159ece9f.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3026,7 +2210,7 @@
     },
     {
       "nombre": "🏴‍☠️Kurumi",
-      "imagen": "https://cdn.dorratz.com/files/1742106301455.jpg",
+      "imagen": "https://cdn.russellxz.click/6722cd99.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3042,7 +2226,7 @@
     },
     {
       "nombre": "🎭Majima",
-      "imagen": "https://cdn.dorratz.com/files/1742106350716.jpg",
+      "imagen": "https://cdn.russellxz.click/1643cd63.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3057,24 +2241,8 @@
       ]
     },
     {
-      "nombre": "🏯Sakura_Okamura",
-      "imagen": "https://cdn.dorratz.com/files/1742106442633.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Letal_y_Silenciosa",
-          "nivel": 1
-        },
-        {
-          "nombre": "🗡️Experta_en_Combate",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🏴‍☠️Mika",
-      "imagen": "https://cdn.dorratz.com/files/1742106504863.jpg",
+      "imagen": "https://cdn.russellxz.click/8d6d9d2e.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3090,7 +2258,7 @@
     },
     {
       "nombre": "🟢Izuku_Midoriya",
-      "imagen": "https://cdn.dorratz.com/files/1742106543120.jpg",
+      "imagen": "https://cdn.russellxz.click/2262945f.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3106,7 +2274,7 @@
     },
     {
       "nombre": "🔥Katsuki_Bakugo",
-      "imagen": "https://cdn.dorratz.com/files/1742106608500.jpg",
+      "imagen": "https://cdn.russellxz.click/36a939f2.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3122,7 +2290,7 @@
     },
     {
       "nombre": "🔵Shoto_Todoroki",
-      "imagen": "https://cdn.dorratz.com/files/1742106876303.jpg",
+      "imagen": "https://cdn.russellxz.click/1fc81557.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3138,7 +2306,7 @@
     },
     {
       "nombre": "🏆All_Might",
-      "imagen": "https://cdn.dorratz.com/files/1742107055649.jpg",
+      "imagen": "https://cdn.russellxz.click/3d369327.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -3154,7 +2322,7 @@
     },
     {
       "nombre": "💀Tomura_Shigaraki",
-      "imagen": "https://cdn.dorratz.com/files/1742107199632.jpg",
+      "imagen": "https://cdn.russellxz.click/ac283ed7.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3170,7 +2338,7 @@
     },
     {
       "nombre": "😈Dabi",
-      "imagen": "https://cdn.dorratz.com/files/1742107421992.jpg",
+      "imagen": "https://cdn.russellxz.click/74f805ec.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3186,7 +2354,7 @@
     },
     {
       "nombre": "🦾Endeavor",
-      "imagen": "https://cdn.dorratz.com/files/1742107467321.jpg",
+      "imagen": "https://cdn.russellxz.click/67f0ef67.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3202,7 +2370,7 @@
     },
     {
       "nombre": "🏹Hawks",
-      "imagen": "https://cdn.dorratz.com/files/1742107822934.jpg",
+      "imagen": "https://cdn.russellxz.click/86db323f.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3218,7 +2386,7 @@
     },
     {
       "nombre": "🏴‍☠️Eraser_Head",
-      "imagen": "https://cdn.dorratz.com/files/1742108236009.jpg",
+      "imagen": "https://cdn.russellxz.click/2b42d839.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3234,7 +2402,7 @@
     },
     {
       "nombre": "🦸Mirio_Togata",
-      "imagen": "https://cdn.dorratz.com/files/1742108342310.jpg",
+      "imagen": "https://cdn.russellxz.click/ae154952.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3250,7 +2418,7 @@
     },
     {
       "nombre": "🌀Naruto_Uzumaki",
-      "imagen": "https://cdn.dorratz.com/files/1742108443753.jpg",
+      "imagen": "https://cdn.russellxz.click/bd245ac9.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -3266,7 +2434,7 @@
     },
     {
       "nombre": "🔥Sasuke_Uchiha",
-      "imagen": "https://cdn.dorratz.com/files/1742108485089.jpg",
+      "imagen": "https://cdn.russellxz.click/77cc59e1.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3282,7 +2450,7 @@
     },
     {
       "nombre": "🍃Kakashi_Hatake",
-      "imagen": "https://cdn.dorratz.com/files/1742108534754.jpg",
+      "imagen": "https://cdn.russellxz.click/4d8e3724.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3298,7 +2466,7 @@
     },
     {
       "nombre": "🏹Itachi_Uchiha",
-      "imagen": "https://cdn.dorratz.com/files/1742108610100.jpg",
+      "imagen": "https://cdn.russellxz.click/7ac88583.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3314,7 +2482,7 @@
     },
     {
       "nombre": "🦁Minato_Namikaze",
-      "imagen": "https://cdn.dorratz.com/files/1742108645720.jpg",
+      "imagen": "https://cdn.russellxz.click/1bef8fff.jpeg",
       "precio": 100000,
       "nivel": 1,
       "habilidades": [
@@ -3330,7 +2498,7 @@
     },
     {
       "nombre": "🔥Madara_Uchiha",
-      "imagen": "https://cdn.dorratz.com/files/1742108684791.jpg",
+      "imagen": "https://cdn.russellxz.click/674d776e.jpeg",
       "precio": 131000,
       "nivel": 1,
       "habilidades": [
@@ -3346,7 +2514,7 @@
     },
     {
       "nombre": "👁️Obito_Uchiha",
-      "imagen": "https://cdn.dorratz.com/files/1742108720020.jpg",
+      "imagen": "https://cdn.russellxz.click/926918ba.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3362,7 +2530,7 @@
     },
     {
       "nombre": "🏴‍☠️Jiraiya",
-      "imagen": "https://cdn.dorratz.com/files/1742108886415.jpg",
+      "imagen": "https://cdn.russellxz.click/8ca2e0d0.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3378,7 +2546,7 @@
     },
     {
       "nombre": "💀Orochimaru",
-      "imagen": "https://cdn.dorratz.com/files/1742108923075.jpg",
+      "imagen": "https://cdn.russellxz.click/96a386cb.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3394,7 +2562,7 @@
     },
     {
       "nombre": "👿Pain",
-      "imagen": "https://cdn.dorratz.com/files/1742108958600.jpg",
+      "imagen": "https://cdn.russellxz.click/8422a5a0.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3410,7 +2578,7 @@
     },
     {
       "nombre": "💪Mash_Burnedead",
-      "imagen": "https://cdn.dorratz.com/files/1742109046539.jpg",
+      "imagen": "https://cdn.russellxz.click/e9e44cd4.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3426,7 +2594,7 @@
     },
     {
       "nombre": "🔥Lance_Crown",
-      "imagen": "https://cdn.dorratz.com/files/1742109149437.jpg",
+      "imagen": "https://cdn.russellxz.click/0cbe6588.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3442,7 +2610,7 @@
     },
     {
       "nombre": "🏹Dot_Barrett",
-      "imagen": "https://cdn.dorratz.com/files/1742109184653.jpg",
+      "imagen": "https://cdn.russellxz.click/4c4dbe8b.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3458,7 +2626,7 @@
     },
     {
       "nombre": "❄️Finn_Ames",
-      "imagen": "https://cdn.dorratz.com/files/1742109232569.jpg",
+      "imagen": "https://cdn.russellxz.click/9f5320fc.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3474,7 +2642,7 @@
     },
     {
       "nombre": "🏆Rayne_Ames",
-      "imagen": "https://cdn.dorratz.com/files/1742109270314.jpg",
+      "imagen": "https://cdn.russellxz.click/51be1de6.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3490,7 +2658,7 @@
     },
     {
       "nombre": "👑Cell_War",
-      "imagen": "https://cdn.dorratz.com/files/1742109316766.jpg",
+      "imagen": "https://cdn.russellxz.click/fdca06a6.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -3506,7 +2674,7 @@
     },
     {
       "nombre": "🏴‍☠️Orter_Madl",
-      "imagen": "https://cdn.dorratz.com/files/1742109348900.jpg",
+      "imagen": "https://cdn.russellxz.click/75e4e3ae.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3522,7 +2690,7 @@
     },
     {
       "nombre": "🔥Innocent_Zero",
-      "imagen": "https://cdn.dorratz.com/files/1742109418872.jpg",
+      "imagen": "https://cdn.russellxz.click/97d7fb9e.jpeg",
       "precio": 132000,
       "nivel": 1,
       "habilidades": [
@@ -3538,7 +2706,7 @@
     },
     {
       "nombre": "👹Margarette_Macaron",
-      "imagen": "https://cdn.dorratz.com/files/1742109475564.jpg",
+      "imagen": "https://cdn.russellxz.click/ca86ee85.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3554,7 +2722,7 @@
     },
     {
       "nombre": "🏴‍☠️Agent_Six",
-      "imagen": "https://cdn.dorratz.com/files/1742109538248.jpg",
+      "imagen": "https://cdn.russellxz.click/5bb56ce0.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3570,8 +2738,8 @@
     },
     {
       "nombre": "🤖Alice_Kisaragi",
-      "imagen": "https://cdn.dorratz.com/files/1742109597416.jpg",
-      "precio": 125000,
+      "imagen": "https://cdn.russellxz.click/cfd3642f.jpeg",
+      "precio": 80000,
       "nivel": 1,
       "habilidades": [
         {
@@ -3586,7 +2754,7 @@
     },
     {
       "nombre": "🏍️Takemichi_Hanagaki",
-      "imagen": "https://cdn.dorratz.com/files/1742163213345.jpg",
+      "imagen": "https://cdn.russellxz.click/e5a3bd8b.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3602,7 +2770,7 @@
     },
     {
       "nombre": "🔥Mikey_Sano",
-      "imagen": "https://cdn.dorratz.com/files/1742163259618.jpg",
+      "imagen": "https://cdn.russellxz.click/2238e2f9.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3618,7 +2786,7 @@
     },
     {
       "nombre": "🔥Draken_Ryuguji",
-      "imagen": "https://cdn.dorratz.com/files/1742163303682.jpg",
+      "imagen": "https://cdn.russellxz.click/27437cc4.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3634,7 +2802,7 @@
     },
     {
       "nombre": "🔥Baji_Keisuke",
-      "imagen": "https://cdn.dorratz.com/files/1742163344450.jpg",
+      "imagen": "https://cdn.russellxz.click/3421ffcb.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3650,7 +2818,7 @@
     },
     {
       "nombre": "🔥Chifuyu_Matsuno",
-      "imagen": "https://cdn.dorratz.com/files/1742163383467.jpg",
+      "imagen": "https://cdn.russellxz.click/32658b3c.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3666,7 +2834,7 @@
     },
     {
       "nombre": "🔥Kazutora_Hanemiya",
-      "imagen": "https://cdn.dorratz.com/files/1742163416327.jpg",
+      "imagen": "https://cdn.russellxz.click/53b8c113.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3682,7 +2850,7 @@
     },
     {
       "nombre": "🔥Hanma_Shuji",
-      "imagen": "https://cdn.dorratz.com/files/1742163456980.jpg",
+      "imagen": "https://cdn.russellxz.click/02eda644.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3697,24 +2865,8 @@
       ]
     },
     {
-      "nombre": "🔥Kisaki_Tetta",
-      "imagen": "https://cdn.dorratz.com/files/1742163504454.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎭Maestro_de_la_Manipulación",
-          "nivel": 1
-        },
-        {
-          "nombre": "🧠Genio_Estratega",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🔥Inui_Seishu",
-      "imagen": "https://cdn.dorratz.com/files/1742163562480.jpg",
+      "imagen": "https://cdn.russellxz.click/0317147a.jpeg",
       "precio": 125500,
       "nivel": 1,
       "habilidades": [
@@ -3730,7 +2882,7 @@
     },
     {
       "nombre": "🔥Koko_Hajime",
-      "imagen": "https://cdn.dorratz.com/files/1742163601611.jpg",
+      "imagen": "https://cdn.russellxz.click/cb9d2538.jpeg",
       "precio": 126500,
       "nivel": 1,
       "habilidades": [
@@ -3746,7 +2898,7 @@
     },
     {
       "nombre": "🔥Shinra_Kusakabe",
-      "imagen": "https://cdn.dorratz.com/files/1742163637083.jpg",
+      "imagen": "https://cdn.russellxz.click/96c3e149.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3762,7 +2914,7 @@
     },
     {
       "nombre": "🔥Arthur_Boyle",
-      "imagen": "https://cdn.dorratz.com/files/1742163674398.jpg",
+      "imagen": "https://cdn.russellxz.click/23b976a9.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3778,7 +2930,7 @@
     },
     {
       "nombre": "🔥Iris",
-      "imagen": "https://cdn.dorratz.com/files/1742163723717.jpg",
+      "imagen": "https://cdn.russellxz.click/95d63b0a.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3794,7 +2946,7 @@
     },
     {
       "nombre": "🔥Maki_Oze",
-      "imagen": "https://cdn.dorratz.com/files/1742163760141.jpg",
+      "imagen": "https://cdn.russellxz.click/9f190b86.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3810,7 +2962,7 @@
     },
     {
       "nombre": "🔥Takehisa_Hinawa",
-      "imagen": "https://cdn.dorratz.com/files/1742163803178.jpg",
+      "imagen": "https://cdn.russellxz.click/6d378f19.jpeg",
       "precio": 125500,
       "nivel": 1,
       "habilidades": [
@@ -3826,7 +2978,7 @@
     },
     {
       "nombre": "🔥Benimaru_Shinmon",
-      "imagen": "https://cdn.dorratz.com/files/1742163887616.jpg",
+      "imagen": "https://cdn.russellxz.click/1229d3bd.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3842,7 +2994,7 @@
     },
     {
       "nombre": "🔥Joker",
-      "imagen": "https://cdn.dorratz.com/files/1742163943433.jpg",
+      "imagen": "https://cdn.russellxz.click/f91363a0.jpeg",
       "precio": 127500,
       "nivel": 1,
       "habilidades": [
@@ -3858,7 +3010,7 @@
     },
     {
       "nombre": "🔥Tamaki_Kotatsu",
-      "imagen": "https://cdn.dorratz.com/files/1742163983138.jpg",
+      "imagen": "https://cdn.russellxz.click/652d85f9.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3874,7 +3026,7 @@
     },
     {
       "nombre": "🔥Viktor_Licht",
-      "imagen": "https://cdn.dorratz.com/files/1742164016307.jpg",
+      "imagen": "https://cdn.russellxz.click/79f675e5.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -3890,7 +3042,7 @@
     },
     {
       "nombre": "🔥Sho_Kusakabe",
-      "imagen": "https://cdn.dorratz.com/files/1742164060827.jpg",
+      "imagen": "https://cdn.russellxz.click/78ed854f.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -3906,7 +3058,7 @@
     },
     {
       "nombre": "⚔️Gabimaru",
-      "imagen": "https://cdn.dorratz.com/files/1742164662205.jpg",
+      "imagen": "https://cdn.russellxz.click/f4378617.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -3922,7 +3074,7 @@
     },
     {
       "nombre": "🏹Yamada_Asaemon_Sagiri",
-      "imagen": "https://cdn.dorratz.com/files/1742164706934.jpg",
+      "imagen": "https://cdn.russellxz.click/8c46c5b7.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -3938,7 +3090,7 @@
     },
     {
       "nombre": "🔥Aza_Chobe",
-      "imagen": "https://cdn.dorratz.com/files/1742164742299.jpg",
+      "imagen": "https://cdn.russellxz.click/faf147b7.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -3954,7 +3106,7 @@
     },
     {
       "nombre": "🎭Aza_Toma",
-      "imagen": "https://cdn.dorratz.com/files/1742164790051.jpg",
+      "imagen": "https://cdn.russellxz.click/7bedc338.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -3970,7 +3122,7 @@
     },
     {
       "nombre": "🏯Tensen_Ran",
-      "imagen": "https://cdn.dorratz.com/files/1742164869763.jpg",
+      "imagen": "https://cdn.russellxz.click/64199859.jpeg",
       "precio": 129000,
       "nivel": 1,
       "habilidades": [
@@ -3986,7 +3138,7 @@
     },
     {
       "nombre": "💀Tensen_Tao_Fa",
-      "imagen": "https://cdn.dorratz.com/files/1742164918382.jpg",
+      "imagen": "https://cdn.russellxz.click/8828ea29.jpeg",
       "precio": 130000,
       "nivel": 1,
       "habilidades": [
@@ -4002,7 +3154,7 @@
     },
     {
       "nombre": "⚡Shion_Yamada_Asaemon",
-      "imagen": "https://cdn.dorratz.com/files/1742164954963.jpg",
+      "imagen": "https://cdn.russellxz.click/8828ea29.jpeg",
       "precio": 126500,
       "nivel": 1,
       "habilidades": [
@@ -4018,7 +3170,7 @@
     },
     {
       "nombre": "🌀Nurugai",
-      "imagen": "https://cdn.dorratz.com/files/1742164996951.jpg",
+      "imagen": "https://cdn.russellxz.click/c9d395fb.jpeg",
       "precio": 125500,
       "nivel": 1,
       "habilidades": [
@@ -4034,7 +3186,7 @@
     },
     {
       "nombre": "🔥Yuzuriha",
-      "imagen": "https://cdn.dorratz.com/files/1742165033118.jpg",
+      "imagen": "https://cdn.russellxz.click/03c56706.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4050,7 +3202,7 @@
     },
     {
       "nombre": "👹Mu_Dan",
-      "imagen": "https://cdn.dorratz.com/files/1742165076191.jpg",
+      "imagen": "https://cdn.russellxz.click/4f245443.jpeg",
       "precio": 128500,
       "nivel": 1,
       "habilidades": [
@@ -4066,7 +3218,7 @@
     },
     {
       "nombre": "⚔️Will_Serfort",
-      "imagen": "https://cdn.dorratz.com/files/1742165855249.jpg",
+      "imagen": "https://cdn.russellxz.click/31e628b6.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4082,7 +3234,7 @@
     },
     {
       "nombre": "❄️Elfaria_Alvis_Serfort",
-      "imagen": "https://cdn.dorratz.com/files/1742165909365.jpg",
+      "imagen": "https://cdn.russellxz.click/8350fdf4.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -4098,7 +3250,7 @@
     },
     {
       "nombre": "🌍Colette_Loire",
-      "imagen": "https://cdn.dorratz.com/files/1742165971153.jpg",
+      "imagen": "https://cdn.russellxz.click/8745cfd5.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -4114,7 +3266,7 @@
     },
     {
       "nombre": "🔥Sion_Ulster",
-      "imagen": "https://cdn.dorratz.com/files/1742166013478.jpg",
+      "imagen": "https://cdn.russellxz.click/64bf972e.jpeg",
       "precio": 123000,
       "nivel": 1,
       "habilidades": [
@@ -4130,7 +3282,7 @@
     },
     {
       "nombre": "❄️Julius_Reinberg",
-      "imagen": "https://cdn.dorratz.com/files/1742166071007.jpg",
+      "imagen": "https://cdn.russellxz.click/558ad859.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -4139,14 +3291,14 @@
           "nivel": 1
         },
         {
-          "nombre": "❄️Hechizos_Congelantes",
+          "nombre": "❄️Hechizos_Congelant",
           "nivel": 1
         }
       ]
     },
     {
       "nombre": "🍃Wignall_Lindor",
-      "imagen": "https://cdn.dorratz.com/files/1742166109925.jpg",
+      "imagen": "https://cdn.russellxz.click/9edf25a4.jpeg",
       "precio": 121000,
       "nivel": 1,
       "habilidades": [
@@ -4162,7 +3314,7 @@
     },
     {
       "nombre": "⚡Lihanna_Owenzaus",
-      "imagen": "https://cdn.dorratz.com/files/1742166162015.jpg",
+      "imagen": "https://cdn.russellxz.click/732e0fe7.jpeg",
       "precio": 123000,
       "nivel": 1,
       "habilidades": [
@@ -4178,7 +3330,7 @@
     },
     {
       "nombre": "🧠Rosty_Nowman",
-      "imagen": "https://cdn.dorratz.com/files/1742166210034.jpg",
+      "imagen": "https://cdn.russellxz.click/883dae6e.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -4193,24 +3345,8 @@
       ]
     },
     {
-      "nombre": "🐾Kiki",
-      "imagen": "https://cdn.dorratz.com/files/1742166249422.jpg",
-      "precio": 120000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🐾Familiar_Carbunclo",
-          "nivel": 1
-        },
-        {
-          "nombre": "🛡️Protección_Mágica",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🎓Workner_Norgram",
-      "imagen": "https://cdn.dorratz.com/files/1742166284750.jpg",
+      "imagen": "https://cdn.russellxz.click/4769091c.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -4226,7 +3362,7 @@
     },
     {
       "nombre": "🧠Shiroe",
-      "imagen": "https://cdn.dorratz.com/files/1742165792219.jpg",
+      "imagen": "https://cdn.russellxz.click/0dfde334.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -4242,7 +3378,7 @@
     },
     {
       "nombre": "⚔️Naotsugu",
-      "imagen": "https://cdn.dorratz.com/files/1742165750990.jpg",
+      "imagen": "https://cdn.russellxz.click/d5f916be.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -4257,24 +3393,8 @@
       ]
     },
     {
-      "nombre": "🎯Akatsuki",
-      "imagen": "https://cdn.dorratz.com/files/1742196467346.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🥷Asesina_Sombra",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚡Velocidad_Mortal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🔥Nyanta",
-      "imagen": "https://cdn.dorratz.com/files/1742165654298.jpg",
+      "imagen": "https://cdn.russellxz.click/6bf545c7.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4290,7 +3410,7 @@
     },
     {
       "nombre": "🔮Regan",
-      "imagen": "https://cdn.dorratz.com/files/1742165603892.jpg",
+      "imagen": "https://cdn.russellxz.click/3245eef2.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -4306,7 +3426,7 @@
     },
     {
       "nombre": "🏹Krusty",
-      "imagen": "https://cdn.dorratz.com/files/1742165543008.jpg",
+      "imagen": "https://cdn.russellxz.click/b5dc4d64.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -4322,7 +3442,7 @@
     },
     {
       "nombre": "🌟Marielle",
-      "imagen": "https://cdn.dorratz.com/files/1742165498570.jpg",
+      "imagen": "https://cdn.russellxz.click/6d533610.jpeg",
       "precio": 123000,
       "nivel": 1,
       "habilidades": [
@@ -4338,7 +3458,7 @@
     },
     {
       "nombre": "🔥Isaac",
-      "imagen": "https://cdn.dorratz.com/files/1742165455414.jpg",
+      "imagen": "https://cdn.russellxz.click/5837a8a3.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4354,7 +3474,7 @@
     },
     {
       "nombre": "💀William_Massachusets",
-      "imagen": "https://cdn.dorratz.com/files/1742165398196.jpg",
+      "imagen": "https://cdn.russellxz.click/9fb854ab.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -4370,7 +3490,7 @@
     },
     {
       "nombre": "🎭Henrietta",
-      "imagen": "https://cdn.dorratz.com/files/1742165356397.jpg",
+      "imagen": "https://cdn.russellxz.click/4349cc45.jpeg",
       "precio": 122000,
       "nivel": 1,
       "habilidades": [
@@ -4386,7 +3506,7 @@
     },
     {
       "nombre": "🏹Kazuma_Satou",
-      "imagen": "https://cdn.dorratz.com/files/1742164111552.jpg",
+      "imagen": "https://cdn.russellxz.click/b525389e.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4402,7 +3522,7 @@
     },
     {
       "nombre": "🔥Aqua",
-      "imagen": "https://cdn.dorratz.com/files/1742164192501.jpg",
+      "imagen": "https://cdn.russellxz.click/9171ab57.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -4418,7 +3538,7 @@
     },
     {
       "nombre": "🔥Megumin",
-      "imagen": "https://cdn.dorratz.com/files/1742164148282.jpg",
+      "imagen": "https://cdn.russellxz.click/d39f81a9.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -4434,7 +3554,7 @@
     },
     {
       "nombre": "🛡️Darkness",
-      "imagen": "https://cdn.dorratz.com/files/1742164230004.jpg",
+      "imagen": "https://cdn.russellxz.click/f60786e0.jpeg",
       "precio": 125000,
       "nivel": 1,
       "habilidades": [
@@ -4450,7 +3570,7 @@
     },
     {
       "nombre": "🎭Yunyun",
-      "imagen": "https://cdn.dorratz.com/files/1742164264443.jpg",
+      "imagen": "https://cdn.russellxz.click/2ba232ba.jpeg",
       "precio": 124000,
       "nivel": 1,
       "habilidades": [
@@ -4466,7 +3586,7 @@
     },
     {
       "nombre": "🔥Wiz",
-      "imagen": "https://cdn.dorratz.com/files/1742164306666.jpg",
+      "imagen": "https://cdn.russellxz.click/da3490eb.jpeg",
       "precio": 126000,
       "nivel": 1,
       "habilidades": [
@@ -4482,7 +3602,7 @@
     },
     {
       "nombre": "🏹Vanir",
-      "imagen": "https://cdn.dorratz.com/files/1742164383621.jpg",
+      "imagen": "https://cdn.russellxz.click/dc0e4566.jpeg",
       "precio": 128000,
       "nivel": 1,
       "habilidades": [
@@ -4497,24 +3617,8 @@
       ]
     },
     {
-      "nombre": "🎩Chris",
-      "imagen": "https://cdn.dorratz.com/files/1742164427363.jpg",
-      "precio": 123000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔮Ladrón_Misterioso",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏆Habilidades_Específicas",
-          "nivel": 1
-        }
-      ]
-    },
-    {
       "nombre": "🏴‍☠️Eris",
-      "imagen": "https://cdn.dorratz.com/files/1742164475046.jpg",
+      "imagen": "https://cdn.russellxz.click/5a90a575.jpeg",
       "precio": 127000,
       "nivel": 1,
       "habilidades": [
@@ -4530,7 +3634,7 @@
     },
     {
       "nombre": "🔥Sylphina",
-      "imagen": "https://cdn.dorratz.com/files/1742164521003.jpg",
+      "imagen": "https://cdn.russellxz.click/ba5a418c.jpeg",
       "precio": 22000,
       "nivel": 1,
       "habilidades": [
@@ -4543,889 +3647,23 @@
           "nivel": 1
         }
       ]
-    },
-    {
-      "nombre": "🏴‍☠️Strada",
-      "imagen": "https://cdn.dorratz.com/files/1742146956924.jpg",
-      "precio": 120000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎖️Excalibur_Rapidly",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Guerrero_Leyenda",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Eren_Yeager",
-      "imagen": "https://cdn.dorratz.com/files/1742147008737.jpg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌀Titán_Fundador",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Rugido_Colosal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚡Mikasa_Ackerman",
-      "imagen": "https://cdn.dorratz.com/files/1742147065298.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🗡️Guerrera_Imparable",
-          "nivel": 1
-        },
-        {
-          "nombre": "💥Reflejos_Sobrehumanos",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🏹Armin_Arlert",
-      "imagen": "https://cdn.dorratz.com/files/1742147134161.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🧠Estratega_Supremo",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌊Titán_Colosal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Levi_Ackerman",
-      "imagen": "https://cdn.dorratz.com/files/1742147181595.jpg",
-      "precio": 131000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Capitán_Élite",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Corte_Rápido",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Erwin_Smith",
-      "imagen": "https://cdn.dorratz.com/files/1742147391101.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🏆Líder_Visionario",
-          "nivel": 1
-        },
-        {
-          "nombre": "🎭Maestro_de_la_Estrategia",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Zeke_Yeager",
-      "imagen": "https://cdn.dorratz.com/files/1742147438586.jpg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🦍Titán_Bestia",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏹Lanzamiento_Preciso",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Reiner_Braun",
-      "imagen": "https://cdn.dorratz.com/files/1742147915616.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🛡️Titán_Acorazado",
-          "nivel": 1
-        },
-        {
-          "nombre": "💪Resistencia_Indestructible",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Annie_Leonhart",
-      "imagen": "https://cdn.dorratz.com/files/1742148023863.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌀Titán_Hembra",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚔️Combate_Letal",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Jean_Kirstein",
-      "imagen": "https://cdn.dorratz.com/files/1742148067296.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎯Francotirador_Ágil",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏇Liderazgo_Natural",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Connie_Springer",
-      "imagen": "https://cdn.dorratz.com/files/1742148192136.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Velocidad_Feroz",
-          "nivel": 1
-        },
-        {
-          "nombre": "💪Lealtad_Inquebrantable",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Sasha_Blouuse",
-      "imagen": "https://cdn.dorratz.com/files/1742148152840.jpg",
-      "precio": 124000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎯Francotiradora_Experta",
-          "nivel": 1
-        },
-        {
-          "nombre": "🍖Amor_Por_La_Comida",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Historia_Reiss",
-      "imagen": "https://cdn.dorratz.com/files/1742148114734.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "👑Reina_Legítima",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌟Sangre_Real",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Hange_Zoe",
-      "imagen": "https://cdn.dorratz.com/files/1742147872686.jpg",
-      "precio": 127500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🧠Genio_Científico",
-          "nivel": 1
-        },
-        {
-          "nombre": "🛠️Investigación_de_Titanes",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Pieck_Finger",
-      "imagen": "https://cdn.dorratz.com/files/1742147828650.jpg",
-      "precio": 128000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌀Titán_Carguero",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏹Estratega_Sigilosa",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Porco_Galliard",
-      "imagen": "https://cdn.dorratz.com/files/1742147777235.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌀Titán_Mandíbula",
-          "nivel": 1
-        },
-        {
-          "nombre": "💀Ataque_Rapaz",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Ymir",
-      "imagen": "https://cdn.dorratz.com/files/1742147728033.jpg",
-      "precio": 126000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🌀Titán_Original",
-          "nivel": 1
-        },
-        {
-          "nombre": "🏴‍☠️Espíritu_Indomable",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Floch_Forster",
-      "imagen": "https://cdn.dorratz.com/files/1742147685941.jpg",
-      "precio": 125500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🔥Fanatismo_Extremo",
-          "nivel": 1
-        },
-        {
-          "nombre": "💣Determinación_Explosiva",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Kenny_Ackerman",
-      "imagen": "https://cdn.dorratz.com/files/1742146529577.jpg",
-      "precio": 127000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🎯Maestro_Asesino",
-          "nivel": 1
-        },
-        {
-          "nombre": "🔥Doble_Pistola",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Grisha_Yeager",
-      "imagen": "https://cdn.dorratz.com/files/1742146483543.jpg",
-      "precio": 129000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🧬Titán_de_Atadura",
-          "nivel": 1
-        },
-        {
-          "nombre": "🌀Voluntad_Heredada",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🔥Marley_Comandante",
-      "imagen": "https://cdn.dorratz.com/files/1742146430584.jpg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "🏴‍☠️Dominio_Militar",
-          "nivel": 1
-        },
-        {
-          "nombre": "🎖️Conquista_Global",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Sung_Jin-Woo",
-      "imagen": "https://cdn.russellxz.click/890e3c01.jpeg",
-      "precio": 100000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "☠️Sombra_Absoluta",
-          "nivel": 1
-        },
-        {
-          "nombre": "🐉Dominio_Monarca",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Ashborn",
-      "imagen": "https://cdn.russellxz.click/927fbb70.jpeg",
-      "precio": 180000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "☠️Rey_de_la_Muerte",
-          "nivel": 1
-        },
-        {
-          "nombre": "🛡️Autoridad_Oscura",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Beru",
-      "imagen": "https://cdn.russellxz.click/c0d72650.jpeg",
-      "precio": 120000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Velocidad_Ferroz",
-          "nivel": 1
-        },
-        {
-          "nombre": "✨Garras_Paralizantes",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Igris",
-      "imagen": "https://cdn.russellxz.click/bc7d64d8.jpeg",
-      "precio": 115000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚔️Espadachin_Real",
-          "nivel": 1
-        },
-        {
-          "nombre": "🛡️Defensa_Sombra",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Bellion",
-      "imagen": "https://cdn.russellxz.click/0b054972.jpeg",
-      "precio": 140000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚔️Lanza_Dimensional",
-          "nivel": 1
-        },
-        {
-          "nombre": "☠️General_Supremo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Go_Gun-Hee",
-      "imagen": "https://cdn.russellxz.click/7c2d7818.jpeg",
-      "precio": 100000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "☄️Impacto_Terreno",
-          "nivel": 1
-        },
-        {
-          "nombre": "✨Aura_Militar",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Thomas_Andre",
-      "imagen": "https://cdn.russellxz.click/e6cdb201.jpeg",
-      "precio": 130000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "☄️Puños_Titanes",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚔️Dominio_Fuerza_Bruta",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Liu_Zhigang",
-      "imagen": "https://cdn.russellxz.click/bd3e60d6.jpeg",
-      "precio": 125000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "✨Espada_Dorada",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚔️Corte_Divino",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Cha_Hae-In",
-      "imagen": "https://cdn.russellxz.click/ef20b8a4.jpeg",
-      "precio": 110000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "⚡Danza_de_la_Espada",
-          "nivel": 1
-        },
-        {
-          "nombre": "✨Sentido_Mágico",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "⚔️Rakan",
-      "imagen": "https://cdn.russellxz.click/5d867008.jpeg",
-      "precio": 145000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "☠️Aura_Aplastante",
-          "nivel": 1
-        },
-        {
-          "nombre": "⚔️Destructor_Dimensiones",
-          "nivel": 1
-        }
-      ]
     }
   ],
+  "usuarios": [],
+  "esclavos": [],
+  "banco": {
+    "montoTotal": 20000000,
+    "plazo": {
+      "valor": 24,
+      "unidad": "h",
+      "ms": 86400000,
+      "texto": "24h"
+    },
+    "tasaInteres": 0.2,
+    "frecuenciaCobroMs": 1800000,
+    "prestamos": []
+  },
   "mascotas": [
-    {
-      "nombre": "🐈‍⬛Gato",
-      "imagen": "https://cdn.dorratz.com/files/1740556714815.jpg",
-      "precio": 82000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Sigilo_nocturno",
-          "nivel": 1
-        },
-        {
-          "nombre": "Agilidad_felina",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐕Perro",
-      "imagen": "https://cdn.dorratz.com/files/1740556752843.jpg",
-      "precio": 72500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Lealtad_inquebrantable",
-          "nivel": 1
-        },
-        {
-          "nombre": "Olfato_agudo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐓Gallo",
-      "imagen": "https://cdn.dorratz.com/files/1740556819807.jpg",
-      "precio": 71800,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Canto_de_guerra",
-          "nivel": 1
-        },
-        {
-          "nombre": "Picotazo_rápido",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦊Zorro",
-      "imagen": "https://cdn.dorratz.com/files/1742198055822.jpg",
-      "precio": 723000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Astucia_Salvaje",
-          "nivel": 1
-        },
-        {
-          "nombre": "Velocidad_Sigilosa",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐻Oso",
-      "imagen": "https://cdn.dorratz.com/files/1742198079436.jpg",
-      "precio": 73500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Fuerza_Colosal",
-          "nivel": 1
-        },
-        {
-          "nombre": "Instinto_Protector",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦉Búho",
-      "imagen": "https://cdn.dorratz.com/files/1742198104704.jpg",
-      "precio": 62800,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Visión_Nocturna",
-          "nivel": 1
-        },
-        {
-          "nombre": "Vuelo_Silencioso",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦝Mapache",
-      "imagen": "https://cdn.dorratz.com/files/1742198144068.jpg",
-      "precio": 72800,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Astucia_Traviesa",
-          "nivel": 1
-        },
-        {
-          "nombre": "Manos_Hábiles",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐧Pingüino",
-      "imagen": "https://cdn.dorratz.com/files/1742198150763.jpg",
-      "precio": 62700,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Deslizamiento_Ágil",
-          "nivel": 1
-        },
-        {
-          "nombre": "Frío_Resistente",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐰Conejo",
-      "imagen": "https://cdn.dorratz.com/files/1742198157205.jpg",
-      "precio": 62600,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Saltos_Veloces",
-          "nivel": 1
-        },
-        {
-          "nombre": "Suavidad_Absoluta",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦊Zorro_Chibi",
-      "imagen": "https://cdn.dorratz.com/files/1742198231332.jpg",
-      "precio": 82900,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Astucia_Encantadora",
-          "nivel": 1
-        },
-        {
-          "nombre": "Cola_Espléndida",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐢Tortuga_Cute",
-      "imagen": "https://cdn.dorratz.com/files/1742198237650.jpg",
-      "precio": 62700,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Caparazón_Defensivo",
-          "nivel": 1
-        },
-        {
-          "nombre": "Movimiento_Pausado",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐼Panda_Kawaii",
-      "imagen": "https://cdn.dorratz.com/files/1742198244220.jpg",
-      "precio": 72800,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Abrazos_Suaves",
-          "nivel": 1
-        },
-        {
-          "nombre": "Dulzura_Insuperable",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐺Lobo_Kawaii",
-      "imagen": "https://cdn.dorratz.com/files/1742198250702.jpg",
-      "precio": 72000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Astucia_Indomable",
-          "nivel": 1
-        },
-        {
-          "nombre": "Velocidad_Fantasma",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐉Dragón_Chibi",
-      "imagen": "https://cdn.dorratz.com/files/1742198259160.jpg",
-      "precio": 75000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Aliento_Mágico",
-          "nivel": 1
-        },
-        {
-          "nombre": "Vuelo_Encantado",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦁León_Rey",
-      "imagen": "https://cdn.dorratz.com/files/1742198266080.jpg",
-      "precio": 74000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Melena_Resplandeciente",
-          "nivel": 1
-        },
-        {
-          "nombre": "Rugido_Poderoso",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐨Koala_Dormilón",
-      "imagen": "https://cdn.dorratz.com/files/1742199134613.jpg",
-      "precio": 62500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Abrazos_Apachurrables",
-          "nivel": 1
-        },
-        {
-          "nombre": "Sueño_Profundo",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦔Erizo_Tierno",
-      "imagen": "https://cdn.dorratz.com/files/1742199139477.jpg",
-      "precio": 74000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Espinas_Dóciles",
-          "nivel": 1
-        },
-        {
-          "nombre": "Paso_Silencioso",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐾Hurón_Juguetón",
-      "imagen": "https://cdn.dorratz.com/files/1742199146070.jpg",
-      "precio": 93500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Cuerpo_Ágil",
-          "nivel": 1
-        },
-        {
-          "nombre": "Espíritu_Curioso",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐿️Ardilla_Veloz",
-      "imagen": "https://cdn.dorratz.com/files/1742199152647.jpg",
-      "precio": 84000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Cola_Espléndida",
-          "nivel": 1
-        },
-        {
-          "nombre": "Salto_Increíble",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦦Nutria_Alegre",
-      "imagen": "https://cdn.dorratz.com/files/1742199158258.jpg",
-      "precio": 64500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Natación_Rápida",
-          "nivel": 1
-        },
-        {
-          "nombre": "Diversión_Asegurada",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦄Unicornio_Mágico",
-      "imagen": "https://cdn.dorratz.com/files/1742199163348.jpg",
-      "precio": 16000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Cuerno_Brillante",
-          "nivel": 1
-        },
-        {
-          "nombre": "Aura_Celestial",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🦙Llama_Divertida",
-      "imagen": "https://cdn.dorratz.com/files/1742199173171.jpg",
-      "precio": 74500,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Lana_Suave",
-          "nivel": 1
-        },
-        {
-          "nombre": "Personalidad_Encantadora",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐬Delfín_Juguetón",
-      "imagen": "https://cdn.dorratz.com/files/1742199178323.jpg",
-      "precio": 75000,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Nado_Agil",
-          "nivel": 1
-        },
-        {
-          "nombre": "Sonido_Encantador",
-          "nivel": 1
-        }
-      ]
-    },
-    {
-      "nombre": "🐵Mono_Juguetón",
-      "imagen": "https://cdn.dorratz.com/files/1742199183142.jpg",
-      "precio": 84800,
-      "nivel": 1,
-      "habilidades": [
-        {
-          "nombre": "Agilidad_Extrema",
-          "nivel": 1
-        },
-        {
-          "nombre": "Manos_Hábiles",
-          "nivel": 1
-        }
-      ]
-    },
     {
       "nombre": "🦜Loro_Arcoíris",
       "imagen": "https://cdn.russellxz.click/fc76da3c.jpeg",
@@ -5601,31 +3839,401 @@
           "nivel": 1
         }
       ]
+    },
+    {
+      "nombre": "🐈‍⬛Gato",
+      "imagen": "https://cdn.russellxz.click/66598ce1.jpg",
+      "precio": 82000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Sigilo_nocturno",
+          "nivel": 1
+        },
+        {
+          "nombre": "Agilidad_felina",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐕Perro",
+      "imagen": "https://cdn.russellxz.click/a8385cce.jpg",
+      "precio": 72500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Lealtad_inquebrantable",
+          "nivel": 1
+        },
+        {
+          "nombre": "Olfato_agudo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐓Gallo",
+      "imagen": "https://cdn.russellxz.click/0867dfc2.jpg",
+      "precio": 71800,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Canto_de_guerra",
+          "nivel": 1
+        },
+        {
+          "nombre": "Picotazo_rápido",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦊Zorro",
+      "imagen": "https://cdn.russellxz.click/1f73ea6d.jpg",
+      "precio": 723000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Astucia_Salvaje",
+          "nivel": 1
+        },
+        {
+          "nombre": "Velocidad_Sigilosa",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐻Oso",
+      "imagen": "https://cdn.russellxz.click/fb6d1769.jpg",
+      "precio": 73500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Fuerza_Colosal",
+          "nivel": 1
+        },
+        {
+          "nombre": "Instinto_Protector",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦉Búho",
+      "imagen": "https://cdn.russellxz.click/bc01ed95.jpg",
+      "precio": 62800,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Visión_Nocturna",
+          "nivel": 1
+        },
+        {
+          "nombre": "Vuelo_Silencioso",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦝Mapache",
+      "imagen": "https://cdn.russellxz.click/2fdd115c.jpg",
+      "precio": 72800,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Astucia_Traviesa",
+          "nivel": 1
+        },
+        {
+          "nombre": "Manos_Hábiles",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐧Pingüino",
+      "imagen": "https://cdn.russellxz.click/813409ca.jpg",
+      "precio": 62700,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Deslizamiento_Ágil",
+          "nivel": 1
+        },
+        {
+          "nombre": "Frío_Resistente",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐰Conejo",
+      "imagen": "https://cdn.russellxz.click/87072eb6.jpg",
+      "precio": 62600,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Saltos_Veloces",
+          "nivel": 1
+        },
+        {
+          "nombre": "Suavidad_Absoluta",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦊Zorro_Chibi",
+      "imagen": "https://cdn.russellxz.click/e2412f3e.jpg",
+      "precio": 82900,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Astucia_Encantadora",
+          "nivel": 1
+        },
+        {
+          "nombre": "Cola_Espléndida",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐢Tortuga_Cute",
+      "imagen": "https://cdn.russellxz.click/4a7b64d6.jpg",
+      "precio": 62700,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Caparazón_Defensivo",
+          "nivel": 1
+        },
+        {
+          "nombre": "Movimiento_Pausado",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐼Panda_Kawaii",
+      "imagen": "https://cdn.russellxz.click/c5aaf245.jpg",
+      "precio": 72800,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Abrazos_Suaves",
+          "nivel": 1
+        },
+        {
+          "nombre": "Dulzura_Insuperable",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐺Lobo_Kawaii",
+      "imagen": "https://cdn.russellxz.click/8fbbb75e.jpg",
+      "precio": 72000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Astucia_Indomable",
+          "nivel": 1
+        },
+        {
+          "nombre": "Velocidad_Fantasma",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐉Dragón_Chibi",
+      "imagen": "https://cdn.russellxz.click/79cc3d87.jpg",
+      "precio": 75000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Aliento_Mágico",
+          "nivel": 1
+        },
+        {
+          "nombre": "Vuelo_Encantado",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦁León_Rey",
+      "imagen": "https://cdn.russellxz.click/773d5c87.jpg",
+      "precio": 74000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Melena_Resplandeciente",
+          "nivel": 1
+        },
+        {
+          "nombre": "Rugido_Poderoso",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐨Koala_Dormilón",
+      "imagen": "https://cdn.russellxz.click/9666fc5f.jpg",
+      "precio": 62500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Abrazos_Apachurrables",
+          "nivel": 1
+        },
+        {
+          "nombre": "Sueño_Profundo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦔Erizo_Tierno",
+      "imagen": "https://cdn.russellxz.click/b3b8e471.jpg",
+      "precio": 74000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Espinas_Dóciles",
+          "nivel": 1
+        },
+        {
+          "nombre": "Paso_Silencioso",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐾Hurón_Juguetón",
+      "imagen": "https://cdn.russellxz.click/b814a59b.jpg",
+      "precio": 93500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Cuerpo_Ágil",
+          "nivel": 1
+        },
+        {
+          "nombre": "Espíritu_Curioso",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐿️Ardilla_Veloz",
+      "imagen": "https://cdn.russellxz.click/f8f239d0.jpg",
+      "precio": 84000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Cola_Espléndida",
+          "nivel": 1
+        },
+        {
+          "nombre": "Salto_Increíble",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦦Nutria_Alegre",
+      "imagen": "https://cdn.russellxz.click/f567d310.jpg",
+      "precio": 64500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Natación_Rápida",
+          "nivel": 1
+        },
+        {
+          "nombre": "Diversión_Asegurada",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦄Unicornio_Mágico",
+      "imagen": "https://cdn.russellxz.click/d12748dc.jpg",
+      "precio": 16000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Cuerno_Brillante",
+          "nivel": 1
+        },
+        {
+          "nombre": "Aura_Celestial",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦙Llama_Divertida",
+      "imagen": "https://cdn.russellxz.click/dcdf869e.jpg",
+      "precio": 74500,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Lana_Suave",
+          "nivel": 1
+        },
+        {
+          "nombre": "Personalidad_Encantadora",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐬Delfín_Juguetón",
+      "imagen": "https://cdn.russellxz.click/80d75edb.jpg",
+      "precio": 75000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Nado_Agil",
+          "nivel": 1
+        },
+        {
+          "nombre": "Sonido_Encantador",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐵Mono_Juguetón",
+      "imagen": "https://cdn.russellxz.click/5564aa0d.jpg",
+      "precio": 84800,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "Agilidad_Extrema",
+          "nivel": 1
+        },
+        {
+          "nombre": "Manos_Hábiles",
+          "nivel": 1
+        }
+      ]
     }
   ],
-  "banco": {
-    "montoTotal": 10000000,
-    "plazo": {
-      "valor": 24,
-      "unidad": "h",
-      "ms": 86400000,
-      "texto": "24h"
-    },
-    "tasaInteres": 0.2,
-    "frecuenciaCobroMs": 1800000,
-    "prestamos": []
-  },
-  "usuarios": [],
-  "esclavos": [],
   "clanes": [
     {
-      "id": "CLAN_1755007389210_7720",
-      "nombre": "༆𝐶𝐿𝐴𝑁_𝑆𝑈𝑃𝑅𝐸𝑀𝑂 𝑆𝑈𝐾𝐼࿐",
+      "id": "CLAN_1766160475556_2191",
+      "nombre": "Stars_Suki_rpg",
       "esSupremo": true,
       "bannerUrl": "https://cdn.russellxz.click/e1749448.jpeg",
-      "creadoEn": 1755007389210,
+      "creadoEn": 1766160475556,
       "nivelClan": 200,
-      "minNivelParaUnirse": 80,
+      "minNivelParaUnirse": 100,
       "bodegaCreditos": 0,
       "lider": {
         "numero": "BOT",
@@ -5633,7 +4241,7 @@
         "apellido": "",
         "nivel": 999
       },
-      "origenChat": "120363402834975546@g.us",
+      "origenChat": "120363323438755676@g.us",
       "miembros": []
     }
   ]
