@@ -1,7 +1,7 @@
-
 // plugins/porn.js — Pornhub Downloader (via tu API /phfans)
 // ✅ Default calidad: 240
 // ✅ Calidad opcional: 240 / 480 / 720 / 1080
+// ✅ Cambiar calidad respondiendo: 240/480/720/1080
 // ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
 // ✅ DESCARGA REAL (direct url) y ENVÍA el MP4 por WhatsApp
 "use strict";
@@ -16,8 +16,6 @@ const ENDPOINT = "/phfans";
 
 const MAX_MB = 200;
 const pendingPORN = Object.create(null);
-
-const mb = (n) => n / (1024 * 1024);
 
 function isUrl(u = "") {
   return /^https?:\/\//i.test(String(u || ""));
@@ -39,20 +37,6 @@ function safeFileName(name = "phfans") {
   return base.replace(/[^A-Za-z0-9_\-.]+/g, "_") || "phfans";
 }
 
-function pickQualityFromText(text = "") {
-  const parts = String(text || "").split(/\s+/).filter(Boolean);
-  const qRaw = parts.find((p) => /\d{3,4}/.test(p)) || "";
-  const n = Number(String(qRaw).replace(/[^\d]/g, ""));
-  if ([240, 480, 720, 1080].includes(n)) return n;
-  return 240;
-}
-
-function extractUrl(text = "") {
-  const parts = String(text || "").split(/\s+/).filter(Boolean);
-  const u = parts.find((p) => isUrl(p)) || parts[0] || "";
-  return normalizeUrl(u);
-}
-
 function pickText(msg) {
   const m = msg?.message || {};
   return String(
@@ -62,6 +46,27 @@ function pickText(msg) {
       m?.videoMessage?.caption ||
       ""
   ).trim();
+}
+
+function extractUrl(text = "") {
+  const parts = String(text || "").split(/\s+/).filter(Boolean);
+  const u = parts.find((p) => isUrl(p)) || parts[0] || "";
+  return normalizeUrl(u);
+}
+
+function parseQualityAny(q) {
+  const n = Number(String(q || "").replace(/[^\d]/g, ""));
+  if ([240, 480, 720, 1080].includes(n)) return n;
+  return null;
+}
+
+function pickQualityFromText(text = "") {
+  const parts = String(text || "").split(/\s+/).filter(Boolean);
+  for (const p of parts) {
+    const n = parseQualityAny(p);
+    if (n) return n;
+  }
+  return 240;
 }
 
 async function react(conn, chatId, key, emoji) {
@@ -91,37 +96,39 @@ async function getPhfansInfo(url) {
   return data.result;
 }
 
-function selectVideoFromApi(result, wantQ = 240) {
-  const arr = Array.isArray(result?.videos) ? result.videos : [];
+// ✅ Selector robusto (sirve con "720" o "720p")
+function selectVideoFromList(videos, wantQ = 240) {
+  const arr = Array.isArray(videos) ? videos : [];
   if (!arr.length) return null;
 
-  const qStr = String(wantQ);
+  const want = Number(wantQ) || 240;
 
-  // IMPORTANTE:
-  // tu API trae: { quality, url (direct), proxy_inline, proxy }
-  // para evitar 401, usamos DIRECTO (url) primero
-  let pick =
-    arr.find((v) => String(v.quality || "") === qStr) ||
-    arr.find((v) => String(v.quality || "").includes(qStr)) ||
-    null;
+  // normaliza calidad -> número
+  const norm = arr
+    .map((v) => {
+      const q = Number(String(v?.quality || "").replace(/[^\d]/g, "")) || 0;
+      return { v, q };
+    })
+    .filter((x) => x.v && (x.v.url || x.v.proxy || x.v.proxy_inline));
 
+  if (!norm.length) return null;
+
+  // match exacto por número
+  let pick = norm.find((x) => x.q === want)?.v || null;
+
+  // si no hay exacto, el más cercano hacia abajo; si no, el más bajo
   if (!pick) {
-    // fallback: el más bajo
-    const sorted = arr
-      .slice()
-      .sort((a, b) => (Number(a.quality) || 999999) - (Number(b.quality) || 999999));
-    pick = sorted[0] || null;
+    const sorted = norm.slice().sort((a, b) => a.q - b.q); // asc
+    const below = sorted.filter((x) => x.q && x.q <= want);
+    pick = (below[below.length - 1]?.v) || sorted[0]?.v || null;
   }
 
   if (!pick) return null;
 
-  const direct = String(pick.url || "").trim(); // <-- DIRECTO
-  const proxy = String(pick.proxy || pick.proxy_inline || "").trim();
-
   return {
-    quality: String(pick.quality || wantQ),
-    direct,
-    proxy,
+    quality: String(Number(String(pick.quality || "").replace(/[^\d]/g, "")) || want),
+    direct: String(pick.url || "").trim(), // <-- DIRECTO (sin /dl = sin 401)
+    proxy: String(pick.proxy || pick.proxy_inline || "").trim(),
     raw: pick,
   };
 }
@@ -148,7 +155,6 @@ async function downloadToTmpDirect(srcUrl, title, quality) {
     maxBodyLength: Infinity,
     signal: ctrl.signal,
     headers: {
-      // headers típicos que ayudan con estos hosts/token
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
       Accept: "*/*",
@@ -163,7 +169,6 @@ async function downloadToTmpDirect(srcUrl, title, quality) {
 
   const ct = String(res.headers?.["content-type"] || "");
   if (ct.includes("application/json") || ct.includes("text/html")) {
-    // a veces devuelven error en vez de mp4
     let txt = "";
     await new Promise((resolve) => {
       res.data.on("data", (c) => (txt += c.toString()));
@@ -200,16 +205,21 @@ async function downloadToTmpDirect(srcUrl, title, quality) {
 }
 
 async function sendPorn(conn, job, asDocument, triggerMsg) {
+  if (job.isBusy) return;
   job.isBusy = true;
 
-  const { chatId, quotedBase, title, chosen, thumb } = job;
-  const q = String(chosen?.quality || "240");
+  const { chatId, quotedBase, title, videos } = job;
+
+  // 🔥 recalcula la elección SIEMPRE según wantQ actual
+  const chosen = selectVideoFromList(videos, job.wantQ || 240);
+  const q = String(chosen?.quality || job.wantQ || "240");
 
   try {
+    if (!chosen?.direct) throw new Error("No hay URL directa para esa calidad.");
+
     await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : "🎬");
     await conn.sendMessage(chatId, { text: "⏳ Espere, descargando su video..." }, { quoted: quotedBase });
 
-    // descarga directa para evitar 401
     const { filePath, fileName } = await downloadToTmpDirect(chosen.direct, title, q);
 
     const caption =
@@ -221,29 +231,18 @@ async function sendPorn(conn, job, asDocument, triggerMsg) {
     await conn.sendMessage(
       chatId,
       asDocument
-        ? {
-            document: { url: filePath },
-            mimetype: "video/mp4",
-            fileName,
-            caption,
-          }
-        : {
-            video: { url: filePath },
-            mimetype: "video/mp4",
-            fileName,
-            caption,
-          },
+        ? { document: { url: filePath }, mimetype: "video/mp4", fileName, caption }
+        : { video: { url: filePath }, mimetype: "video/mp4", fileName, caption },
       { quoted: quotedBase }
     );
 
     try { fs.unlinkSync(filePath); } catch {}
     await react(conn, chatId, triggerMsg.key, "✅");
   } catch (e) {
-    // fallback: si no pudo descargar/enviar, manda link directo
     const fallback =
       `❌ No pude enviar el MP4.\n` +
       `Motivo: ${e?.message || e}\n\n` +
-      `Link directo (${q}p): ${chosen?.direct || "N/A"}`;
+      `Calidad pedida: ${q}p`;
 
     await conn.sendMessage(chatId, { text: fallback }, { quoted: quotedBase });
     await react(conn, chatId, triggerMsg.key, "❌");
@@ -292,8 +291,10 @@ const handler = async (msg, { conn, args, command }) => {
   const thumb =
     String(result?.thumbnail?.proxy_inline || result?.thumbnail?.proxy || result?.thumbnail?.url || result?.thumbnail || "").trim();
 
-  const chosen = selectVideoFromApi(result, wantQ);
-  if (!chosen?.direct) {
+  const videos = Array.isArray(result?.videos) ? result.videos : [];
+  const chosenNow = selectVideoFromList(videos, wantQ);
+
+  if (!chosenNow?.direct) {
     await conn.sendMessage(chatId, { text: "❌ No encontré link directo de video en la respuesta de la API." }, { quoted: msg });
     try { await react(conn, chatId, msg.key, "❌"); } catch {}
     return;
@@ -302,19 +303,19 @@ const handler = async (msg, { conn, args, command }) => {
   const caption =
     `✅ *PORNHUB DOWNLOADER*\n\n` +
     `📝 *Título:* ${title}\n` +
-    `🎞️ *Calidad:* ${chosen.quality || wantQ}p\n\n` +
+    `🎞️ *Calidad actual:* ${(jobQ(wantQ))}p\n\n` +
+    `📌 Cambiar calidad: responde *240 / 480 / 720 / 1080*\n\n` +
     `Elige cómo enviarlo:\n` +
     `👍 Video (normal)\n` +
     `❤️ Video como documento\n` +
     `— o responde: 1 = normal · 2 = documento`;
 
+  function jobQ(q){ return Number(q)||240; }
+
   let preview;
   try {
-    if (thumb && isUrl(thumb)) {
-      preview = await conn.sendMessage(chatId, { image: { url: thumb }, caption }, { quoted: msg });
-    } else {
-      preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
-    }
+    if (thumb && isUrl(thumb)) preview = await conn.sendMessage(chatId, { image: { url: thumb }, caption }, { quoted: msg });
+    else preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
   } catch {
     preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
   }
@@ -324,7 +325,8 @@ const handler = async (msg, { conn, args, command }) => {
     quotedBase: msg,
     title,
     thumb,
-    chosen,
+    videos,      // ✅ guardamos lista completa
+    wantQ,       // ✅ guardamos calidad seleccionada
     isBusy: false,
   };
 
@@ -334,36 +336,52 @@ const handler = async (msg, { conn, args, command }) => {
 
   try { await react(conn, chatId, msg.key, "✅"); } catch {}
 
-  // Listener (una vez)
   if (!conn._pornInteractiveListener) {
     conn._pornInteractiveListener = true;
 
     conn.ev.on("messages.upsert", async (ev) => {
       for (const m of ev.messages || []) {
         try {
-          // Reacciones
+          // Reacciones (👍/❤️) al preview
           if (m.message?.reactionMessage) {
             const { key: reactKey, text: emoji } = m.message.reactionMessage;
             const job = pendingPORN[reactKey.id];
             if (!job || job.chatId !== m.key.remoteJid) continue;
             if (emoji !== "👍" && emoji !== "❤️") continue;
-            if (job.isBusy) continue;
-
             await sendPorn(conn, job, emoji === "❤️", m);
             continue;
           }
 
-          // Reply 1/2
+          // Respuestas al preview
           const ctx = m.message?.extendedTextMessage?.contextInfo;
           if (ctx?.stanzaId && pendingPORN[ctx.stanzaId]) {
             const job = pendingPORN[ctx.stanzaId];
             if (!job || job.chatId !== m.key.remoteJid) continue;
 
-            const body = String(m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim();
-            if (body !== "1" && body !== "2") continue;
-            if (job.isBusy) continue;
+            const body = String(
+              m.message?.conversation ||
+              m.message?.extendedTextMessage?.text ||
+              ""
+            ).trim();
 
-            await sendPorn(conn, job, body === "2", m);
+            // ✅ si responde una calidad: actualizar y avisar
+            const q = parseQualityAny(body);
+            if (q) {
+              job.wantQ = q;
+              const exists = selectVideoFromList(job.videos, q);
+              if (!exists?.direct) {
+                await conn.sendMessage(job.chatId, { text: `⚠️ Esa calidad (${q}p) no está disponible.`, quoted: job.quotedBase });
+              } else {
+                await conn.sendMessage(job.chatId, { text: `✅ Calidad cambiada a ${q}p.\nAhora reacciona 👍/❤️ o responde 1/2 para enviarlo.`, quoted: job.quotedBase });
+              }
+              continue;
+            }
+
+            // 1/2 para enviar
+            if (body === "1" || body === "2") {
+              await sendPorn(conn, job, body === "2", m);
+              continue;
+            }
           }
         } catch (e) {
           console.error("PORN listener error:", e);
