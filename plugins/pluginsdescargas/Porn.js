@@ -1,210 +1,352 @@
-// plugins/porn.js — Pornhub Downloader (via tu API /phfans)
+
+// plugins/porn.js — Pornhub Downloader (PHFans API)
+// ✅ Default calidad: 240
+// ✅ Calidad opcional: 240 / 480 / 720 / 1080
+// ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
+// ✅ Descarga REAL y envía el MP4 (no link)
+
 // Uso:
-// 1) .porn https://es.pornhub.com/view_video.php?viewkey=XXXXX
-// 2) .porn https://... 720   (calidades: 240/480/720/1080)
-// Default: 240
+// .porn https://es.pornhub.com/view_video.php?viewkey=XXXX
+// .porn https://es.pornhub.com/view_video.php?viewkey=XXXX 720
+
 "use strict";
 
-const fetch = require("node-fetch");
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
+// === API ===
 const API_BASE = "https://api-sky.ultraplus.click";
-const API_KEY = "Russellxz";
-const ENDPOINT = "/phfans";
+const API_KEY = "Russellxz"; // tu apikey
 
-function pickText(msg) {
-  // intenta sacar texto del mensaje o citado (lo más simple y útil)
-  const m = msg?.message || {};
-  const t =
-    m?.conversation ||
-    m?.extendedTextMessage?.text ||
-    m?.imageMessage?.caption ||
-    m?.videoMessage?.caption ||
-    "";
-  return String(t || "").trim();
+const MAX_MB = 200;
+const pendingPORN = Object.create(null);
+
+const mb = (n) => n / (1024 * 1024);
+
+function isUrl(u = "") {
+  return /^https?:\/\//i.test(String(u || ""));
 }
 
-function normalizeQ(q) {
-  q = String(q || "").toLowerCase().replace(/[^\d]/g, "");
+function isPornhub(u = "") {
+  u = String(u || "");
+  return /pornhub\./i.test(u) && /view_video\.php\?viewkey=/i.test(u);
+}
+
+function normalizeUrl(input = "") {
+  let u = String(input || "").trim().replace(/^<|>$/g, "").trim();
+  if (/^(www\.)?pornhub\./i.test(u)) u = "https://" + u;
+  return u;
+}
+
+function safeFileName(name = "phfans") {
+  const base = String(name || "phfans").slice(0, 70);
+  return (base.replace(/[^A-Za-z0-9_\-.]+/g, "_") || "phfans");
+}
+
+function pickQuality(args = []) {
+  const q = String(args.find((x) => /^\d{3,4}$/.test(String(x))) || "").trim();
   const n = Number(q);
   if ([240, 480, 720, 1080].includes(n)) return n;
   return 240;
 }
 
-function extractUrlAndQ(text) {
-  const parts = String(text || "").split(/\s+/).filter(Boolean);
-  const url = parts.find((p) => /^https?:\/\//i.test(p)) || "";
-  // calidad: primer número válido que aparezca
-  const qRaw = parts.find((p) => /\d{3,4}/.test(p)) || "";
-  const q = normalizeQ(qRaw);
-  return { url, q };
+async function react(conn, chatId, key, emoji) {
+  try {
+    await conn.sendMessage(chatId, { react: { text: emoji, key } });
+  } catch {}
 }
 
-function selectVideo(videos, wantQ) {
-  // videos puede ser array o objeto
-  let arr = [];
-  if (Array.isArray(videos)) arr = videos;
-  else if (videos && typeof videos === "object") {
-    // { "240p": {url,proxy}, ... } o {240:{...}}
-    arr = Object.entries(videos).map(([k, v]) => ({
-      quality: k,
-      ...v,
-    }));
-  }
+// Convierte /phfans/dl?... => https://api-sky.../phfans/dl?...
+function absApi(u) {
+  u = String(u || "").trim();
+  if (!u) return "";
+  if (u.startsWith("/")) return API_BASE.replace(/\/+$/, "") + u;
+  if (isUrl(u)) return u;
+  return API_BASE.replace(/\/+$/, "") + "/" + u.replace(/^\/+/, "");
+}
 
-  const qStr1 = `${wantQ}p`;
-  const qStr2 = `${wantQ}`;
+// 1) Resolver info (POST /phfans)
+async function getPhfansInfo(url) {
+  const endpoint = API_BASE.replace(/\/+$/, "") + "/phfans";
+  const r = await axios.post(
+    endpoint,
+    { url },
+    {
+      headers: { "Content-Type": "application/json", apikey: API_KEY },
+      timeout: 60000,
+      validateStatus: () => true,
+    }
+  );
 
-  // match por quality/label
+  const data = r.data;
+  const ok = data?.status === true || data?.status === "true";
+  if (!ok) throw new Error(data?.message || "Error en la API /phfans");
+  return data.result;
+}
+
+// 2) Elegir video por calidad (por defecto 240)
+function pickVideoByQuality(result, wantQ = 240) {
+  const vids = Array.isArray(result?.videos) ? result.videos : [];
+  if (!vids.length) return null;
+
+  const qStr = String(wantQ);
   let pick =
-    arr.find((x) => String(x.quality || x.label || x.q || "").toLowerCase() === qStr1) ||
-    arr.find((x) => String(x.quality || x.label || x.q || "").toLowerCase() === qStr2) ||
+    vids.find((v) => String(v.quality || "") === qStr) ||
+    vids.find((v) => String(v.quality || "").includes(qStr)) ||
     null;
 
-  // si no existe, intenta por el número incluido
+  // fallback: si no existe esa calidad, usa la más baja disponible
   if (!pick) {
-    pick =
-      arr.find((x) => String(x.quality || x.label || "").includes(String(wantQ))) ||
-      null;
+    const sortedAsc = vids
+      .slice()
+      .sort((a, b) => (Number(a.quality) || 0) - (Number(b.quality) || 0));
+    pick = sortedAsc[0] || null;
   }
 
-  // fallback: el más bajo disponible
-  if (!pick && arr.length) {
-    const withNum = arr
-      .map((x) => {
-        const s = String(x.quality || x.label || x.q || "");
-        const n = Number(String(s).replace(/[^\d]/g, "")) || 999999;
-        return { n, x };
-      })
-      .sort((a, b) => a.n - b.n);
-    pick = withNum[0]?.x || arr[0];
-  }
-
-  if (!pick) return null;
-
-  const url = pick.proxy || pick.url || pick.direct || pick.src || null;
-  const quality =
-    pick.quality ||
-    pick.label ||
-    (wantQ ? `${wantQ}p` : "") ||
-    "";
-
-  return { url, quality, raw: pick };
+  return pick;
 }
 
-const handler = async (msg, { conn, args, command }) => {
-  const chatId = msg.key.remoteJid;
+// 3) Descargar usando PROXY de tu API (GET /phfans/dl ... download=1)
+async function downloadPhVideoToTmp(pick, title) {
+  const tmpDir = path.resolve("./tmp");
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
-  try {
-    await conn.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
-  } catch {}
+  const base = safeFileName(title || "phfans");
+  const q = String(pick?.quality || "240");
+  const fname = `${base}_${q}p.mp4`;
 
-  // URL puede venir en args o en el texto del mensaje
-  const text = args?.length ? args.join(" ") : pickText(msg);
-  const { url, q } = extractUrlAndQ(text);
+  // La API ya da proxy (download=1) o proxy_inline
+  let dl = pick?.proxy || pick?.proxy_inline || pick?.url || "";
+  dl = absApi(dl);
 
-  if (!url || !/pornhub\.com\/view_video\.php\?viewkey=/i.test(url)) {
-    await conn.sendMessage(chatId, {
-      text:
-        `✳️ *Uso:*\n` +
-        `.${command || "porn"} https://es.pornhub.com/view_video.php?viewkey=XXXX\n` +
-        `Opcional calidad: 240 / 480 / 720 / 1080\n\n` +
-        `Ej:\n` +
-        `.${command || "porn"} https://es.pornhub.com/view_video.php?viewkey=68aaa9a034cca 720`,
-      quoted: msg,
-    });
-    try {
-      await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    } catch {}
-    return;
+  // si es proxy_inline, forzamos download=1 para mejor compatibilidad
+  if (dl && !/[?&]download=1\b/.test(dl) && /\/phfans\/dl\?/.test(dl)) {
+    dl += (dl.includes("?") ? "&" : "?") + "download=1";
   }
 
-  // llamar tu API
-  let data;
-  try {
-    const r = await fetch(API_BASE.replace(/\/+$/, "") + ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: API_KEY,
-      },
-      body: JSON.stringify({ url }),
-      timeout: 120000,
-    });
+  if (!dl) throw new Error("No hay URL para descargar");
 
-    const txt = await r.text();
+  const filePath = path.join(tmpDir, `ph-${Date.now()}-${q}.mp4`);
+
+  const res = await axios.get(dl, {
+    responseType: "stream",
+    timeout: 180000,
+    headers: {
+      apikey: API_KEY,
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      Accept: "*/*",
+    },
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    validateStatus: () => true,
+  });
+
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`No se pudo descargar (HTTP ${res.status})`);
+  }
+
+  const writer = fs.createWriteStream(filePath);
+  res.data.pipe(writer);
+
+  await new Promise((resolve, reject) => {
+    writer.on("finish", resolve);
+    writer.on("error", reject);
+  });
+
+  // límite
+  const size = fs.statSync(filePath).size;
+  const sizeMB = mb(size);
+  if (sizeMB > MAX_MB) {
     try {
-      data = JSON.parse(txt);
-    } catch {
-      throw new Error("Respuesta no JSON: " + txt.slice(0, 200));
-    }
+      fs.unlinkSync(filePath);
+    } catch {}
+    throw new Error(`El video pesa ${sizeMB.toFixed(2)} MB, excede ${MAX_MB} MB.`);
+  }
 
-    if (!r.ok || data?.status === false) {
-      throw new Error(data?.message || `HTTP ${r.status}`);
-    }
+  return { filePath, fileName: fname };
+}
+
+// 4) Enviar video (normal o documento)
+async function sendPornVideo(conn, job, asDocument, triggerMsg) {
+  job.isBusy = true;
+
+  const { chatId, title, pick, quotedBase } = job;
+  const q = String(pick?.quality || "240");
+
+  try {
+    await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : "🎬");
+    await conn.sendMessage(
+      chatId,
+      { text: "⏳ Espere, descargando su video..." },
+      { quoted: quotedBase }
+    );
+
+    const { filePath, fileName } = await downloadPhVideoToTmp(pick, title);
+
+    const caption =
+      `✅ *Pornhub Downloader*\n` +
+      `📝 *Título:* ${title}\n` +
+      `🎞️ *Calidad:* ${q}p\n\n` +
+      `🔗 API: ${API_BASE}`;
+
+    // Mejor: mandar por ruta local (evita cargar todo en RAM)
+    const payload = asDocument
+      ? { document: { url: filePath }, mimetype: "video/mp4", fileName, caption }
+      : { video: { url: filePath }, mimetype: "video/mp4", fileName, caption };
+
+    await conn.sendMessage(chatId, payload, { quoted: quotedBase });
+
+    try {
+      fs.unlinkSync(filePath);
+    } catch {}
+
+    await react(conn, chatId, triggerMsg.key, "✅");
   } catch (e) {
-    await conn.sendMessage(chatId, {
-      text: `❌ Error consultando API:\n${e.message || e}`,
-      quoted: msg,
-    });
-    try {
-      await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    } catch {}
-    return;
+    await conn.sendMessage(
+      chatId,
+      { text: `❌ Falló el envío: ${e.message || e}` },
+      { quoted: quotedBase }
+    );
+    await react(conn, chatId, triggerMsg.key, "❌");
+  } finally {
+    job.isBusy = false;
+  }
+}
+
+// ===== HANDLER =====
+module.exports = async (msg, { conn, args, command }) => {
+  const chatId = msg.key.remoteJid;
+  const pref = global.prefixes?.[0] || ".";
+
+  let text = (args.join(" ") || "").trim();
+  if (!text) {
+    return conn.sendMessage(
+      chatId,
+      {
+        text:
+          `✳️ Usa:\n${pref}${command || "porn"} <url> [240|480|720|1080]\n` +
+          `Ej: ${pref}${command || "porn"} https://es.pornhub.com/view_video.php?viewkey=XXXX 720`,
+      },
+      { quoted: msg }
+    );
   }
 
-  const result = data?.result || {};
-  const videos = result?.videos || result?.video || result?.links || result?.medias;
+  // sacar URL
+  const parts = text.split(/\s+/).filter(Boolean);
+  const urlRaw = parts.find((p) => isUrl(p)) || parts[0];
+  const url = normalizeUrl(urlRaw);
+  const wantQ = pickQuality(parts);
 
-  const chosen = selectVideo(videos, q);
-  if (!chosen?.url) {
-    await conn.sendMessage(chatId, {
-      text: `❌ No encontré link de video en la respuesta de la API.`,
-      quoted: msg,
-    });
-    try {
-      await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    } catch {}
-    return;
+  if (!isUrl(url) || !isPornhub(url)) {
+    return conn.sendMessage(
+      chatId,
+      { text: "❌ Enlace inválido. Solo Pornhub viewkey." },
+      { quoted: msg }
+    );
   }
-
-  const title = String(result?.title || "Pornhub Video").slice(0, 120);
-  const thumb = result?.thumbnail || result?.thumb || result?.cover || null;
-
-  // En WA es mejor mandar link (muchos videos pesan demasiado para enviar directo)
-  let out =
-    `✅ *PORNHUB DOWNLOADER*\n` +
-    `📌 *Título:* ${title}\n` +
-    `🎞️ *Calidad:* ${chosen.quality || `${q}p`}\n` +
-    `🔗 *Link:* ${chosen.url}`;
 
   try {
-    if (thumb && /^https?:\/\//i.test(thumb)) {
-      await conn.sendMessage(
+    await react(conn, chatId, msg.key, "⏳");
+
+    const result = await getPhfansInfo(url);
+    const title = String(result?.title || "PHFans").slice(0, 120);
+
+    // thumbnail: usar proxy_inline si viene, sino proxy, sino url directa
+    const thumb =
+      absApi(result?.thumbnail?.proxy_inline || result?.thumbnail?.proxy || result?.thumbnail?.url || "");
+
+    const pick = pickVideoByQuality(result, wantQ);
+    if (!pick) {
+      await react(conn, chatId, msg.key, "❌");
+      return conn.sendMessage(
         chatId,
-        {
-          image: { url: thumb },
-          caption: out,
-        },
+        { text: "🚫 No se encontró video (puede estar protegido/privado)." },
         { quoted: msg }
       );
-    } else {
-      await conn.sendMessage(chatId, { text: out }, { quoted: msg });
     }
-    try {
-      await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch {}
-  } catch (e) {
-    // fallback texto
-    await conn.sendMessage(chatId, { text: out }, { quoted: msg });
-    try {
-      await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch {}
+
+    const caption =
+      `✅ *PORNHUB DOWNLOADER*\n\n` +
+      `📝 *Título:* ${title}\n` +
+      `🎞️ *Calidad seleccionada:* ${String(pick?.quality || wantQ)}p\n\n` +
+      `Elige cómo enviarlo:\n` +
+      `👍 Video (normal)\n` +
+      `❤️ Video como documento\n` +
+      `— o responde: 1 = normal · 2 = documento\n\n` +
+      `🔗 API: ${API_BASE}`;
+
+    let preview;
+    if (thumb && isUrl(thumb)) {
+      preview = await conn.sendMessage(chatId, { image: { url: thumb }, caption }, { quoted: msg });
+    } else {
+      preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
+    }
+
+    pendingPORN[preview.key.id] = {
+      chatId,
+      title,
+      pick,
+      quotedBase: msg,
+      previewKey: preview.key,
+      isBusy: false,
+    };
+
+    // auto-limpieza 10 min
+    setTimeout(() => {
+      if (pendingPORN[preview.key.id]) delete pendingPORN[preview.key.id];
+    }, 10 * 60 * 1000);
+
+    await react(conn, chatId, msg.key, "✅");
+
+    // listener (una sola vez)
+    if (!conn._pornInteractiveListener) {
+      conn._pornInteractiveListener = true;
+
+      conn.ev.on("messages.upsert", async (ev) => {
+        for (const m of ev.messages || []) {
+          try {
+            // Reacciones
+            if (m.message?.reactionMessage) {
+              const { key: reactKey, text: emoji } = m.message.reactionMessage;
+              const job = pendingPORN[reactKey.id];
+              if (!job || job.chatId !== m.key.remoteJid) continue;
+              if (emoji !== "👍" && emoji !== "❤️") continue;
+              if (job.isBusy) continue;
+
+              const asDoc = emoji === "❤️";
+              await sendPornVideo(conn, job, asDoc, m);
+              continue;
+            }
+
+            // Respuestas 1/2
+            const ctx = m.message?.extendedTextMessage?.contextInfo;
+            if (ctx?.stanzaId && pendingPORN[ctx.stanzaId]) {
+              const job = pendingPORN[ctx.stanzaId];
+              if (job.chatId !== m.key.remoteJid) continue;
+
+              const body = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim();
+              if (body !== "1" && body !== "2") continue;
+              if (job.isBusy) continue;
+
+              const asDoc = body === "2";
+              await sendPornVideo(conn, job, asDoc, m);
+            }
+          } catch (e) {
+            console.error("PORN listener error:", e);
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error PORN:", err);
+    await conn.sendMessage(chatId, { text: `❌ Error: ${err.message}` }, { quoted: msg });
+    await react(conn, chatId, msg.key, "❌");
   }
 };
 
-handler.command = ["porn"];
-handler.help = ["porn <url> [240|480|720|1080]"];
-handler.tags = ["descargas"];
-handler.register = true;
-
-module.exports = handler;
+module.exports.command = ["porn"];
+module.exports.help = ["porn <url> [240|480|720|1080]"];
+module.exports.tags = ["descargas"];
+module.exports.register = true;
