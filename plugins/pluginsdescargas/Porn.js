@@ -1,13 +1,8 @@
-
 // plugins/porn.js — Pornhub Downloader (PHFans API)
 // ✅ Default calidad: 240
 // ✅ Calidad opcional: 240 / 480 / 720 / 1080
 // ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
-// ✅ Descarga REAL y envía el MP4 (no link)
-
-// Uso:
-// .porn https://es.pornhub.com/view_video.php?viewkey=XXXX
-// .porn https://es.pornhub.com/view_video.php?viewkey=XXXX 720
+// ✅ Descarga REAL y envía el MP4
 
 "use strict";
 
@@ -41,7 +36,7 @@ function normalizeUrl(input = "") {
 
 function safeFileName(name = "phfans") {
   const base = String(name || "phfans").slice(0, 70);
-  return (base.replace(/[^A-Za-z0-9_\-.]+/g, "_") || "phfans");
+  return base.replace(/[^A-Za-z0-9_\-.]+/g, "_") || "phfans";
 }
 
 function pickQuality(args = []) {
@@ -73,7 +68,12 @@ async function getPhfansInfo(url) {
     endpoint,
     { url },
     {
-      headers: { "Content-Type": "application/json", apikey: API_KEY },
+      headers: {
+        "Content-Type": "application/json",
+        apikey: API_KEY,
+        "x-api-key": API_KEY,
+        Authorization: `Bearer ${API_KEY}`,
+      },
       timeout: 60000,
       validateStatus: () => true,
     }
@@ -91,12 +91,13 @@ function pickVideoByQuality(result, wantQ = 240) {
   if (!vids.length) return null;
 
   const qStr = String(wantQ);
+
   let pick =
     vids.find((v) => String(v.quality || "") === qStr) ||
     vids.find((v) => String(v.quality || "").includes(qStr)) ||
     null;
 
-  // fallback: si no existe esa calidad, usa la más baja disponible
+  // fallback: más baja disponible
   if (!pick) {
     const sortedAsc = vids
       .slice()
@@ -114,14 +115,13 @@ async function downloadPhVideoToTmp(pick, title) {
 
   const base = safeFileName(title || "phfans");
   const q = String(pick?.quality || "240");
-  const fname = `${base}_${q}p.mp4`;
+  const finalName = `${base}_${q}p.mp4`;
 
-  // La API ya da proxy (download=1) o proxy_inline
   let dl = pick?.proxy || pick?.proxy_inline || pick?.url || "";
   dl = absApi(dl);
 
-  // si es proxy_inline, forzamos download=1 para mejor compatibilidad
-  if (dl && !/[?&]download=1\b/.test(dl) && /\/phfans\/dl\?/.test(dl)) {
+  // fuerza download=1 si es /phfans/dl
+  if (dl && /\/phfans\/dl\?/.test(dl) && !/[?&]download=1\b/.test(dl)) {
     dl += (dl.includes("?") ? "&" : "?") + "download=1";
   }
 
@@ -134,6 +134,8 @@ async function downloadPhVideoToTmp(pick, title) {
     timeout: 180000,
     headers: {
       apikey: API_KEY,
+      "x-api-key": API_KEY,
+      Authorization: `Bearer ${API_KEY}`,
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
       Accept: "*/*",
@@ -143,8 +145,25 @@ async function downloadPhVideoToTmp(pick, title) {
     validateStatus: () => true,
   });
 
-  if (res.status < 200 || res.status >= 300) {
-    throw new Error(`No se pudo descargar (HTTP ${res.status})`);
+  // si sigue 401 / error
+  if (res.status === 401) throw new Error("401: API Key no aceptada en /phfans/dl");
+  if (res.status < 200 || res.status >= 300) throw new Error(`No se pudo descargar (HTTP ${res.status})`);
+
+  // si el server devolvió JSON de error en vez de mp4
+  const ct = String(res.headers?.["content-type"] || "");
+  if (ct.includes("application/json")) {
+    let txt = "";
+    await new Promise((resolve) => {
+      res.data.on("data", (c) => (txt += c.toString()));
+      res.data.on("end", resolve);
+      res.data.on("error", resolve);
+    });
+    try {
+      const j = JSON.parse(txt);
+      throw new Error(j?.message || j?.error || "Respuesta JSON de error");
+    } catch {
+      throw new Error("Respuesta JSON inesperada: " + txt.slice(0, 200));
+    }
   }
 
   const writer = fs.createWriteStream(filePath);
@@ -155,9 +174,9 @@ async function downloadPhVideoToTmp(pick, title) {
     writer.on("error", reject);
   });
 
-  // límite
   const size = fs.statSync(filePath).size;
   const sizeMB = mb(size);
+
   if (sizeMB > MAX_MB) {
     try {
       fs.unlinkSync(filePath);
@@ -165,7 +184,7 @@ async function downloadPhVideoToTmp(pick, title) {
     throw new Error(`El video pesa ${sizeMB.toFixed(2)} MB, excede ${MAX_MB} MB.`);
   }
 
-  return { filePath, fileName: fname };
+  return { filePath, fileName: finalName };
 }
 
 // 4) Enviar video (normal o documento)
@@ -177,38 +196,33 @@ async function sendPornVideo(conn, job, asDocument, triggerMsg) {
 
   try {
     await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : "🎬");
-    await conn.sendMessage(
-      chatId,
-      { text: "⏳ Espere, descargando su video..." },
-      { quoted: quotedBase }
-    );
+    await conn.sendMessage(chatId, { text: "⏳ Espere, descargando su video..." }, { quoted: quotedBase });
 
     const { filePath, fileName } = await downloadPhVideoToTmp(pick, title);
 
     const caption =
-      `✅ *Pornhub Downloader*\n` +
+      `✅ *PORNHUB DOWNLOADER*\n\n` +
       `📝 *Título:* ${title}\n` +
       `🎞️ *Calidad:* ${q}p\n\n` +
       `🔗 API: ${API_BASE}`;
 
-    // Mejor: mandar por ruta local (evita cargar todo en RAM)
-    const payload = asDocument
-      ? { document: { url: filePath }, mimetype: "video/mp4", fileName, caption }
-      : { video: { url: filePath }, mimetype: "video/mp4", fileName, caption };
+    const buf = fs.readFileSync(filePath);
 
-    await conn.sendMessage(chatId, payload, { quoted: quotedBase });
-
-    try {
-      fs.unlinkSync(filePath);
-    } catch {}
-
-    await react(conn, chatId, triggerMsg.key, "✅");
-  } catch (e) {
     await conn.sendMessage(
       chatId,
-      { text: `❌ Falló el envío: ${e.message || e}` },
+      {
+        [asDocument ? "document" : "video"]: buf,
+        mimetype: "video/mp4",
+        fileName,
+        caption,
+      },
       { quoted: quotedBase }
     );
+
+    try { fs.unlinkSync(filePath); } catch {}
+    await react(conn, chatId, triggerMsg.key, "✅");
+  } catch (e) {
+    await conn.sendMessage(chatId, { text: `❌ Falló el envío: ${e.message || e}` }, { quoted: quotedBase });
     await react(conn, chatId, triggerMsg.key, "❌");
   } finally {
     job.isBusy = false;
@@ -224,27 +238,18 @@ module.exports = async (msg, { conn, args, command }) => {
   if (!text) {
     return conn.sendMessage(
       chatId,
-      {
-        text:
-          `✳️ Usa:\n${pref}${command || "porn"} <url> [240|480|720|1080]\n` +
-          `Ej: ${pref}${command || "porn"} https://es.pornhub.com/view_video.php?viewkey=XXXX 720`,
-      },
+      { text: `✳️ Usa:\n${pref}${command || "porn"} <url> [240|480|720|1080]\nEj: ${pref}${command || "porn"} https://es.pornhub.com/view_video.php?viewkey=XXXX 720` },
       { quoted: msg }
     );
   }
 
-  // sacar URL
   const parts = text.split(/\s+/).filter(Boolean);
   const urlRaw = parts.find((p) => isUrl(p)) || parts[0];
   const url = normalizeUrl(urlRaw);
   const wantQ = pickQuality(parts);
 
   if (!isUrl(url) || !isPornhub(url)) {
-    return conn.sendMessage(
-      chatId,
-      { text: "❌ Enlace inválido. Solo Pornhub viewkey." },
-      { quoted: msg }
-    );
+    return conn.sendMessage(chatId, { text: "❌ Enlace inválido. Solo Pornhub (viewkey)." }, { quoted: msg });
   }
 
   try {
@@ -253,18 +258,13 @@ module.exports = async (msg, { conn, args, command }) => {
     const result = await getPhfansInfo(url);
     const title = String(result?.title || "PHFans").slice(0, 120);
 
-    // thumbnail: usar proxy_inline si viene, sino proxy, sino url directa
     const thumb =
       absApi(result?.thumbnail?.proxy_inline || result?.thumbnail?.proxy || result?.thumbnail?.url || "");
 
     const pick = pickVideoByQuality(result, wantQ);
     if (!pick) {
       await react(conn, chatId, msg.key, "❌");
-      return conn.sendMessage(
-        chatId,
-        { text: "🚫 No se encontró video (puede estar protegido/privado)." },
-        { quoted: msg }
-      );
+      return conn.sendMessage(chatId, { text: "🚫 No se encontró video." }, { quoted: msg });
     }
 
     const caption =
@@ -293,14 +293,12 @@ module.exports = async (msg, { conn, args, command }) => {
       isBusy: false,
     };
 
-    // auto-limpieza 10 min
     setTimeout(() => {
       if (pendingPORN[preview.key.id]) delete pendingPORN[preview.key.id];
     }, 10 * 60 * 1000);
 
     await react(conn, chatId, msg.key, "✅");
 
-    // listener (una sola vez)
     if (!conn._pornInteractiveListener) {
       conn._pornInteractiveListener = true;
 
@@ -315,8 +313,7 @@ module.exports = async (msg, { conn, args, command }) => {
               if (emoji !== "👍" && emoji !== "❤️") continue;
               if (job.isBusy) continue;
 
-              const asDoc = emoji === "❤️";
-              await sendPornVideo(conn, job, asDoc, m);
+              await sendPornVideo(conn, job, emoji === "❤️", m);
               continue;
             }
 
@@ -330,8 +327,7 @@ module.exports = async (msg, { conn, args, command }) => {
               if (body !== "1" && body !== "2") continue;
               if (job.isBusy) continue;
 
-              const asDoc = body === "2";
-              await sendPornVideo(conn, job, asDoc, m);
+              await sendPornVideo(conn, job, body === "2", m);
             }
           } catch (e) {
             console.error("PORN listener error:", e);
