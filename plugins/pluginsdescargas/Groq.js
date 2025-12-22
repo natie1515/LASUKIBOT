@@ -1,44 +1,81 @@
 
-// comandos/groq.js — AI (Groq) (SkyUltraPlus API)
-// ✅ Lee texto en: res.result.result
-// ✅ system opcional:  groq system: ... | prompt...
-// ✅ Branding: La Suki Bot + API Link
-// ✅ Extra: groqclear (limpia memoria del endpoint /ai/clear)
+// comandos/groq.js — GROQ AI (Auto Chat ON/OFF por grupo)
+// ✅ .groq on / .groq off
+// ✅ Auto responde en el grupo por 10 min
+// ✅ Guarda estado en JSON (persistente)
+// ✅ Responde SOLO texto de la IA (sin publicidad)
+// ✅ Listener global tipo play.js
 
 "use strict";
 
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY  || "Russellxz";
 const MAX_TIMEOUT = 60000;
 
-// --- Helpers ---
-function pickTextFromApi(res) {
-  // Tu endpoint: res.success({ prompt, result: "TEXTO", ... })
-  // Respuesta típica de tu API: { status:true, result:{ prompt, result, model, ... } }
-  const r = res?.result ?? res?.data ?? null;
+const TTL_MS = 10 * 60 * 1000; // 10 minutos
+const COOLDOWN_MS = 1200;      // anti-spam mínimo (igual responde “a cada texto”, solo evita flood brutal)
 
-  // ✅ Principal (tu caso)
-  const t1 = r?.result;
+const DATA_DIR = path.join(process.cwd(), "data");
+const STATE_FILE = path.join(DATA_DIR, "groq_auto.json");
 
-  // compat por si algún proxy/handler cambia estructura
-  const t2 = res?.result?.result;
-  const t3 = res?.data?.result?.result;
-  const t4 = res?.data?.result;
-  const t5 = res?.result;
-
-  const text = t1 ?? t2 ?? t3 ?? t4 ?? t5;
-  return (typeof text === "string" ? text : "")?.trim();
+// ----------------- Persistencia -----------------
+function ensureDataDir() {
+  try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 }
 
-async function askGroqSky(prompt, system) {
-  const payload = { prompt };
-  if (system) payload.system = system;
+function loadState() {
+  ensureDataDir();
+  try {
+    if (!fs.existsSync(STATE_FILE)) return { chats: {} };
+    const raw = fs.readFileSync(STATE_FILE, "utf8");
+    const j = JSON.parse(raw || "{}");
+    if (!j || typeof j !== "object") return { chats: {} };
+    if (!j.chats || typeof j.chats !== "object") j.chats = {};
+    return j;
+  } catch {
+    return { chats: {} };
+  }
+}
 
+function saveState(state) {
+  ensureDataDir();
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+  } catch {}
+}
+
+function isExpired(chatState) {
+  return !chatState || !chatState.until || Date.now() > Number(chatState.until);
+}
+
+function cleanExpired(state) {
+  const now = Date.now();
+  let changed = false;
+  for (const [jid, st] of Object.entries(state.chats || {})) {
+    if (!st || !st.until || now > Number(st.until)) {
+      delete state.chats[jid];
+      changed = true;
+    }
+  }
+  if (changed) saveState(state);
+}
+
+// ----------------- API call -----------------
+function pickTextFromApi(data) {
+  // Tu API: res.success({ prompt, result, model... })
+  // => respuesta: { status:true, result:{ prompt, result: "texto", ... } }
+  const txt = data?.result?.result;
+  return (typeof txt === "string" ? txt : "").trim();
+}
+
+async function askGroq(prompt) {
   const { data, status: http } = await axios.post(
     `${API_BASE}/ai`,
-    payload,
+    { prompt },
     {
       headers: {
         apikey: API_KEY,
@@ -50,161 +87,179 @@ async function askGroqSky(prompt, system) {
     }
   );
 
-  if (http !== 200) {
-    throw new Error(`HTTP ${http}${data?.message ? ` - ${data.message}` : ""}`);
-  }
-  if (!data || data.status !== true) {
-    throw new Error(data?.message || "La API no respondió correctamente.");
-  }
+  if (http !== 200) throw new Error(`HTTP ${http}${data?.message ? ` - ${data.message}` : ""}`);
+  if (!data || data.status !== true) throw new Error(data?.message || "La API no respondió correctamente.");
 
   const text = pickTextFromApi(data);
   if (!text) throw new Error("La API respondió pero no trajo texto.");
 
-  // info útil por si quieres mostrarla
-  const meta = data.result || {};
-  return {
-    text,
-    model: meta.model || "llama-3.3-70b-versatile",
-    memory: meta.memory_messages ?? null,
-  };
+  return text;
 }
 
-// --- Handler principal ---
+// ----------------- Utils WA -----------------
+function getText(m) {
+  return (
+    m?.message?.conversation ||
+    m?.message?.extendedTextMessage?.text ||
+    m?.message?.imageMessage?.caption ||
+    m?.message?.videoMessage?.caption ||
+    ""
+  ).trim();
+}
+
+function isGroupJid(jid = "") {
+  return typeof jid === "string" && jid.endsWith("@g.us");
+}
+
+function chunkText(s, n = 3500) {
+  const out = [];
+  const str = String(s || "");
+  for (let i = 0; i < str.length; i += n) out.push(str.slice(i, i + n));
+  return out;
+}
+
+// ----------------- Listener global -----------------
+function ensureGroqAutoListener(conn) {
+  if (conn._groqAutoListener) return;
+  conn._groqAutoListener = true;
+
+  conn.ev.on("messages.upsert", async (ev) => {
+    try {
+      const state = loadState();
+      cleanExpired(state);
+
+      for (const m of ev.messages || []) {
+        try {
+          const chatId = m?.key?.remoteJid;
+          if (!chatId) continue;
+          if (!isGroupJid(chatId)) continue;
+
+          // ignore mensajes del propio bot
+          if (m?.key?.fromMe) continue;
+
+          const st = state.chats?.[chatId];
+          if (!st || isExpired(st)) {
+            if (st) {
+              delete state.chats[chatId];
+              saveState(state);
+            }
+            continue;
+          }
+
+          // solo texto
+          const text = getText(m);
+          if (!text) continue;
+
+          // no responder a comandos
+          const pref = (global.prefixes && global.prefixes[0]) || ".";
+          if (text.startsWith(pref)) continue;
+
+          // anti-flood básico
+          const now = Date.now();
+          if (st.busy) continue;
+          if (st.lastAt && now - Number(st.lastAt) < COOLDOWN_MS) continue;
+
+          // marcar busy
+          st.busy = true;
+          st.lastAt = now;
+          state.chats[chatId] = st;
+          saveState(state);
+
+          // pedir a la IA
+          let reply = "";
+          try {
+            reply = await askGroq(text);
+          } catch (e) {
+            // si falla, no spamear errores; solo libera busy y sigue
+            st.busy = false;
+            state.chats[chatId] = st;
+            saveState(state);
+            continue;
+          }
+
+          // enviar SOLO texto (sin branding)
+          const parts = chunkText(reply, 3500);
+          for (const p of parts) {
+            await conn.sendMessage(chatId, { text: p }, { quoted: m });
+          }
+
+          // liberar busy
+          st.busy = false;
+          state.chats[chatId] = st;
+          saveState(state);
+
+          // auto-off si ya expiró justo después
+          if (Date.now() > Number(st.until)) {
+            delete state.chats[chatId];
+            saveState(state);
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.error("groq auto listener error:", err?.message || err);
+    }
+  });
+}
+
+// ----------------- Command handler -----------------
 const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref   = (global.prefixes && global.prefixes[0]) || ".";
 
-  const input = (args || []).join(" ").trim();
-  if (!input) {
+  // asegurar listener siempre
+  ensureGroqAutoListener(conn);
+
+  if (!isGroupJid(chatId)) {
+    return conn.sendMessage(chatId, { text: "❌ Este modo solo funciona en grupos." }, { quoted: msg });
+  }
+
+  const sub = String(args?.[0] || "").toLowerCase().trim();
+  const state = loadState();
+  cleanExpired(state);
+
+  if (!sub || (sub !== "on" && sub !== "off")) {
+    const st = state.chats?.[chatId];
+    const active = !!st && !isExpired(st);
+    const left = active ? Math.max(0, Number(st.until) - Date.now()) : 0;
+    const mins = active ? Math.ceil(left / 60000) : 0;
+
     return conn.sendMessage(chatId, {
       text:
-`✳️ 𝙐𝙨𝙖:
-${pref}${command || "groq"} <mensaje>
+`🤖 *GROQ AI — AutoChat*
+✳️ Usa:
+- ${pref}${command} on   (activa 10 min)
+- ${pref}${command} off  (desactiva)
 
-Opcional (system):
-${pref}${command || "groq"} system: eres un asistente serio | hola, quien eres?
-
-🧹 Limpiar memoria:
-${pref}groqclear
-
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: ${API_BASE}`
+Estado: ${active ? `✅ ACTIVO (${mins} min aprox)` : "⛔ APAGADO"}`
     }, { quoted: msg });
   }
 
-  // Permite: system: ... | prompt...
-  let system = "";
-  let prompt = input;
+  if (sub === "on") {
+    state.chats[chatId] = {
+      until: Date.now() + TTL_MS,
+      by: msg?.key?.participant || msg?.participant || "",
+      busy: false,
+      lastAt: 0,
+    };
+    saveState(state);
 
-  const m = input.match(/^system\s*:\s*([\s\S]+?)\s*\|\s*([\s\S]+)$/i);
-  if (m) {
-    system = (m[1] || "").trim();
-    prompt = (m[2] || "").trim();
-  }
-
-  if (!prompt) {
-    return conn.sendMessage(chatId, { text: "❌ Escribe un mensaje para enviar a la IA." }, { quoted: msg });
-  }
-
-  try {
-    await conn.sendMessage(chatId, { react: { text: "🤖", key: msg.key } });
-
-    const r = await askGroqSky(prompt, system);
-
-    const header =
-`🤖 *GROQ AI*
-━━━━━━━━━━━━━━━━
-🧠 *Modelo:* ${r.model}
-${system ? `⚙️ *System:* ${system}\n` : ""}📝 *Prompt:* ${prompt}
-${r.memory != null ? `🗂️ *Memoria:* ${r.memory} msgs\n` : ""}
-
-🚀 *Powered by:* SkyUltraPlus API
-🔗 ${API_BASE}/ai
-🤖 *Bot:* La Suki Bot
-━━━━━━━━━━━━━━━━
-`;
-
-    // WhatsApp se pone pendejo con textos enormes -> chunk
-    const MAX_CHUNK = 3500;
-    const full = header + r.text;
-
-    if (full.length <= MAX_CHUNK) {
-      await conn.sendMessage(chatId, { text: full }, { quoted: msg });
-    } else {
-      await conn.sendMessage(chatId, { text: header }, { quoted: msg });
-      for (let i = 0; i < r.text.length; i += MAX_CHUNK) {
-        await conn.sendMessage(chatId, { text: r.text.slice(i, i + MAX_CHUNK) }, { quoted: msg });
-      }
-    }
-
-    await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-  } catch (err) {
-    console.error("❌ Error en groq:", err?.message || err);
-    await conn.sendMessage(chatId, {
-      text: `❌ *Error:* ${err?.message || "No pude obtener respuesta de la IA."}`
+    return conn.sendMessage(chatId, {
+      text: "✅ Groq AutoChat *ACTIVADO* por 10 minutos.\n(Responderé a los mensajes del grupo automáticamente.)"
     }, { quoted: msg });
-    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
   }
+
+  // off
+  if (state.chats?.[chatId]) {
+    delete state.chats[chatId];
+    saveState(state);
+  }
+
+  return conn.sendMessage(chatId, { text: "⛔ Groq AutoChat *DESACTIVADO*." }, { quoted: msg });
 };
 
-// --- Comando extra: limpiar memoria ---
-async function clearGroqMem() {
-  const { data, status: http } = await axios.post(
-    `${API_BASE}/ai/clear`,
-    {},
-    {
-      headers: {
-        apikey: API_KEY,
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      timeout: MAX_TIMEOUT,
-      validateStatus: (s) => s >= 200 && s < 600,
-    }
-  );
-
-  if (http !== 200) throw new Error(`HTTP ${http}`);
-  if (!data || data.status !== true) throw new Error(data?.message || "No se pudo limpiar memoria.");
-  return true;
-}
-
-const clearHandler = async (msg, { conn }) => {
-  const chatId = msg.key.remoteJid;
-  try {
-    await conn.sendMessage(chatId, { react: { text: "🧹", key: msg.key } });
-    await clearGroqMem();
-    await conn.sendMessage(chatId, {
-      text:
-`🧹 *Memoria borrada*
-Ahora la IA empieza limpio.
-
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: ${API_BASE}`
-    }, { quoted: msg });
-    await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-  } catch (e) {
-    await conn.sendMessage(chatId, { text: `❌ Error: ${e?.message || e}` }, { quoted: msg });
-    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-  }
-};
-
-// exports / metadata
 handler.command = ["groq"];
-handler.help = ["groq <mensaje>", "groq system: <system> | <mensaje>"];
+handler.help = ["groq on", "groq off"];
 handler.tags = ["tools"];
 handler.register = true;
-
-// segundo comando en el mismo archivo (si tu loader soporta 2 exports, NO)
-// si tu loader solo soporta 1, pon groqclear en otro archivo.
-// Aquí lo dejo como propiedad extra para loaders que lo aceptan:
-handler.subcommands = [
-  {
-    command: ["groqclear"],
-    help: ["groqclear"],
-    tags: ["tools"],
-    register: true,
-    handler: clearHandler
-  }
-];
 
 module.exports = handler;
