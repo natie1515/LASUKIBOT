@@ -1,18 +1,15 @@
-// comandos/letra.js — Lyrics Search (simple: manda la letra y ya)
+// comandos/letra.js — Lyrics Search (solo texto)
+// ✅ Responde con: Título / Artista / Álbum / Letra
+// ✅ Branding: La Suki Bot + SkyUltraPlus API
+// ✅ No descarga archivos
+
+"use strict";
 
 const axios = require("axios");
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY  || "Russellxz";
-const MAX_TIMEOUT = 60000;
-
-function chunkText(text, max = 3500) {
-  const s = String(text || "");
-  if (s.length <= max) return [s];
-  const out = [];
-  for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max));
-  return out;
-}
+const MAX_TIMEOUT = 60000; // 60s
 
 async function getLyricsFromSky(text) {
   const { data: res, status: http } = await axios.post(
@@ -29,66 +26,94 @@ async function getLyricsFromSky(text) {
     }
   );
 
-  if (http !== 200) throw new Error(`HTTP ${http}${res?.message ? ` - ${res.message}` : ""}`);
-  if (!res || res.status !== true || !res.result?.lyrics) {
-    throw new Error(res?.message || "Letra no encontrada.");
+  if (http !== 200) {
+    throw new Error(`HTTP ${http}${res?.message ? ` - ${res.message}` : ""}`);
   }
 
-  return res.result; // { artist,title,album,lyrics }
+  if (!res || res.status !== true || !res.result?.lyrics) {
+    throw new Error(res?.message || "La API no devolvió letra.");
+  }
+
+  const r = res.result;
+  return {
+    artist: r.artist || "Unknown",
+    title: r.title || "Unknown",
+    album: r.album || "",
+    lyrics: r.lyrics || "",
+  };
 }
 
 const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
-  const q = (args || []).join(" ").trim();
-  const pref = (global.prefixes && global.prefixes[0]) || ".";
+  const pref   = (global.prefixes && global.prefixes[0]) || ".";
+  const query  = (args || []).join(" ").trim();
 
-  if (!q) {
-    return conn.sendMessage(chatId, {
-      text:
-`✳️ Usa:
-${pref}${command} <canción / artista>
-Ej: ${pref}${command} Yemil difícil amarte`
-    }, { quoted: msg });
+  if (!query) {
+    return conn.sendMessage(
+      chatId,
+      {
+        text:
+`✳️ 𝙐𝙨𝙖:
+${pref}${command || "letra"} <canción y artista>
+Ej: ${pref}${command || "letra"} yemil difícil amarte`,
+      },
+      { quoted: msg }
+    );
   }
 
   try {
-    await conn.sendMessage(chatId, { react: { text: "🎵", key: msg.key } });
+    await conn.sendMessage(chatId, { react: { text: "⏱️", key: msg.key } });
 
-    const r = await getLyricsFromSky(q);
+    const d = await getLyricsFromSky(query);
 
-    const title  = r.title  || "Unknown";
-    const artist = r.artist || "Unknown";
-    const album  = r.album  || "";
+    const title = String(d.title || "Unknown");
+    const artist = String(d.artist || "Unknown");
+    const album = String(d.album || "").trim();
+    const lyrics = String(d.lyrics || "").trim();
 
     const header =
-`🎵 *${title}*
-👤 *${artist}*${album ? `\n💿 *${album}*` : ""}
+`🎶 *LETRA ENCONTRADA*
+━━━━━━━━━━━━━━━━
+📌 *Título:* ${title}
+🎤 *Artista:* ${artist}${album ? `\n💿 *Álbum:* ${album}` : ""}
+
+🚀 *Powered by:* SkyUltraPlus API
+🔗 ${API_BASE}/tools/lyrics
+🤖 *Bot:* La Suki Bot
 
 `;
 
-    const parts = chunkText(String(r.lyrics || "").trim(), 3200);
+    // WhatsApp suele cortar mensajes muy largos: dividimos en partes seguras
+    const MAX_CHUNK = 3500;
 
-    // 1er mensaje con header
-    await conn.sendMessage(chatId, { text: header + (parts[0] || "—") }, { quoted: msg });
+    const fullText = header + lyrics;
+    if (fullText.length <= MAX_CHUNK) {
+      await conn.sendMessage(chatId, { text: fullText }, { quoted: msg });
+    } else {
+      // 1) Header primero
+      await conn.sendMessage(chatId, { text: header }, { quoted: msg });
 
-    // resto (si hay)
-    for (let i = 1; i < parts.length; i++) {
-      await conn.sendMessage(chatId, { text: parts[i] }, { quoted: msg });
+      // 2) Lyrics en chunks
+      for (let i = 0; i < lyrics.length; i += MAX_CHUNK) {
+        const part = lyrics.slice(i, i + MAX_CHUNK);
+        await conn.sendMessage(chatId, { text: part }, { quoted: msg });
+      }
     }
 
     await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-
   } catch (err) {
     console.error("❌ Error en letra:", err?.message || err);
-    await conn.sendMessage(chatId, {
-      text: `❌ *Error:* ${err?.message || "No se pudo obtener la letra."}`
-    }, { quoted: msg });
+    await conn.sendMessage(
+      chatId,
+      { text: `❌ *Error:* ${err?.message || "No pude obtener la letra."}` },
+      { quoted: msg }
+    );
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
   }
 };
 
 handler.command = ["letra", "lyrics"];
-handler.help = ["letra <texto>"];
+handler.help = ["letra <canción y artista>", "lyrics <song and artist>"];
 handler.tags = ["tools"];
 handler.register = true;
 
