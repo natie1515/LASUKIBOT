@@ -87,12 +87,13 @@ const handler = async (msg, { conn }) => {
 
 𖠁𝘿𝙀𝙎𝘾𝘼𝙍𝙂𝘼𖠁
 ╭─────◆
-│๛ ${pref}play / play1 / play2 / play3
-│๛ ${pref}ytmp3 / ytmp4 / ytmp3doc / ytmp4doc
+│๛ ${pref}play / play2 
+│๛ ${pref}ytmp3 / ytmp4
 │๛ ${pref}tiktok / fb / ig / spotify
-│๛ ${pref}kiss / topkiss
-│๛ ${pref}slap / topslap
 │๛ ${pref}mediafire / apk
+│๛ ${pref}xnxx
+│๛ ${pref}por
+│๛ ${pref}x / Twitter/ tw
 ╰─────◆
 
 𖠁𝘽𝙐𝙎𝘾𝘼𝘿𝙊𝙍𝙀𝙎𖠁
