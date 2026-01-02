@@ -3647,6 +3647,694 @@
           "nivel": 1
         }
       ]
+    },
+    {
+      "nombre": "⚔️Tanjiro_Kamado",
+      "imagen": "https://cdn.russellxz.click/ca59fbf5.jpg",
+      "precio": 925000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Respiración_del_Sol",
+          "nivel": 1
+        },
+        {
+          "nombre": "🩸Marca_del_Cazador",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "⚡Zenitsu_Agatsuma",
+      "imagen": "https://cdn.russellxz.click/5d5bb5d9.jpg",
+      "precio": 924000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "⚡Respiración_del_Rayo",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌩️Velocidad_Divina",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐗Inosuke_Hashibira",
+      "imagen": "https://cdn.russellxz.click/a912e8a2.jpg",
+      "precio": 923000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🐗Respiración_de_la_Bestia",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔪Combate_Instintivo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👹Nezuko_Kamado",
+      "imagen": "https://cdn.russellxz.click/cc8f7923.jpg",
+      "precio": 922000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Sangre_Demoníaca",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌙Regeneración_Rápida",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "💀Muzan_Kibutsuji",
+      "imagen": "https://cdn.russellxz.click/2e63b926.jpg",
+      "precio": 130000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "👹Rey_de_los_Demonios",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Sangre_Maldita",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🟣Giyu_Tomioka",
+      "imagen": "https://cdn.russellxz.click/630aad79.jpg",
+      "precio": 126000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌊Pilar_del_Agua",
+          "nivel": 1
+        },
+        {
+          "nombre": "❄️Calma_Inquebrantable",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔥Kyojuro_Rengoku",
+      "imagen": "https://cdn.russellxz.click/d8875fa6.jpg",
+      "precio": 127000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Pilar_de_la_Llama",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Espíritu_Ardiente",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🍃Sanemi_Shinazugawa",
+      "imagen": "https://cdn.russellxz.click/ba68cda6.jpg",
+      "precio": 125000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🍃Pilar_del_Viento",
+          "nivel": 1
+        },
+        {
+          "nombre": "⚡Furia_Descontrolada",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🏔️Gyomei_Himejima",
+      "imagen": "https://cdn.russellxz.click/05e5f3df.jpg",
+      "precio": 128000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🏔️Pilar_de_la_Roca",
+          "nivel": 1
+        },
+        {
+          "nombre": "💪Fuerza_Colosal",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "💖Mitsuri_Kanroji",
+      "imagen": "https://cdn.russellxz.click/59c798c5.jpg",
+      "precio": 124000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "💖Pilar_del_Amor",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Espada_Flexible",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦋Shinobu_Kocho",
+      "imagen": "https://cdn.russellxz.click/516fba6f.jpg",
+      "precio": 123000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🦋Pilar_del_Insecto",
+          "nivel": 1
+        },
+        {
+          "nombre": "☠️Veneno_Letal",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🎭Tengen_Uzui",
+      "imagen": "https://cdn.russellxz.click/59d8fbda.jpg",
+      "precio": 126000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🎵Pilar_del_Sonido",
+          "nivel": 1
+        },
+        {
+          "nombre": "💥Explosión_Mortal",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐍Obanai_Iguro",
+      "imagen": "https://cdn.russellxz.click/fda68370.jpg",
+      "precio": 125000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🐍Pilar_de_la_Serpiente",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Ataque_Impredecible",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🌑Muichiro_Tokito",
+      "imagen": "https://cdn.russellxz.click/6ead35a6.jpg",
+      "precio": 124000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌫️Pilar_de_la_Niebla",
+          "nivel": 1
+        },
+        {
+          "nombre": "⚡Reflejos_Sobrehumanos",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "😈Akaza",
+      "imagen": "https://cdn.russellxz.click/022336a3.jpg",
+      "precio": 927000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "👊Luna_Superior_Tres",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Combate_Total",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "💀Doma",
+      "imagen": "https://cdn.russellxz.click/b2a08a62.jpg",
+      "precio": 928000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "❄️Luna_Superior_Dos",
+          "nivel": 1
+        },
+        {
+          "nombre": "🧊Hielo_Mortal",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦋Kokushibo",
+      "imagen": "https://cdn.russellxz.click/ac96abfa.jpg",
+      "precio": 929000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌑Luna_Superior_Uno",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌀Respiración_de_la_Luna",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👹Gyutaro",
+      "imagen": "https://cdn.russellxz.click/ee57e894.jpg",
+      "precio": 923000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🩸Luna_Superior_Seis",
+          "nivel": 1
+        },
+        {
+          "nombre": "💀Guadañas_Envenenadas",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👹Daki",
+      "imagen": "https://cdn.russellxz.click/5643d9f4.jpg",
+      "precio": 922000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🎭Luna_Superior_Seis",
+          "nivel": 1
+        },
+        {
+          "nombre": "🕸️Cintas_Mortales",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔥Hantengu",
+      "imagen": "https://cdn.russellxz.click/6b87c521.jpg",
+      "precio": 925000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌪️Luna_Superior_Cuatro",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌀Múltiples_Clones",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔄Subaru_Natsuki",
+      "imagen": "https://cdn.russellxz.click/215a5f34.jpg",
+      "precio": 925000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "⏳Regreso_de_la_Muerte",
+          "nivel": 1
+        },
+        {
+          "nombre": "🏁Voluntad_Inquebrantable",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👑Emilia",
+      "imagen": "https://cdn.russellxz.click/0595d4ac.jpg",
+      "precio": 124000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "❄️Magia_de_Hielo",
+          "nivel": 1
+        },
+        {
+          "nombre": "💖Bendición_Espiritual",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🏹Rem",
+      "imagen": "https://cdn.russellxz.click/0a032d44.jpg",
+      "precio": 123000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔨Maza_Demoledora",
+          "nivel": 1
+        },
+        {
+          "nombre": "💙Lealtad_Absoluta",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🌺Ram",
+      "imagen": "https://cdn.russellxz.click/8d7f0341.jpg",
+      "precio": 122000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌬️Magia_del_Viento",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Clarividencia",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "💀Beatrice",
+      "imagen": "https://cdn.russellxz.click/49afaa8e.jpg",
+      "precio": 123000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "📖Guardiana_de_la_Biblioteca",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔮Magia_Espacial",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐺Garfield_Tinsel",
+      "imagen": "https://cdn.russellxz.click/9b5e924e.jpg",
+      "precio": 122000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🏋️Fuerza_Bestial",
+          "nivel": 1
+        },
+        {
+          "nombre": "🐯Transformación_Tigre",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔥Roswaal_L_Mathers",
+      "imagen": "https://cdn.russellxz.click/e9b69526.jpg",
+      "precio": 126000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔮Mago_Supremo",
+          "nivel": 1
+        },
+        {
+          "nombre": "💀Magia_de_Todos_los_Elementos",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👹Echidna",
+      "imagen": "https://cdn.russellxz.click/ac82a214.jpg",
+      "precio": 127000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🧠Bruja_de_la_Codicia",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Conocimiento_Infinito",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "⚔️Asta",
+      "imagen": "https://cdn.russellxz.click/d14ec2d6.jpg",
+      "precio": 128000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "💪Antimagia",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Modo_Demoníaco",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👑Yuno",
+      "imagen": "https://cdn.russellxz.click/1f842844.jpg",
+      "precio": 127000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌪️Magia_del_Viento",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌟Bendición_Real",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🏹Noelle_Silva",
+      "imagen": "https://cdn.russellxz.click/c63bf286.jpg",
+      "precio": 126000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌊Magia_del_Agua",
+          "nivel": 1
+        },
+        {
+          "nombre": "🏰Armadura_Valquiria",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔥Yami_Sukehiro",
+      "imagen": "https://cdn.russellxz.click/157d8e6a.jpg",
+      "precio": 129000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "⚔️Magia_Oscura",
+          "nivel": 1
+        },
+        {
+          "nombre": "🌀Zona_Maná",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🔥Julius_Novachrono",
+      "imagen": "https://cdn.russellxz.click/48fed134.jpg",
+      "precio": 130000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "⏳Magia_del_Tiempo",
+          "nivel": 1
+        },
+        {
+          "nombre": "👑Rey_Mago",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🦁Mereoleona_Vermillion",
+      "imagen": "https://cdn.russellxz.click/4a8d834e.jpg",
+      "precio": 128000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Magia_de_Fuego",
+          "nivel": 1
+        },
+        {
+          "nombre": "💪Instinto_Bestial",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🐂Nacht_Faust",
+      "imagen": "https://cdn.russellxz.click/ac13fa59.jpg",
+      "precio": 127000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "👹Magia_de_Sombra",
+          "nivel": 1
+        },
+        {
+          "nombre": "🦇Dominio_Demoníaco",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "❄️Fuegoleon_Vermillion",
+      "imagen": "https://cdn.russellxz.click/59dd43f7.jpg",
+      "precio": 126000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Magia_de_Fuego",
+          "nivel": 1
+        },
+        {
+          "nombre": "🦁Espíritu_de_Salamandra",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "💀Zagred",
+      "imagen": "https://cdn.russellxz.click/5fe15280.jpg",
+      "precio": 130000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "💀Demonio_Supremo",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Magia_de_Palabras",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🏹Luck_Volta",
+      "imagen": "https://cdn.russellxz.click/91cdfff4.jpg",
+      "precio": 125000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔥Magia_del_Rayo",
+          "nivel": 1
+        },
+        {
+          "nombre": "⚡Velocidad_Electrizante",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🎭Vanessa_Enoteca",
+      "imagen": "https://cdn.russellxz.click/dba7b4f3.jpg",
+      "precio": 124000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🕸️Hilos_del_Destino",
+          "nivel": 1
+        },
+        {
+          "nombre": "🍷Magia_del_Hilo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🎩Finral_Roulacase",
+      "imagen": "https://cdn.russellxz.click/bc8e3ced.jpg",
+      "precio": 123000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🔄Magia_Espacial",
+          "nivel": 1
+        },
+        {
+          "nombre": "🚀Portal_Instantáneo",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "🏴‍☠️Charlotte_Roselei",
+      "imagen": "https://cdn.russellxz.click/adfc751e.jpg",
+      "precio": 122000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🌿Magia_de_Espinas",
+          "nivel": 1
+        },
+        {
+          "nombre": "💙Caballero_Azul",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "⚔️Rill_Boismortier",
+      "imagen": "https://cdn.russellxz.click/7af178d5.jpg",
+      "precio": 121000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🎨Magia_de_Pintura",
+          "nivel": 1
+        },
+        {
+          "nombre": "🎭Creatividad_Infinita",
+          "nivel": 1
+        }
+      ]
+    },
+    {
+      "nombre": "👹Liebe",
+      "imagen": "https://cdn.russellxz.click/70834b4a.jpg",
+      "precio": 129000,
+      "nivel": 1,
+      "habilidades": [
+        {
+          "nombre": "🖤Demonio_de_Antimagia",
+          "nivel": 1
+        },
+        {
+          "nombre": "🔥Modo_Unión",
+          "nivel": 1
+        }
+      ]
     }
   ],
   "usuarios": [],
