@@ -92,7 +92,7 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}tiktok / fb / ig / spotify
 │๛ ${pref}mediafire / apk
 │๛ ${pref}xnxx
-│๛ ${pref}por
+│๛ ${pref}porn
 │๛ ${pref}x / Twitter/ tw
 ╰─────◆
 
