@@ -171,4 +171,4 @@ module.exports = async (msg, { conn, text }) => {
   }
 };
 
-module.exports.command = ["pinterestimg", "pinimg", "pimg"];
+module.exports.command = ["pinterestimg", "pinterest", "pimg"];
