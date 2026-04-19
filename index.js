@@ -571,9 +571,33 @@ try {
 // === FIN LÓGICA CHATGPT POR GRUPO CON activos.db ===
 // === LÓGICA DE RESPUESTA AUTOMÁTICA CON PALABRA CLAVE (híbrida: carpeta + base64) ===
 try {
-  const guarPath = path.resolve('./guar.json');
+  const guarPath = path.resolve('./guar.json');        // viejo (base64)
+  const guarFilesPath = path.resolve('./guar_files.json'); // nuevo (rutas)
+
+  // Cargar base de datos COMBINADA (viejo + nuevo)
+  let guarData = {};
+
+  // 1) Cargar el viejo (base64). Si el archivo es enorme y falla el parseo, lo ignoramos.
   if (fs.existsSync(guarPath)) {
-    const guarData = JSON.parse(fs.readFileSync(guarPath, 'utf-8'));
+    try {
+      guarData = JSON.parse(fs.readFileSync(guarPath, 'utf-8'));
+    } catch {
+      guarData = {};
+    }
+  }
+
+  // 2) Cargar el nuevo (rutas) y combinar con el viejo
+  if (fs.existsSync(guarFilesPath)) {
+    try {
+      const filesDb = JSON.parse(fs.readFileSync(guarFilesPath, 'utf-8'));
+      for (const k of Object.keys(filesDb)) {
+        if (!Array.isArray(guarData[k])) guarData[k] = [];
+        guarData[k] = guarData[k].concat(filesDb[k]);
+      }
+    } catch {}
+  }
+
+  if (Object.keys(guarData).length > 0) {
     const cleanText = messageContent
       .toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -639,6 +663,7 @@ try {
   console.error("❌ Error en lógica de palabra clave:", e);
 }
 // === FIN DE LÓGICA ===
+
   
 // === ⛔ INICIO LÓGICA ANTIS STICKERS (bloqueo tras 3 strikes en 15s) ===
 try {
