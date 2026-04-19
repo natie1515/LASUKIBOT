@@ -1,46 +1,91 @@
 const fs = require("fs");
 const path = require("path");
 
-const RUTA = "./guar.json";
+const RUTA_VIEJA = path.resolve("./guar.json");       // legacy (base64)
+const RUTA_NUEVA = path.resolve("./guar_files.json"); // nuevo (rutas)
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const sender = (msg.key.participant || msg.key.remoteJid).replace(/\D/g, "");
   const isGroup = chatId.endsWith("@g.us");
+  const pref = global.prefixes?.[0] || ".";
 
   await conn.sendMessage(chatId, { react: { text: "🗑️", key: msg.key } });
 
-  const paquete = args[0]?.toLowerCase();
-  const index = parseInt(args[1]);
+  // ====== Parsear argumentos: último = número, el resto = palabra clave ======
+  // Ejemplos:
+  //   .del hola 2           → paquete="hola", index=2
+  //   .del hola fino 3      → paquete="hola fino", index=3
+  //   .del mi saludo 1      → paquete="mi saludo", index=1
+  const argsArr = Array.isArray(args) ? args : [];
+  const lastArg = argsArr[argsArr.length - 1];
+  const index = parseInt(lastArg);
+  const paquete = argsArr.slice(0, -1).join(" ").trim().toLowerCase();
 
-  if (!paquete || isNaN(index)) {
-    await conn.sendMessage(chatId, {
-      react: { text: "❌", key: msg.key }
-    });
+  if (!paquete || isNaN(index) || argsArr.length < 2) {
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: `❗ Usa correctamente:\n.del <paquete> <número>\nEj: .del hola 2`,
+      text: `❗ Usa correctamente:\n*${pref}del <paquete> <número>*\n\nEjemplos:\n• ${pref}del hola 2\n• ${pref}del hola fino 1\n• ${pref}del mi saludo 3`,
     }, { quoted: msg });
   }
 
-  const db = JSON.parse(fs.readFileSync(RUTA));
-  if (!db[paquete] || !db[paquete][index - 1]) {
+  // ====== Cargar ambas bases de datos ======
+  let dbVieja = {};
+  let dbNueva = {};
+
+  if (fs.existsSync(RUTA_VIEJA)) {
+    try { dbVieja = JSON.parse(fs.readFileSync(RUTA_VIEJA, "utf-8")); } catch { dbVieja = {}; }
+  }
+  if (fs.existsSync(RUTA_NUEVA)) {
+    try { dbNueva = JSON.parse(fs.readFileSync(RUTA_NUEVA, "utf-8")); } catch { dbNueva = {}; }
+  }
+
+  const itemsViejos = Array.isArray(dbVieja[paquete]) ? dbVieja[paquete] : [];
+  const itemsNuevos = Array.isArray(dbNueva[paquete]) ? dbNueva[paquete] : [];
+  const total = itemsViejos.length + itemsNuevos.length;
+
+  if (total === 0) {
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: `⚠️ No existe el paquete o el número es inválido.`,
+      text: `⚠️ No existe el paquete *"${paquete}"*.`,
     }, { quoted: msg });
   }
 
-  const target = db[paquete][index - 1];
-  const targetUser = target.de;
+  if (index < 1 || index > total) {
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    return conn.sendMessage(chatId, {
+      text: `⚠️ Número inválido.\nEl paquete *"${paquete}"* tiene *${total}* archivo(s).\nUsa un número del *1* al *${total}*.`,
+    }, { quoted: msg });
+  }
 
-  // 🛡️ Protección de permisos
+  // ====== Determinar de dónde viene el item seleccionado ======
+  // Los viejos van primero (índices 1 a itemsViejos.length),
+  // los nuevos después (itemsViejos.length+1 en adelante).
+  let target, origen, idxLocal;
+  if (index <= itemsViejos.length) {
+    target = itemsViejos[index - 1];
+    origen = "vieja";
+    idxLocal = index - 1;
+  } else {
+    idxLocal = index - itemsViejos.length - 1;
+    target = itemsNuevos[idxLocal];
+    origen = "nueva";
+  }
+
+  // Retrocompatibilidad: el campo puede llamarse "de" (viejo) o "user" (nuevo)
+  const targetUser = target.de || target.user;
+
+  // ====== Protección de permisos (igual que antes) ======
   let isAdmin = false;
   if (isGroup) {
-    const metadata = await conn.groupMetadata(chatId);
-    const me = (conn.user.id || "").split(":")[0] + "@s.whatsapp.net";
-    const participants = metadata.participants || [];
-    const user = participants.find(p => p.id === sender + "@s.whatsapp.net");
-    const bot = participants.find(p => p.id === me);
-    isAdmin = user?.admin && bot?.admin;
+    try {
+      const metadata = await conn.groupMetadata(chatId);
+      const me = (conn.user.id || "").split(":")[0] + "@s.whatsapp.net";
+      const participants = metadata.participants || [];
+      const user = participants.find(p => p.id === sender + "@s.whatsapp.net");
+      const bot = participants.find(p => p.id === me);
+      isAdmin = user?.admin && bot?.admin;
+    } catch {}
   }
 
   const esOwner = global.isOwner(sender);
@@ -48,23 +93,43 @@ const handler = async (msg, { conn, args }) => {
   const archivoEsDeOwner = global.owner.some(([o]) => o === targetUser);
 
   if (!esOwner && !esDueñoDelArchivo && (!isAdmin || archivoEsDeOwner)) {
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      react: { text: "❌", key: msg.key }
-    }).then(() => conn.sendMessage(chatId, {
       text: `🚫 No tienes permiso para eliminar ese archivo.`,
-    }, { quoted: msg }));
+    }, { quoted: msg });
   }
 
-  db[paquete].splice(index - 1, 1);
-  if (db[paquete].length === 0) delete db[paquete];
-  fs.writeFileSync(RUTA, JSON.stringify(db, null, 2));
+  // ====== Eliminar del archivo correcto ======
+  try {
+    if (origen === "vieja") {
+      dbVieja[paquete].splice(idxLocal, 1);
+      if (dbVieja[paquete].length === 0) delete dbVieja[paquete];
+      fs.writeFileSync(RUTA_VIEJA, JSON.stringify(dbVieja, null, 2));
+    } else {
+      const eliminado = dbNueva[paquete].splice(idxLocal, 1)[0];
+      if (dbNueva[paquete].length === 0) delete dbNueva[paquete];
+      fs.writeFileSync(RUTA_NUEVA, JSON.stringify(dbNueva, null, 2));
 
-  await conn.sendMessage(chatId, {
-    react: { text: "✅", key: msg.key }
-  });
+      // También borrar el archivo físico de la carpeta guar_media/
+      if (eliminado?.path) {
+        try {
+          const filePath = path.resolve(eliminado.path);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch {}
+      }
+    }
+  } catch (e) {
+    console.error("[del] error al escribir:", e);
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    return conn.sendMessage(chatId, {
+      text: `❌ Error al guardar los cambios.`,
+    }, { quoted: msg });
+  }
+
+  await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
   return conn.sendMessage(chatId, {
-    text: `✅ Archivo número ${index} eliminado del paquete: *${paquete}*`
+    text: `✅ Archivo número *${index}* eliminado del paquete: *${paquete}*`
   }, { quoted: msg });
 };
 
