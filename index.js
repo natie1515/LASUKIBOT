@@ -569,7 +569,7 @@ try {
   console.error("❌ Error en lógica ChatGPT por grupo:", e);
 }
 // === FIN LÓGICA CHATGPT POR GRUPO CON activos.db ===
-// === LÓGICA DE RESPUESTA AUTOMÁTICA CON PALABRA CLAVE (adaptada) ===
+// === LÓGICA DE RESPUESTA AUTOMÁTICA CON PALABRA CLAVE (híbrida: carpeta + base64) ===
 try {
   const guarPath = path.resolve('./guar.json');
   if (fs.existsSync(guarPath)) {
@@ -587,7 +587,27 @@ try {
 
       if (cleanText === cleanKey && guarData[key]?.length) {
         const item = guarData[key][Math.floor(Math.random() * guarData[key].length)];
-        const buffer = Buffer.from(item.media, "base64");
+
+        // Obtener el buffer: primero archivo físico, si no existe usa base64
+        let buffer = null;
+
+        if (item.path) {
+          try {
+            const filePath = path.resolve(item.path);
+            if (fs.existsSync(filePath)) {
+              buffer = fs.readFileSync(filePath);
+            }
+          } catch {}
+        }
+
+        if (!buffer && item.media) {
+          try {
+            buffer = Buffer.from(item.media, "base64");
+          } catch {}
+        }
+
+        if (!buffer || !buffer.length) return;
+
         const extension = item.ext || item.mime?.split("/")[1] || "bin";
         const mime = item.mime || "";
 
@@ -607,7 +627,7 @@ try {
         } else {
           payload.document = buffer;
           payload.mimetype = mime || "application/octet-stream";
-          payload.fileName = `archivo.${extension}`;
+          payload.fileName = item.fileName || `archivo.${extension}`;
         }
 
         await sock.sendMessage(chatId, payload, options);
@@ -618,7 +638,7 @@ try {
 } catch (e) {
   console.error("❌ Error en lógica de palabra clave:", e);
 }
-// === FIN DE LÓGICA ===  
+// === FIN DE LÓGICA ===
   
 // === ⛔ INICIO LÓGICA ANTIS STICKERS (bloqueo tras 3 strikes en 15s) ===
 try {
