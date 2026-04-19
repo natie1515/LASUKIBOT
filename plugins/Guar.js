@@ -7,6 +7,8 @@ const crypto = require("crypto");
 
 // Carpeta raíz donde se guardarán los multimedia
 const MEDIA_ROOT = path.resolve("./guar_media");
+// Archivo JSON LIGERO para los registros nuevos (solo rutas, sin base64)
+const FILES_DB = path.resolve("./guar_files.json");
 
 function unwrapMessage(m) {
   let node = m;
@@ -133,7 +135,7 @@ const handler = async (msg, { conn, args, wa }) => {
       quoted?.message?.extendedTextMessage?.text ||
       null;
 
-    // ====== NUEVO: guardar archivo físico en carpeta ======
+    // ====== Guardar archivo físico en carpeta ======
     // Asegura la carpeta raíz ./guar_media
     if (!fs.existsSync(MEDIA_ROOT)) {
       fs.mkdirSync(MEDIA_ROOT, { recursive: true });
@@ -157,9 +159,9 @@ const handler = async (msg, { conn, args, wa }) => {
 
     // Guardar el archivo físicamente
     fs.writeFileSync(filePath, buf);
-    // ======================================================
+    // ================================================
 
-    // Estructura a guardar en el JSON (ya NO se guarda base64, solo la ruta)
+    // Estructura a guardar en el JSON ligero (solo rutas, sin base64)
     const entry = {
       type: mediaType,
       path: relativePath,      // ← ruta al archivo en disco
@@ -172,15 +174,17 @@ const handler = async (msg, { conn, args, wa }) => {
       createdAt: timestamp
     };
 
-    // Cargar/guardar guar.json
-    const fsPath = path.resolve("./guar.json");
+    // ====== Cargar/guardar guar_files.json (SOLO el ligero) ======
+    // IMPORTANTE: ya NO tocamos guar.json (el gigante con base64), así evitamos
+    // que el servidor se quede sin memoria al parsearlo.
     let db = {};
-    if (fs.existsSync(fsPath)) {
-      try { db = JSON.parse(fs.readFileSync(fsPath, "utf-8")); } catch { db = {}; }
+    if (fs.existsSync(FILES_DB)) {
+      try { db = JSON.parse(fs.readFileSync(FILES_DB, "utf-8")); } catch { db = {}; }
     }
     if (!Array.isArray(db[saveKey])) db[saveKey] = [];
     db[saveKey].push(entry);
-    fs.writeFileSync(fsPath, JSON.stringify(db, null, 2));
+    fs.writeFileSync(FILES_DB, JSON.stringify(db, null, 2));
+    // =============================================================
 
     try { await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
