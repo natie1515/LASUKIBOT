@@ -1,6 +1,13 @@
 // plugins/guar.js
 // Usa wa.downloadContentFromMessage inyectado desde index.js (o conn.wa / global.wa)
 
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+// Carpeta raíz donde se guardarán los multimedia
+const MEDIA_ROOT = path.resolve("./guar_media");
+
 function unwrapMessage(m) {
   let node = m;
   while (
@@ -37,6 +44,16 @@ function mimeToExt(mime, fallback = "bin") {
   if (sub.includes("x-msvideo")) return "avi";
   if (sub.includes("x-matroska")) return "mkv";
   return sub.replace(/^x-/, "") || fallback;
+}
+
+// Sanitiza la palabra clave para usarla como nombre de carpeta de forma segura
+function sanitizeKey(key) {
+  return String(key)
+    .toLowerCase()
+    .replace(/[^a-z0-9_\-]/gi, "_") // solo letras, números, guion y guion_bajo
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 64) || "default";
 }
 
 const handler = async (msg, { conn, args, wa }) => {
@@ -116,30 +133,58 @@ const handler = async (msg, { conn, args, wa }) => {
       quoted?.message?.extendedTextMessage?.text ||
       null;
 
-    // Estructura a guardar
+    // ====== NUEVO: guardar archivo físico en carpeta ======
+    // Asegura la carpeta raíz ./guar_media
+    if (!fs.existsSync(MEDIA_ROOT)) {
+      fs.mkdirSync(MEDIA_ROOT, { recursive: true });
+    }
+
+    // Asegura la subcarpeta con la palabra clave: ./guar_media/<saveKey>/
+    const safeKey = sanitizeKey(saveKey);
+    const keyDir = path.join(MEDIA_ROOT, safeKey);
+    if (!fs.existsSync(keyDir)) {
+      fs.mkdirSync(keyDir, { recursive: true });
+    }
+
+    // Nombre de archivo único: <timestamp>_<random>.<ext>
+    const timestamp = Date.now();
+    const randomId = crypto.randomBytes(4).toString("hex");
+    const fileName = `${timestamp}_${randomId}.${ext}`;
+    const filePath = path.join(keyDir, fileName);
+
+    // Ruta relativa para guardar en el JSON (portable entre sistemas)
+    const relativePath = path.relative(process.cwd(), filePath).split(path.sep).join("/");
+
+    // Guardar el archivo físicamente
+    fs.writeFileSync(filePath, buf);
+    // ======================================================
+
+    // Estructura a guardar en el JSON (ya NO se guarda base64, solo la ruta)
     const entry = {
       type: mediaType,
-      media: buf.toString("base64"),
+      path: relativePath,      // ← ruta al archivo en disco
+      fileName,                // ← solo el nombre del archivo
       mime,
       ext,
+      size: buf.length,
       user: userId,
       caption,
-      createdAt: Date.now()
+      createdAt: timestamp
     };
 
     // Cargar/guardar guar.json
-    const fsPath = require("path").resolve("./guar.json");
+    const fsPath = path.resolve("./guar.json");
     let db = {};
-    if (require("fs").existsSync(fsPath)) {
-      try { db = JSON.parse(require("fs").readFileSync(fsPath, "utf-8")); } catch { db = {}; }
+    if (fs.existsSync(fsPath)) {
+      try { db = JSON.parse(fs.readFileSync(fsPath, "utf-8")); } catch { db = {}; }
     }
     if (!Array.isArray(db[saveKey])) db[saveKey] = [];
     db[saveKey].push(entry);
-    require("fs").writeFileSync(fsPath, JSON.stringify(db, null, 2));
+    fs.writeFileSync(fsPath, JSON.stringify(db, null, 2));
 
     try { await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
-      text: `✅ *Guardado:* se añadió 1 archivo al paquete *"${saveKey}"*.\n• tipo: *${mediaType}*\n• ext: *${ext}*`,
+      text: `✅ *Guardado:* se añadió 1 archivo al paquete *"${saveKey}"*.\n• tipo: *${mediaType}*\n• ext: *${ext}*\n• carpeta: *guar_media/${safeKey}/*`,
     }, { quoted: msg });
 
   } catch (e) {
