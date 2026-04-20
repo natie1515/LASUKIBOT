@@ -1,13 +1,21 @@
-// comandos/tt.js — TikTok con opciones (👍 video / ❤️ documento o 1 / 2)
+// comandos/tt.js — TikTok con Botones
+// ✅ Botones: 🎬 Video Normal / 📁 Video Documento
+// ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
+// ✅ Respeta activoss.json (botones on/off)
 // ✅ Multiuso: Puedes descargar varias veces sin reenviar el comando
-// ✅ Persistencia: 10 minutos
-// ✅ Branding: La Suki Bot + API Link
+
+"use strict";
 
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY  || "Russellxz";
-const MAX_TIMEOUT = 60000; // 60s timeout
+const MAX_TIMEOUT = 60000;
+
+// Archivo de configuración de botones
+const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 const fmtSec = (s) => {
   const n = Number(s || 0);
@@ -17,11 +25,24 @@ const fmtSec = (s) => {
   return (h ? `${h}:` : "") + `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
 };
 
-// Jobs pendientes
+// 🆕 Verifica si los botones están activos (crea archivo si no existe)
+function botonesActivos() {
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
+  if (!fs.existsSync(ACTIVOSS_FILE)) {
+    try { fs.writeFileSync(ACTIVOSS_FILE, JSON.stringify(defaultCfg, null, 2)); } catch {}
+    return true;
+  }
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8"));
+    return cfg.botones !== false;
+  } catch {
+    return true;
+  }
+}
+
 const pendingTT = Object.create(null);
 
 async function getTikTokFromSky(url){
-  // Endpoint: POST /tiktok
   const { data: res, status: http } = await axios.post(
     `${API_BASE}/tiktok`,
     { url },
@@ -79,7 +100,6 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
   try {
     await conn.sendMessage(chatId, { react: { text: "⏱️", key: msg.key } });
 
-    // 1) Llama a tu API
     const d = await getTikTokFromSky(url);
 
     const title   = d.title || "TikTok";
@@ -88,23 +108,113 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
     const likes   = d.likes ?? 0;
     const comments= d.comments ?? 0;
 
-    // 2) Mensaje de opciones
-    const txt =
-`⚡ 𝗧𝗶𝗸𝗧𝗼𝗸 — 𝗢𝗽𝗰𝗶𝗼𝗻𝗲𝘀
+    const usarBotones = botonesActivos();
 
-Elige cómo enviarlo:
-👍 𝗩𝗶𝗱𝗲𝗼 (normal)
-❤️ 𝗩𝗶𝗱𝗲𝗼 𝗰𝗼𝗺𝗼 𝗱𝗼𝗰𝘂𝗺𝗲𝗻𝘁𝗼
-— 𝗼 responde: 1 = video · 2 = documento
+    // 🎨 Caption con diseño elegante según estado de botones
+    const caption = usarBotones
+      ? `
+╭━━━━━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-✦ 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
-✦ 𝗔𝘂𝘁𝗼𝗿: ${author}
-✦ 𝗗𝘂𝗿.: ${durTxt} • 👍 ${likes} · 💬 ${comments}
+📀 *INFORMACIÓN*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+✦ *Título:* ${title}
+✦ *Autor:* ${author}
+✦ *Duración:* ${durTxt}
+✦ *Estadísticas:* 👍 ${likes} · 💬 ${comments}
 
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: ${API_BASE}`;
+━━━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
 
-    const preview = await conn.sendMessage(chatId, { text: txt }, { quoted: msg });
+🟢 *OPCIÓN 1 — Botones*
+Toca un botón abajo del mensaje:
+   🎬 *Video Normal*
+   📁 *Video Documento*
+
+🟡 *OPCIÓN 2 — Reaccionar*
+Reacciona con un emoji:
+   👍  →  Video normal
+   ❤️  →  Video como documento
+
+🔵 *OPCIÓN 3 — Responder número*
+Cita este mensaje y escribe:
+   *1*  →  Video normal
+   *2*  →  Video como documento
+
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}`.trim()
+      : `
+╭━━━━━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━━━╯
+
+📀 *INFORMACIÓN*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+✦ *Título:* ${title}
+✦ *Autor:* ${author}
+✦ *Duración:* ${durTxt}
+✦ *Estadísticas:* 👍 ${likes} · 💬 ${comments}
+
+━━━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
+
+🟡 *OPCIÓN 1 — Reaccionar*
+Reacciona con un emoji:
+   👍  →  Video normal
+   ❤️  →  Video como documento
+
+🔵 *OPCIÓN 2 — Responder número*
+Cita este mensaje y escribe:
+   *1*  →  Video normal
+   *2*  →  Video como documento
+
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}`.trim();
+
+    // Botones nativos (solo 2 opciones)
+    const nativeFlowButtons = [
+      { text: "🎬 Video Normal",    id: `${pref}tt_video` },
+      { text: "📁 Video Documento", id: `${pref}tt_videodoc` },
+    ];
+
+    let preview;
+    if (usarBotones && d.cover) {
+      try {
+        preview = await conn.sendMessage(chatId, {
+          image: { url: d.cover },
+          caption,
+          footer: "❦ La Suki Bot — Selecciona una opción ❦",
+          buttons: nativeFlowButtons,
+          headerType: 4,
+        }, { quoted: msg });
+      } catch (e) {
+        console.log("[tt] botones fallaron, fallback:", e.message);
+        preview = await conn.sendMessage(chatId, { image: { url: d.cover }, caption }, { quoted: msg });
+      }
+    } else if (usarBotones) {
+      try {
+        preview = await conn.sendMessage(chatId, {
+          text: caption,
+          footer: "❦ La Suki Bot — Selecciona una opción ❦",
+          buttons: nativeFlowButtons,
+        }, { quoted: msg });
+      } catch (e) {
+        console.log("[tt] botones fallaron, fallback:", e.message);
+        preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
+      }
+    } else {
+      // Botones desactivados
+      if (d.cover) {
+        preview = await conn.sendMessage(chatId, { image: { url: d.cover }, caption }, { quoted: msg });
+      } else {
+        preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
+      }
+    }
 
     // Guardar trabajo
     pendingTT[preview.key.id] = {
@@ -120,17 +230,17 @@ Elige cómo enviarlo:
 🤖 𝗕𝗼𝘁: La Suki Bot
 🔗 𝗔𝗣𝗜: ${API_BASE}`,
       quotedBase: msg,
-      isBusy: false
+      isBusy: false,
+      _createdAt: Date.now(),
     };
 
-    // Auto-borrado a los 10 minutos
     setTimeout(() => {
-        if (pendingTT[preview.key.id]) delete pendingTT[preview.key.id];
+      if (pendingTT[preview.key.id]) delete pendingTT[preview.key.id];
     }, 10 * 60 * 1000);
 
     await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-    // 3) Listener único global
+    // Listener único
     if (!conn._ttListener) {
       conn._ttListener = true;
 
@@ -141,12 +251,11 @@ Elige cómo enviarlo:
             if (m.message?.reactionMessage) {
               const { key: reactKey, text: emoji } = m.message.reactionMessage;
               const job = pendingTT[reactKey.id];
-              
+
               if (!job) continue;
               if (job.chatId !== m.key.remoteJid) continue;
               if (emoji !== "👍" && emoji !== "❤️") continue;
 
-              // Evitar doble clic rápido
               if (job.isBusy) continue;
               job.isBusy = true;
 
@@ -155,7 +264,60 @@ Elige cómo enviarlo:
               continue;
             }
 
-            // B) RESPUESTAS 1/2
+            // B) BOTONES / MENÚ INTERACTIVO
+            const interactiveReply =
+              m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
+              m.message?.buttonsResponseMessage ||
+              m.message?.templateButtonReplyMessage ||
+              m.message?.listResponseMessage ||
+              null;
+
+            if (interactiveReply) {
+              let selectedId = "";
+              if (m.message?.buttonsResponseMessage?.selectedButtonId) {
+                selectedId = m.message.buttonsResponseMessage.selectedButtonId;
+              } else if (m.message?.templateButtonReplyMessage?.selectedId) {
+                selectedId = m.message.templateButtonReplyMessage.selectedId;
+              } else if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
+                selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+              } else if (interactiveReply?.paramsJson) {
+                try {
+                  const params = JSON.parse(interactiveReply.paramsJson);
+                  selectedId = params.id || "";
+                } catch {}
+              } else if (interactiveReply?.body?.text) {
+                selectedId = interactiveReply.body.text;
+              }
+
+              if (!selectedId) continue;
+              const id = String(selectedId).trim();
+
+              const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
+              let job = null;
+              if (ctxQuoted && pendingTT[ctxQuoted]) {
+                job = pendingTT[ctxQuoted];
+              } else {
+                const jobs = Object.values(pendingTT)
+                  .filter(j => j.chatId === m.key.remoteJid)
+                  .sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
+                if (jobs.length > 0) job = jobs[0];
+              }
+
+              if (!job || job.isBusy) continue;
+
+              if (id.endsWith("tt_video") || id === `${(global.prefixes?.[0] || ".")}tt_video`) {
+                job.isBusy = true;
+                await processSend(conn, job, false, m);
+                continue;
+              }
+              if (id.endsWith("tt_videodoc") || id === `${(global.prefixes?.[0] || ".")}tt_videodoc`) {
+                job.isBusy = true;
+                await processSend(conn, job, true, m);
+                continue;
+              }
+            }
+
+            // C) RESPUESTAS 1/2
             const ctx = m.message?.extendedTextMessage?.contextInfo;
             const replyTo = ctx?.stanzaId;
 
@@ -166,7 +328,6 @@ Elige cómo enviarlo:
               const textLow = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim().toLowerCase();
               if (textLow !== "1" && textLow !== "2") continue;
 
-              // Evitar doble clic rápido
               if (job.isBusy) continue;
               job.isBusy = true;
 
@@ -189,20 +350,16 @@ Elige cómo enviarlo:
   }
 };
 
-// Función de envío con feedback
 async function processSend(conn, job, asDocument, triggerMsg){
   const { chatId, url, caption, quotedBase } = job;
 
   try {
-    // Reacción "cargando"
     await conn.sendMessage(chatId, { react: { text: asDocument ? "📁" : "🎬", key: triggerMsg.key } });
-    
-    // Mensaje de espera
+
     await conn.sendMessage(chatId, {
       text: `⏳ Espere, descargando video${asDocument ? " en documento" : ""}...`
     }, { quoted: quotedBase });
 
-    // Enviar archivo
     if (asDocument) {
       await conn.sendMessage(chatId, {
         document: { url },
@@ -218,14 +375,12 @@ async function processSend(conn, job, asDocument, triggerMsg){
       }, { quoted: quotedBase });
     }
 
-    // Confirmación
     await conn.sendMessage(chatId, { react: { text: "✅", key: triggerMsg.key } });
 
   } catch (e) {
     console.error("TT send error:", e);
     await conn.sendMessage(chatId, { react: { text: "❌", key: triggerMsg.key } });
   } finally {
-    // Liberamos el job para que pueda volver a usarse
     job.isBusy = false;
   }
 }
@@ -236,4 +391,3 @@ handler.tags = ["descargas"];
 handler.register = true;
 
 module.exports = handler;
-
