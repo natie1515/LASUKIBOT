@@ -118,20 +118,10 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
  *📥 CÓMO DESCARGAR*
 ━━━━━━━━━━━━━━━━━━━━
 
-🟢 *OPCIÓN 1 — Botones*
+🟢 *OPCIÓN — Botones*
 Toca un botón abajo del mensaje:
    🎬 *Video Normal*
    📁 *Video Documento*
-
-🟡 *OPCIÓN 2 — Reaccionar*
-Reacciona con un emoji:
-   👍  →  Video normal
-   ❤️  →  Video como documento
-
-🔵 *OPCIÓN 3 — Responder número*
-Cita este mensaje y escribe:
-   *1*  →  Video normal
-   *2*  →  Video como documento
 
 ━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
