@@ -142,9 +142,9 @@ module.exports = async (msg, { conn, args, command }) => {
     // 🎨 Caption LIMPIO — solo explicación + marca de agua
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
-  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╭━━━━━━━━━━━━━━━━━╮
+  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 VIDEO
+╰━━━━━━━━━━━━━━━━━╯
 
 ━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
@@ -169,13 +169,13 @@ Cita este mensaje y escribe:
 🤖 *La Suki Bot*
 ━━━━━━━━━━━━━━━━━━━━`.trim()
       : `
-╭━━━━━━━━━━━━━━━━━━━━╮
-  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╭━━━━━━━━━━━━━━━━━╮
+  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 VIDEO
+╰━━━━━━━━━━━━━━━━━╯
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -187,9 +187,9 @@ Cita este mensaje y escribe:
    *1*  →  Video normal
    *2*  →  Video como documento
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━━━`.trim();
+━━━━━━━━━━━━━━━━━━`.trim();
 
     const nativeFlowButtons = [
       { text: "🎬 Video Normal",    id: `${pref}fb_video` },
@@ -360,7 +360,7 @@ async function sendVideo(conn, job, asDocument, triggerMsg) {
 
     // 🎨 Caption final con TODA la info del video + marca de agua
     const finalCaption =
-`╭━━━━━━━━━━━━━━━━╮
+`╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 — 𝗩𝗜𝗗𝗘𝗢
 ╰━━━━━━━━━━━━━━━━━╯
 
