@@ -1,8 +1,8 @@
 // comandos/ytmp3.js — YouTube MP3 (URL)
-// ✅ API original que SÍ funciona (POST /youtube/resolve, type: audio)
-// ✅ 2 Botones rápidos (Audio Normal y Documento)
-// ✅ Respeta activoss.json
-// ✅ Sistema de bloqueo isBusy con aviso al usuario
+// ✅ MISMO patrón de play.js (botones text/sections/rows + headerType: 4)
+// ✅ Botones: "🎵 Audio" y "📄 Audio Documento"
+// ✅ Respeta activoss.json (sistema de activar/desactivar botones)
+// ✅ Soporta Reacciones, Menú Interactivo y Respuestas Citadas
 
 "use strict";
 
@@ -15,21 +15,29 @@ const { promisify } = require("util");
 const { pipeline } = require("stream");
 const streamPipe = promisify(pipeline);
 
+// ==== CONFIG DE TU API ====
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY = process.env.API_KEY || "Russellxz";
+const DEFAULT_AUDIO_FORMAT = "mp3";
 const MAX_MB = 200;
 const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
-const pendingYTA = {};
+const pending = {};
 
 // ---------- utils ----------
 function safeName(name = "audio") {
-  return String(name).slice(0, 90).replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim() || "audio";
+  return (
+    String(name)
+      .slice(0, 90)
+      .replace(/[^\w.\- ]+/g, "_")
+      .replace(/\s+/g, " ")
+      .trim() || "audio"
+  );
 }
 
 function fileSizeMB(filePath) {
-  if (!fs.existsSync(filePath)) return 0;
-  return fs.statSync(filePath).size / (1024 * 1024);
+  const b = fs.statSync(filePath).size;
+  return b / (1024 * 1024);
 }
 
 function ensureTmp() {
@@ -39,185 +47,298 @@ function ensureTmp() {
 }
 
 function botonesActivos() {
-  if (!fs.existsSync(ACTIVOSS_FILE)) return true;
-  try { return JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8")).botones !== false; }
-  catch { return true; }
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
+  if (!fs.existsSync(ACTIVOSS_FILE)) {
+    try { fs.writeFileSync(ACTIVOSS_FILE, JSON.stringify(defaultCfg, null, 2)); } catch {}
+    return true;
+  }
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8"));
+    return cfg.botones !== false;
+  } catch {
+    return true;
+  }
 }
 
 function isYouTube(u = "") {
   return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(String(u));
 }
 
+function isApiUrl(url = "") {
+  try {
+    const u = new URL(url);
+    const b = new URL(API_BASE);
+    return u.host === b.host;
+  } catch {
+    return false;
+  }
+}
+
 async function downloadToFile(url, filePath) {
-  const headers = { "User-Agent": "Mozilla/5.0", Accept: "*/*" };
-  if (url.includes(new URL(API_BASE).host)) headers["apikey"] = API_KEY;
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    Accept: "*/*",
+  };
+  if (isApiUrl(url)) headers["apikey"] = API_KEY;
+
   const res = await axios.get(url, {
     responseType: "stream",
     timeout: 180000,
     headers,
     maxRedirects: 5,
-    validateStatus: () => true
+    validateStatus: () => true,
   });
+
   if (res.status >= 400) throw new Error(`HTTP_${res.status}`);
   await streamPipe(res.data, fs.createWriteStream(filePath));
   return filePath;
 }
 
+// ---------- API (mismo patrón que play.js) ----------
 async function callYoutubeResolve(videoUrl) {
-  const r = await axios.post(`${API_BASE}/youtube/resolve`,
-    { url: videoUrl, type: "audio", format: "mp3" },
-    { headers: { "Content-Type": "application/json", apikey: API_KEY }, validateStatus: () => true }
-  );
+  const endpoint = `${API_BASE}/youtube/resolve`;
+  const body = { url: videoUrl, type: "audio", format: DEFAULT_AUDIO_FORMAT };
+
+  const r = await axios.post(endpoint, body, {
+    timeout: 120000,
+    headers: {
+      "Content-Type": "application/json",
+      apikey: API_KEY,
+      Accept: "application/json, */*",
+    },
+    validateStatus: () => true,
+  });
+
   const data = typeof r.data === "object" ? r.data : null;
-  if (!data || (!data.status && !data.ok && !data.success)) {
-    throw new Error(data?.message || data?.error || "Error en la API");
-  }
+  if (!data) throw new Error("Respuesta no JSON del servidor");
+
+  const ok = data.status === true || data.status === "true" || data.ok === true || data.success === true;
+  if (!ok) throw new Error(data.message || data.error || "Error en la API");
+
   const result = data.result || data.data || data;
-  let dl = result.media?.dl_download
-    || result.media?.direct
-    || result.media?.url
-    || result.url
-    || result.download
-    || "";
-  if (dl && dl.startsWith("/")) dl = API_BASE + dl;
+  if (!result?.media) throw new Error("API sin media");
+
+  let dl = result.media.dl_download || "";
+  if (dl && typeof dl === "string" && dl.startsWith("/")) dl = API_BASE + dl;
+
+  const direct = result.media.direct || "";
+
   return {
     title: result.title || "YouTube Audio",
-    author: (typeof result.author === "object" ? result.author?.name : result.author) || "Desconocido",
-    duration: result.duration || result.timestamp || 0,
-    mediaUrl: dl
+    thumbnail: result.thumbnail || "",
+    dl_download: dl,
+    direct,
   };
 }
 
 // ---------- main ----------
 module.exports = async (msg, { conn, args, command }) => {
   const pref = global.prefixes?.[0] || ".";
-  let url = (args[0] || "").trim();
+  const url = (args[0] || "").trim();
 
-  if (!url) return conn.sendMessage(msg.key.remoteJid, { text: `✳️ Usa:\n${pref}${command} <URL>` }, { quoted: msg });
-  if (!isYouTube(url)) return conn.sendMessage(msg.key.remoteJid, { text: `❌ Enlace inválido.` }, { quoted: msg });
+  if (!url) {
+    return conn.sendMessage(
+      msg.key.remoteJid,
+      { text: `✳️ Usa:\n${pref}${command} <URL de YouTube>` },
+      { quoted: msg }
+    );
+  }
+  if (!isYouTube(url)) {
+    return conn.sendMessage(msg.key.remoteJid, { text: "❌ Enlace inválido." }, { quoted: msg });
+  }
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-  let title = "YouTube Audio", thumbnail = "", durationTxt = "—", author = "Desconocido";
+  // Buscar info del video con yt-search
+  let title = "YouTube Audio";
+  let thumbnail = "";
+  let duration = "—";
+  let viewsFmt = "—";
+  let authorName = "Desconocido";
+
   try {
     const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
     if (videoIdMatch) {
       const searchRes = await yts({ videoId: videoIdMatch[1] });
       if (searchRes) {
-        title = searchRes.title;
-        thumbnail = searchRes.thumbnail;
-        durationTxt = searchRes.timestamp;
-        author = searchRes.author?.name || "Desconocido";
+        title = searchRes.title || title;
+        thumbnail = searchRes.thumbnail || "";
+        duration = searchRes.timestamp || "—";
+        viewsFmt = (searchRes.views || 0).toLocaleString();
+        authorName = searchRes.author?.name || searchRes.author || "Desconocido";
       }
     }
   } catch {}
 
   const usarBotones = botonesActivos();
 
-  const caption = usarBotones ?
-`╭━━━━━━━━━━━━━━━━╮
+  // 🎨 Caption — info del video + explicación de descarga
+  const caption = usarBotones
+    ? `
+╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
 ╰━━━━━━━━━━━━━━━━╯
 
-🎵 *Título:* ${title}
-👤 *Canal:* ${author}
-⏱️ *Duración:* ${durationTxt}
+📝 *Título:* ${title}
+👤 *Autor:* ${authorName}
+⏱️ *Duración:* ${duration}
 
-👇 *Elige una opción abajo:*`
-  :
-`╭━━━━━━━━━━━━━━━━╮
+━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━
+
+🟢 *OPCIÓN 1 — Menú de Botones*
+Toca el botón *📥 Menú de descarga* abajo del mensaje. Se abrirá la lista con las opciones de audio.
+
+━━━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━━━
+`.trim()
+    : `
+╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
 ╰━━━━━━━━━━━━━━━━╯
 
-🎵 *Título:* ${title}
-👤 *Canal:* ${author}
-⏱️ *Duración:* ${durationTxt}
+📝 *Título:* ${title}
+👤 *Autor:* ${authorName}
+⏱️ *Duración:* ${duration}
+
+━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
-   👍  →  Audio Normal
-   📄  →  Audio como Documento
+Reacciona con un emoji:
+   👍  →  Audio MP3
+   📄  →  Audio como documento
 
-🔵 *OPCIÓN 2 — Responder citando este mensaje*
-   *1* →  Audio Normal
-   *2* →  Audio como Documento`;
+🔵 *OPCIÓN 2 — Responder número*
+Cita este mensaje y escribe:
+   *1* o *audio*      →  Audio MP3
+   *2* o *audiodoc*   →  Audio como documento
 
-  // 2 Botones rápidos (quick_reply)
+━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━
+`.trim();
+
+  // ====== MENÚ INTERACTIVO (mismo formato que play.js — el que SÍ funciona en tu Baileys) ======
   const nativeFlowButtons = [
-    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "🎵 Audio Normal", id: `${pref}ytmp3_audio` }) },
-    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "📄 Documento",    id: `${pref}ytmp3_audiodoc` }) }
+    {
+      text: "📥 Menú de descarga",
+      sections: [
+        {
+          title: "🎵 AUDIO",
+          highlight_label: "MP3",
+          rows: [
+            { header: "", title: "🎵 Audio",            description: "Descargar como nota de audio reproducible", id: `${pref}ytmp3_audio`    },
+            { header: "", title: "📄 Audio Documento",  description: "Descargar como archivo mp3 descargable",    id: `${pref}ytmp3_audiodoc` },
+          ],
+        },
+      ],
+    },
   ];
 
+  // Enviar con o sin botones
   let preview;
   if (usarBotones) {
     try {
-      const payload = { caption, footer: "🤖 La Suki Bot", buttons: nativeFlowButtons, headerType: 1 };
-      if (thumbnail) { payload.image = { url: thumbnail }; payload.headerType = 4; }
-      preview = await conn.sendMessage(msg.key.remoteJid, payload, { quoted: msg });
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
+        {
+          image: thumbnail ? { url: thumbnail } : undefined,
+          caption,
+          footer: "❦ Selecciona una opción del menú ❦",
+          buttons: nativeFlowButtons,
+          headerType: 4,
+        },
+        { quoted: msg }
+      );
     } catch (e) {
-      preview = await conn.sendMessage(msg.key.remoteJid,
+      console.log("[ytmp3] menú nativo falló, usando fallback:", e.message);
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
         thumbnail ? { image: { url: thumbnail }, caption } : { text: caption },
-        { quoted: msg });
+        { quoted: msg }
+      );
     }
   } else {
-    preview = await conn.sendMessage(msg.key.remoteJid,
+    preview = await conn.sendMessage(
+      msg.key.remoteJid,
       thumbnail ? { image: { url: thumbnail }, caption } : { text: caption },
-      { quoted: msg });
+      { quoted: msg }
+    );
   }
 
-  pendingYTA[preview.key.id] = {
-    chatId: msg.key.remoteJid, url, title, thumbnail, author, durationTxt,
-    commandMsg: msg, isBusy: false, _createdAt: Date.now()
+  // Guardar TODA la info para el caption final
+  pending[preview.key.id] = {
+    chatId: msg.key.remoteJid,
+    videoUrl: url,
+    title,
+    thumbnail,
+    duration,
+    viewsFmt,
+    authorName,
+    commandMsg: msg,
+    _createdAt: Date.now(),
   };
-  setTimeout(() => { delete pendingYTA[preview.key.id]; }, 10 * 60 * 1000);
+  setTimeout(() => { delete pending[preview.key.id]; }, 10 * 60 * 1000);
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
 
-  // ====== Listener único ======
-  if (!conn._ytmp3Listener) {
-    conn._ytmp3Listener = true;
+  // ====== Listener único (mismo patrón que play.js) ======
+  if (!conn._ytmp3ProListener) {
+    conn._ytmp3ProListener = true;
+
     conn.ev.on("messages.upsert", async (ev) => {
       for (const m of ev.messages) {
-
         // 1) REACCIONES
         if (m.message?.reactionMessage) {
           const { key: reactKey, text: emoji } = m.message.reactionMessage;
-          const job = pendingYTA[reactKey.id];
-          if (job) {
-            if (emoji === "👍") await downloadAudio(conn, job, false, m);
-            if (emoji === "📄" || emoji === "❤️") await downloadAudio(conn, job, true, m);
-          }
+          const job = pending[reactKey.id];
+          if (job) await handleReaction(conn, job, emoji, job.commandMsg);
           continue;
         }
 
-        // 2) BOTONES INTERACTIVOS
+        // 2) RESPUESTAS DEL MENÚ INTERACTIVO
         try {
           const interactiveReply =
-               m.message?.interactiveResponseMessage?.nativeFlowResponseMessage
-            || m.message?.listResponseMessage
-            || m.message?.buttonsResponseMessage
-            || m.message?.templateButtonReplyMessage
-            || null;
+            m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
+            m.message?.listResponseMessage ||
+            m.message?.buttonsResponseMessage ||
+            m.message?.templateButtonReplyMessage ||
+            null;
 
           if (interactiveReply) {
             let selectedId = "";
-            if (interactiveReply?.paramsJson) {
-              try { selectedId = JSON.parse(interactiveReply.paramsJson).id || ""; } catch {}
+
+            if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
+              selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
             } else if (m.message?.buttonsResponseMessage?.selectedButtonId) {
               selectedId = m.message.buttonsResponseMessage.selectedButtonId;
             } else if (m.message?.templateButtonReplyMessage?.selectedId) {
               selectedId = m.message.templateButtonReplyMessage.selectedId;
+            } else if (interactiveReply?.paramsJson) {
+              try {
+                const params = JSON.parse(interactiveReply.paramsJson);
+                selectedId = params.id || "";
+              } catch {}
+            } else if (interactiveReply?.body?.text) {
+              selectedId = interactiveReply.body.text;
             }
 
             if (!selectedId) continue;
-            // Solo IDs propios de ytmp3 (evita conflicto con ytmp4)
+            // Solo IDs propios de ytmp3 (evita conflicto con ytmp4 / play)
             if (!selectedId.includes("ytmp3_")) continue;
 
             const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
             let job = null;
-            if (ctxQuoted && pendingYTA[ctxQuoted]) {
-              job = pendingYTA[ctxQuoted];
+
+            if (ctxQuoted && pending[ctxQuoted]) {
+              job = pending[ctxQuoted];
             } else {
-              const jobsInChat = Object.entries(pendingYTA)
+              const jobsInChat = Object.entries(pending)
                 .filter(([, j]) => j.chatId === m.key.remoteJid)
                 .sort(([, a], [, b]) => (b._createdAt || 0) - (a._createdAt || 0));
               if (jobsInChat.length > 0) job = jobsInChat[0][1];
@@ -225,20 +346,34 @@ module.exports = async (msg, { conn, args, command }) => {
 
             if (!job) continue;
 
-            if (selectedId.endsWith("ytmp3_audio")) await downloadAudio(conn, job, false, m);
-            else if (selectedId.endsWith("ytmp3_audiodoc")) await downloadAudio(conn, job, true, m);
+            await handleMenuSelection(conn, job, selectedId, m, pref);
             continue;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("[ytmp3] error menú:", e);
+        }
 
         // 3) RESPUESTAS CITADAS
         try {
-          const citado = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
+          const context = m.message?.extendedTextMessage?.contextInfo;
+          const citado = context?.stanzaId;
           const texto = String(m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim().toLowerCase();
-          const job = pendingYTA[citado];
+          const job = pending[citado];
+          const chatId = m.key.remoteJid;
+
           if (citado && job) {
-            if (texto === "1" || texto === "audio") await downloadAudio(conn, job, false, m);
-            else if (texto === "2" || texto === "documento" || texto === "doc") await downloadAudio(conn, job, true, m);
+            const firstWord = texto.split(/\s+/)[0];
+
+            if (["1", "audio"].includes(firstWord)) {
+              await conn.sendMessage(chatId, { react: { text: "🎵", key: m.key } });
+              await conn.sendMessage(chatId, { text: `🎶 Descargando audio (mp3)...` }, { quoted: m });
+              await downloadAudio(conn, job, false, m);
+            }
+            else if (["2", "audiodoc", "doc", "documento"].includes(firstWord)) {
+              await conn.sendMessage(chatId, { react: { text: "📄", key: m.key } });
+              await conn.sendMessage(chatId, { text: `🎶 Descargando audio como documento...` }, { quoted: m });
+              await downloadAudio(conn, job, true, m);
+            }
           }
         } catch (e) {}
       }
@@ -246,69 +381,113 @@ module.exports = async (msg, { conn, args, command }) => {
   }
 };
 
-async function downloadAudio(conn, job, asDocument, m) {
-  if (job.isBusy) {
-    try {
-      await conn.sendMessage(job.chatId, {
-        text: "⌛ Ya estoy procesando este audio, espere a que termine la descarga actual..."
-      }, { quoted: m });
-    } catch {}
+// ====== Manejar selección del menú ======
+async function handleMenuSelection(conn, job, selectedId, m, pref) {
+  const chatId = m.key.remoteJid;
+  const id = String(selectedId).trim();
+
+  if (id === `${pref}ytmp3_audio` || id.endsWith("ytmp3_audio")) {
+    await conn.sendMessage(chatId, { react: { text: "🎵", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎶 Descargando audio (mp3)...` }, { quoted: m });
+    return downloadAudio(conn, job, false, m);
+  }
+
+  if (id === `${pref}ytmp3_audiodoc` || id.endsWith("ytmp3_audiodoc")) {
+    await conn.sendMessage(chatId, { react: { text: "📄", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎶 Descargando audio como documento...` }, { quoted: m });
+    return downloadAudio(conn, job, true, m);
+  }
+}
+
+// ====== Manejar reacciones ======
+async function handleReaction(conn, job, emoji, quoted) {
+  if (emoji === "👍") {
+    await conn.sendMessage(job.chatId, { text: `⏳ Descargando audio (mp3)...` }, { quoted });
+    return downloadAudio(conn, job, false, quoted);
+  }
+  if (emoji === "📄" || emoji === "❤️") {
+    await conn.sendMessage(job.chatId, { text: `⏳ Descargando audio como documento...` }, { quoted });
+    return downloadAudio(conn, job, true, quoted);
+  }
+}
+
+async function downloadAudio(conn, job, asDocument, quoted) {
+  const { chatId, videoUrl, title, duration, viewsFmt, authorName } = job;
+
+  let resolved;
+  try {
+    resolved = await callYoutubeResolve(videoUrl);
+  } catch (e) {
+    await conn.sendMessage(chatId, { text: `❌ Error API (audio): ${e.message}` }, { quoted });
     return;
   }
-  job.isBusy = true;
+
+  const mediaUrl = resolved.dl_download || resolved.direct;
+  if (!mediaUrl) {
+    await conn.sendMessage(chatId, { text: "❌ No se pudo obtener audio." }, { quoted });
+    return;
+  }
 
   const tmp = ensureTmp();
+  const base = safeName(title);
   const inFile = path.join(tmp, `${Date.now()}_in.bin`);
-  const outFile = path.join(tmp, `${Date.now()}_out.mp3`);
+  await downloadToFile(mediaUrl, inFile);
+
+  const outMp3 = path.join(tmp, `${Date.now()}_${base}.mp3`);
+  let outFile = outMp3;
 
   try {
-    await conn.sendMessage(job.chatId, { react: { text: asDocument ? "📄" : "🎵", key: m.key } });
-    await conn.sendMessage(job.chatId, { text: "⏳ Espere, descargando su canción..." }, { quoted: m });
-
-    const res = await callYoutubeResolve(job.url);
-    if (!res.mediaUrl) throw new Error("No se pudo obtener audio.");
-
-    await downloadToFile(res.mediaUrl, inFile);
-
     await new Promise((resolve, reject) => {
-      ffmpeg(inFile).audioCodec("libmp3lame").audioBitrate("128k").format("mp3").save(outFile)
-        .on("end", resolve).on("error", reject);
+      ffmpeg(inFile).audioCodec("libmp3lame").audioBitrate("128k").format("mp3").save(outMp3).on("end", resolve).on("error", reject);
     });
+    try { fs.unlinkSync(inFile); } catch {}
+  } catch {
+    outFile = inFile;
+    asDocument = true;
+  }
 
-    const sizeMB = fileSizeMB(outFile);
-    if (sizeMB > MAX_MB) throw new Error(`Audio supera los ${MAX_MB}MB.`);
+  const sizeMB = fileSizeMB(outFile);
+  if (sizeMB > MAX_MB) {
+    try { fs.unlinkSync(outFile); } catch {}
+    await conn.sendMessage(chatId, { text: `❌ Audio > ${MAX_MB}MB.` }, { quoted });
+    return;
+  }
 
-    const finalTitle = res.title || job.title;
-    const caption =
-`╭━━━━━━━━━━━━━━━━╮
-   ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
-╰━━━━━━━━━━━━━━━━╯
+  // 🎨 Caption final con TODA la info + marca de agua
+  const finalCaption =
+`╭━━━━━━━━━━━━━━━━━━╮
+   🎵 𝗔𝗨𝗗𝗜𝗢 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
+╰━━━━━━━━━━━━━━━━━━╯
 
-🎵 *Título:* ${finalTitle}
-👤 *Canal:* ${job.author || res.author || "Desconocido"}
-⏱️ *Duración:* ${job.durationTxt || "—"}
-💾 *Peso:* ${sizeMB.toFixed(2)} MB
-📦 *Tipo:* ${asDocument ? "Documento" : "Audio"}
+📝 *Título:* ${title}
+👤 *Autor:* ${authorName}
+⏱️ *Duración:* ${duration}
+👁️ *Vistas:* ${viewsFmt}
+📦 *Formato:* ${asDocument ? "Documento MP3" : "Audio MP3"}
+💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
-🤖 *Bot:* La Suki Bot`;
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}
+━━━━━━━━━━━━━━━━━━━━`;
 
-    await conn.sendMessage(job.chatId, {
+  await conn.sendMessage(
+    chatId,
+    {
       [asDocument ? "document" : "audio"]: fs.readFileSync(outFile),
       mimetype: "audio/mpeg",
-      fileName: `${safeName(finalTitle)}.mp3`,
-      caption: asDocument ? caption : undefined
-    }, { quoted: job.commandMsg });
+      fileName: `${base}.mp3`,
+      caption: asDocument ? finalCaption : undefined, // audio nota no soporta caption
+    },
+    { quoted }
+  );
 
-    if (!asDocument) await conn.sendMessage(job.chatId, { text: caption }, { quoted: job.commandMsg });
-    await conn.sendMessage(job.chatId, { react: { text: "✅", key: m.key } });
-  } catch (e) {
-    await conn.sendMessage(job.chatId, { text: `❌ Error: ${e.message}` }, { quoted: m });
-    try { await conn.sendMessage(job.chatId, { react: { text: "❌", key: m.key } }); } catch {}
-  } finally {
-    try { fs.unlinkSync(inFile); } catch {}
-    try { fs.unlinkSync(outFile); } catch {}
-    job.isBusy = false;
+  // Si fue enviado como audio (nota), mandamos la info aparte
+  if (!asDocument) {
+    await conn.sendMessage(chatId, { text: finalCaption }, { quoted });
   }
+
+  try { fs.unlinkSync(outFile); } catch {}
 }
 
 module.exports.command = ["ytmp3", "yta"];
