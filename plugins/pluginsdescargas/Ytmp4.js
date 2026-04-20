@@ -187,29 +187,29 @@ module.exports = async (msg, { conn, args, command }) => {
   // 🎨 Caption LIMPIO — solo explicación + marca de agua
   const caption = usarBotones
     ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗩𝗜𝗗𝗘𝗢 ⚡
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━╯
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Menú de Botones*
 Toca el botón *📥 Menú de descarga* abajo del mensaje. Se abrirá la lista con todas las calidades disponibles (144p hasta 4K) en formato Video o Documento.
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 `.trim()
     : `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗩𝗜𝗗𝗘𝗢 ⚡
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━╯
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -224,9 +224,9 @@ Cita este mensaje y escribe:
 💡 *Tip:* Puedes cambiar la calidad escribiendo:
    _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 `.trim();
 
   // ====== MENÚ INTERACTIVO ======
@@ -503,9 +503,9 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   // 🎨 Caption final con TODA la info + marca de agua
   const qualityLabel = q === "4k" ? "4K" : `${q}p`;
   const finalCaption =
-`╭━━━━━━━━━━━━━━━━━━━━╮
+`╭━━━━━━━━━━━━━━━━━╮
    🎬 𝗩𝗜𝗗𝗘𝗢 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 👤 *Autor:* ${authorName}
@@ -515,10 +515,10 @@ async function downloadVideo(conn, job, asDocument, quoted) {
 📦 *Formato:* ${asDocument ? "Documento MP4" : "Video MP4"}
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}
-━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━`;
 
   await conn.sendMessage(
     chatId,
