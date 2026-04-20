@@ -1,6 +1,9 @@
 // commands/play.js — YouTube Play (Buscador + Descarga)
-// ✅ Publicidad agregada en el caption del video final
+// ✅ Publicidad en el caption del video final
 // ✅ Soporta Calidad, Reacciones y Respuestas Citadas
+// ✅ Menú interactivo tipo lista con múltiples calidades de documento
+// ✅ Diseño elegante y entendible
+// ✅ Respeta activoss.json (on/off de botones)
 
 "use strict";
 
@@ -20,10 +23,13 @@ const API_KEY = process.env.API_KEY || "Russellxz";
 // Defaults
 const DEFAULT_VIDEO_QUALITY = "360";
 const DEFAULT_AUDIO_FORMAT = "mp3";
-const MAX_MB = 200; // Aumentado a 200MB para videos largos
+const MAX_MB = 200;
 
-// Calidades válidas (de tu API)
+// Calidades válidas
 const VALID_QUALITIES = new Set(["144", "240", "360", "720", "1080", "1440", "4k"]);
+
+// Archivo de configuración de botones
+const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 // Almacena tareas pendientes por previewMessageId
 const pending = {};
@@ -48,6 +54,26 @@ function ensureTmp() {
   const tmp = path.join(__dirname, "../tmp");
   if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
   return tmp;
+}
+
+// 🆕 Leer activoss.json para saber si los botones están activos
+// Si el archivo no existe, lo crea con botones activados por defecto
+function botonesActivos() {
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
+
+  if (!fs.existsSync(ACTIVOSS_FILE)) {
+    try {
+      fs.writeFileSync(ACTIVOSS_FILE, JSON.stringify(defaultCfg, null, 2));
+    } catch {}
+    return true;
+  }
+
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8"));
+    return cfg.botones !== false; // default: true
+  } catch {
+    return true;
+  }
 }
 
 function extractQualityFromText(input = "") {
@@ -180,38 +206,189 @@ module.exports = async (msg, { conn, text }) => {
   const { url: videoUrl, title, timestamp: duration, views, author, thumbnail } = video;
   const viewsFmt = (views || 0).toLocaleString();
   const chosenQuality = VALID_QUALITIES.has(quality) ? quality : DEFAULT_VIDEO_QUALITY;
+  const qualityLabel = chosenQuality === "4k" ? "4K" : `${chosenQuality}p`;
 
-  const caption = `
-❦𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻❦
+  // 🆕 Consultar estado de botones
+  const usarBotones = botonesActivos();
 
-📀 𝙸𝚗𝚏𝚘:
-❥ 𝑻𝒊𝒕𝒖𝒍𝒐: ${title}
-❥ 𝑫𝒖𝒓𝒂𝒄𝒊𝒐𝒏: ${duration}
-❥ 𝑽𝒊𝒔𝒕𝒂𝒔: ${viewsFmt}
-❥ 𝑨𝒖𝒕𝒐𝒓: ${author?.name || author || "Desconocido"}
-❥ 𝑳𝒊𝒏𝒌: ${videoUrl}
+  // ====== 🎨 CAPTION ELEGANTE Y ENTENDIBLE ======
+  // Si los botones están activos, muestra las 3 opciones
+  // Si NO, muestra solo las 2 opciones (reacción y respuesta)
+  const caption = usarBotones
+    ? `
+╭━━━━━━━━━━━━━━━╮
+   ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+╰━━━━━━━━━━━━━━━╯
 
-⚙️ Calidad video seleccionada: ${chosenQuality === "4k" ? "4K" : `${chosenQuality}p`} (default: 360p)
-🎵 Audio: MP3
+📀 *INFORMACIÓN DEL VIDEO*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+🎵 *Título:* ${title}
+⏱️ *Duración:* ${duration}
+👁️ *Vistas:* ${viewsFmt}
+👤 *Autor:* ${author?.name || author || "Desconocido"}
+🔗 *Link:* ${videoUrl}
 
-📥 Opciones:
-☛ 👍 Audio MP3     (1 / audio)
-☛ ❤️ Video         (2 / video)  -> usa ${chosenQuality === "4k" ? "4K" : `${chosenQuality}p`}
-☛ 📄 Audio Doc     (4 / audiodoc)
-☛ 📁 Video Doc     (3 / videodoc)
+⚙️ *AJUSTES ACTUALES*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+📹 Calidad video: *${qualityLabel}*
+🎵 Formato audio: *MP3*
 
-💡 Tip: También puedes responder:
-- "video 720" o "2 720" (cambia calidad)
-- "audio" (siempre mp3)
+━━━━━━━━━━━━━━━━━━
+*📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━
 
-❦𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻❦
+🟢 *OPCIÓN 1 — Menú de Botones*
+Toca el botón *📥 Menú de descarga* que aparece debajo del mensaje. Se abrirá una lista con todas las opciones de audio y video en distintas calidades.
+
+🟡 *OPCIÓN 2 — Reaccionar*
+Reacciona a este mensaje con un emoji:
+   👍  →  Audio MP3
+   ❤️  →  Video (${qualityLabel})
+   📄  →  Audio como documento
+   📁  →  Video como documento
+
+🔵 *OPCIÓN 3 — Responder con número*
+Cita este mensaje y escribe:
+   *1* o *audio*      →  Audio MP3
+   *2* o *video*      →  Video (${qualityLabel})
+   *3* o *videodoc*   →  Video como documento
+   *4* o *audiodoc*   →  Audio como documento
+
+💡 *Tip:* Puedes cambiar la calidad escribiendo por ejemplo:
+   _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
+
+━━━━━━━━━━━━━━━━━━
+     ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+━━━━━━━━━━━━━━━━━━
+`.trim()
+    : `
+╭━━━━━━━━━━━━━━━━╮
+   ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+╰━━━━━━━━━━━━━━━━╯
+
+📀 *INFORMACIÓN DEL VIDEO*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+🎵 *Título:* ${title}
+⏱️ *Duración:* ${duration}
+👁️ *Vistas:* ${viewsFmt}
+👤 *Autor:* ${author?.name || author || "Desconocido"}
+🔗 *Link:* ${videoUrl}
+
+⚙️ *AJUSTES ACTUALES*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+📹 Calidad video: *${qualityLabel}*
+🎵 Formato audio: *MP3*
+
+━━━━━━━━━━━━━━━━━━━━
+*📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
+
+🟡 *OPCIÓN 1 — Reaccionar*
+Reacciona a este mensaje con un emoji:
+   👍  →  Audio MP3
+   ❤️  →  Video (${qualityLabel})
+   📄  →  Audio como documento
+   📁  →  Video como documento
+
+🔵 *OPCIÓN 2 — Responder con número*
+Cita este mensaje y escribe:
+   *1* o *audio*      →  Audio MP3
+   *2* o *video*      →  Video (${qualityLabel})
+   *3* o *videodoc*   →  Video como documento
+   *4* o *audiodoc*   →  Audio como documento
+
+💡 *Tip:* Puedes cambiar la calidad escribiendo por ejemplo:
+   _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
+
+━━━━━━━━━━━━━━━━━━━━
+     ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-  const preview = await conn.sendMessage(
-    msg.key.remoteJid,
-    { image: { url: thumbnail }, caption },
-    { quoted: msg }
-  );
+  // ====== MENÚ INTERACTIVO (solo si los botones están activos) ======
+  const nativeFlowButtons = [
+    {
+      text: "📥 Menú de descarga",
+      sections: [
+        {
+          title: "🎵 AUDIO",
+          highlight_label: "MP3",
+          rows: [
+            {
+              header: "",
+              title: "🎵 Audio MP3",
+              description: "Descargar como nota de audio reproducible",
+              id: `${pref}play_audio`,
+            },
+            {
+              header: "",
+              title: "📄 Audio como Documento",
+              description: "Descargar como archivo mp3 descargable",
+              id: `${pref}play_audiodoc`,
+            },
+          ],
+        },
+        {
+          title: "🎬 VIDEO NORMAL",
+          highlight_label: qualityLabel,
+          rows: [
+            { header: "", title: "🎬 Video 144p",  description: "Muy liviano · pocos MB",            id: `${pref}play_video_144`  },
+            { header: "", title: "🎬 Video 240p",  description: "Liviano · para conexiones lentas",   id: `${pref}play_video_240`  },
+            { header: "", title: "🎬 Video 360p",  description: "Calidad estándar · recomendado",     id: `${pref}play_video_360`  },
+            { header: "", title: "🎬 Video 720p",  description: "HD · buena calidad",                 id: `${pref}play_video_720`  },
+            { header: "", title: "🎬 Video 1080p", description: "Full HD · alta calidad",             id: `${pref}play_video_1080` },
+            { header: "", title: "🎬 Video 1440p", description: "2K · muy alta calidad",              id: `${pref}play_video_1440` },
+            { header: "", title: "🎬 Video 4K",    description: "Ultra HD · archivo pesado",          id: `${pref}play_video_4k`   },
+          ],
+        },
+        {
+          title: "📁 VIDEO COMO DOCUMENTO",
+          highlight_label: "MP4",
+          rows: [
+            { header: "", title: "📁 Documento 144p",  description: "Archivo mp4 · muy liviano",  id: `${pref}play_videodoc_144`  },
+            { header: "", title: "📁 Documento 240p",  description: "Archivo mp4 · liviano",      id: `${pref}play_videodoc_240`  },
+            { header: "", title: "📁 Documento 360p",  description: "Archivo mp4 · estándar",     id: `${pref}play_videodoc_360`  },
+            { header: "", title: "📁 Documento 720p",  description: "Archivo mp4 · HD",           id: `${pref}play_videodoc_720`  },
+            { header: "", title: "📁 Documento 1080p", description: "Archivo mp4 · Full HD",      id: `${pref}play_videodoc_1080` },
+            { header: "", title: "📁 Documento 1440p", description: "Archivo mp4 · 2K",           id: `${pref}play_videodoc_1440` },
+            { header: "", title: "📁 Documento 4K",    description: "Archivo mp4 · Ultra HD",     id: `${pref}play_videodoc_4k`   },
+          ],
+        },
+      ],
+    },
+  ];
+
+  // 🆕 Enviar con o sin botones según activoss.json
+  let preview;
+  if (usarBotones) {
+    try {
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
+        {
+          image: { url: thumbnail },
+          caption,
+          footer: "❦ Selecciona una opción del menú ❦",
+          buttons: nativeFlowButtons,
+          headerType: 4,
+        },
+        { quoted: msg }
+      );
+    } catch (e) {
+      console.log("[play] menú nativo falló, usando fallback:", e.message);
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
+        { image: { url: thumbnail }, caption },
+        { quoted: msg }
+      );
+    }
+  } else {
+    // Botones desactivados → enviar solo imagen + caption
+    preview = await conn.sendMessage(
+      msg.key.remoteJid,
+      { image: { url: thumbnail }, caption },
+      { quoted: msg }
+    );
+  }
 
   pending[preview.key.id] = {
     chatId: msg.key.remoteJid,
@@ -220,11 +397,12 @@ module.exports = async (msg, { conn, text }) => {
     thumbnail,
     commandMsg: msg,
     videoQuality: chosenQuality,
+    _createdAt: Date.now(),
   };
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
 
-  // listener único
+  // ====== listener único ======
   if (!conn._playproListener) {
     conn._playproListener = true;
 
@@ -235,9 +413,64 @@ module.exports = async (msg, { conn, text }) => {
           const { key: reactKey, text: emoji } = m.message.reactionMessage;
           const job = pending[reactKey.id];
           if (job) await handleDownload(conn, job, emoji, job.commandMsg);
+          continue;
         }
 
-        // 2) RESPUESTAS CITADAS
+        // 2) RESPUESTAS DEL MENÚ INTERACTIVO (listas nativas)
+        try {
+          const interactiveReply =
+            m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
+            m.message?.listResponseMessage ||
+            m.message?.buttonsResponseMessage ||
+            m.message?.templateButtonReplyMessage ||
+            null;
+
+          if (interactiveReply) {
+            let selectedId = "";
+
+            if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
+              selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+            } else if (m.message?.buttonsResponseMessage?.selectedButtonId) {
+              selectedId = m.message.buttonsResponseMessage.selectedButtonId;
+            } else if (m.message?.templateButtonReplyMessage?.selectedId) {
+              selectedId = m.message.templateButtonReplyMessage.selectedId;
+            } else if (interactiveReply?.paramsJson) {
+              try {
+                const params = JSON.parse(interactiveReply.paramsJson);
+                selectedId = params.id || "";
+              } catch {}
+            } else if (interactiveReply?.body?.text) {
+              selectedId = interactiveReply.body.text;
+            }
+
+            if (!selectedId) continue;
+
+            const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
+            let job = null;
+            let jobKey = null;
+
+            if (ctxQuoted && pending[ctxQuoted]) {
+              job = pending[ctxQuoted];
+              jobKey = ctxQuoted;
+            } else {
+              const jobsInChat = Object.entries(pending)
+                .filter(([, j]) => j.chatId === m.key.remoteJid)
+                .sort(([, a], [, b]) => (b._createdAt || 0) - (a._createdAt || 0));
+              if (jobsInChat.length > 0) {
+                [jobKey, job] = jobsInChat[0];
+              }
+            }
+
+            if (!job) continue;
+
+            await handleMenuSelection(conn, job, selectedId, m, pref);
+            continue;
+          }
+        } catch (e) {
+          console.error("[play] error menú:", e);
+        }
+
+        // 3) RESPUESTAS CITADAS (texto clásico)
         try {
           const context = m.message?.extendedTextMessage?.contextInfo;
           const citado = context?.stanzaId;
@@ -247,22 +480,35 @@ module.exports = async (msg, { conn, text }) => {
 
           if (citado && job) {
             const qFromReply = extractQualityFromText(texto);
+            const firstWord = texto.split(/\s+/)[0];
 
-            if (["1", "audio", "4", "audiodoc"].includes(texto.split(/\s+/)[0])) {
-              const docMode = texto.startsWith("4") || texto.includes("audiodoc");
+            if (["1", "audio", "4", "audiodoc"].includes(firstWord)) {
+              const docMode = firstWord === "4" || firstWord === "audiodoc";
               await conn.sendMessage(chatId, { react: { text: docMode ? "📄" : "🎵", key: m.key } });
               await conn.sendMessage(chatId, { text: `🎶 Descargando audio (mp3)...` }, { quoted: m });
               await downloadAudio(conn, job, docMode, m);
             }
-            else if (["2", "video", "3", "videodoc"].includes(texto.split(/\s+/)[0])) {
-              const docMode = texto.startsWith("3") || texto.includes("videodoc");
+            else if (["2", "video", "3", "videodoc"].includes(firstWord)) {
+              const docMode = firstWord === "3" || firstWord === "videodoc";
               const useQuality = VALID_QUALITIES.has(qFromReply) ? qFromReply : (job.videoQuality || DEFAULT_VIDEO_QUALITY);
 
               await conn.sendMessage(chatId, { react: { text: docMode ? "📁" : "🎬", key: m.key } });
               await conn.sendMessage(chatId, { text: `🎥 Descargando video (${useQuality === "4k" ? "4K" : useQuality + "p"})...` }, { quoted: m });
               await downloadVideo(conn, { ...job, videoQuality: useQuality }, docMode, m);
             } else {
-              await conn.sendMessage(chatId, { text: `⚠️ Opciones:\n1/audio → audio\n2/video → video\nEj: "video 720"` }, { quoted: m });
+              await conn.sendMessage(chatId, {
+                text:
+`⚠️ *Opciones válidas:*
+   • *1* o *audio* → audio mp3
+   • *2* o *video* → video (puedes añadir calidad)
+   • *3* o *videodoc* → video como documento
+   • *4* o *audiodoc* → audio como documento
+
+Ejemplos:
+   • video 720
+   • videodoc 1080
+   • 2 4k`
+              }, { quoted: m });
             }
 
             if (!job._timer) job._timer = setTimeout(() => delete pending[citado], 10 * 60 * 1000);
@@ -273,6 +519,69 @@ module.exports = async (msg, { conn, text }) => {
   }
 };
 
+// ====== Manejar selección del menú interactivo ======
+async function handleMenuSelection(conn, job, selectedId, m, pref) {
+  const chatId = m.key.remoteJid;
+  const id = String(selectedId).trim();
+
+  // Audio normal
+  if (id === `${pref}play_audio` || id.endsWith("play_audio")) {
+    await conn.sendMessage(chatId, { react: { text: "🎵", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎶 Descargando audio (mp3)...` }, { quoted: m });
+    return downloadAudio(conn, job, false, m);
+  }
+
+  // Audio documento
+  if (id === `${pref}play_audiodoc` || id.endsWith("play_audiodoc")) {
+    await conn.sendMessage(chatId, { react: { text: "📄", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎶 Descargando audio como documento...` }, { quoted: m });
+    return downloadAudio(conn, job, true, m);
+  }
+
+  // Video documento con calidad específica (formato: play_videodoc_720)
+  const videoDocMatch = id.match(/play_videodoc_(\d+|4k)$/i);
+  if (videoDocMatch) {
+    const q = videoDocMatch[1].toLowerCase();
+    if (VALID_QUALITIES.has(q)) {
+      const label = q === "4k" ? "4K" : `${q}p`;
+      await conn.sendMessage(chatId, { react: { text: "📁", key: m.key } });
+      await conn.sendMessage(chatId, { text: `🎥 Descargando video como documento (${label})...` }, { quoted: m });
+      return downloadVideo(conn, { ...job, videoQuality: q }, true, m);
+    }
+  }
+
+  // Video normal con calidad específica (formato: play_video_720)
+  const videoMatch = id.match(/play_video_(\d+|4k)$/i);
+  if (videoMatch) {
+    const q = videoMatch[1].toLowerCase();
+    if (VALID_QUALITIES.has(q)) {
+      const label = q === "4k" ? "4K" : `${q}p`;
+      await conn.sendMessage(chatId, { react: { text: "🎬", key: m.key } });
+      await conn.sendMessage(chatId, { text: `🎥 Descargando video (${label})...` }, { quoted: m });
+      return downloadVideo(conn, { ...job, videoQuality: q }, false, m);
+    }
+  }
+
+  // Video normal (calidad por defecto)
+  if (id === `${pref}play_video` || id.endsWith("play_video")) {
+    const q = job.videoQuality || DEFAULT_VIDEO_QUALITY;
+    const label = q === "4k" ? "4K" : `${q}p`;
+    await conn.sendMessage(chatId, { react: { text: "🎬", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎥 Descargando video (${label})...` }, { quoted: m });
+    return downloadVideo(conn, job, false, m);
+  }
+
+  // Video documento (calidad por defecto)
+  if (id === `${pref}play_videodoc` || id.endsWith("play_videodoc")) {
+    const q = job.videoQuality || DEFAULT_VIDEO_QUALITY;
+    const label = q === "4k" ? "4K" : `${q}p`;
+    await conn.sendMessage(chatId, { react: { text: "📁", key: m.key } });
+    await conn.sendMessage(chatId, { text: `🎥 Descargando video como documento (${label})...` }, { quoted: m });
+    return downloadVideo(conn, job, true, m);
+  }
+}
+
+// ====== Manejar reacciones ======
 async function handleDownload(conn, job, choice, quoted) {
   const mapping = { "👍": "audio", "❤️": "video", "📄": "audioDoc", "📁": "videoDoc" };
   const key = mapping[choice];
@@ -338,8 +647,7 @@ async function downloadAudio(conn, job, asDocument, quoted) {
       [asDocument ? "document" : "audio"]: fs.readFileSync(outFile),
       mimetype: "audio/mpeg",
       fileName: `${base}.mp3`,
-      // ✅ Publicidad también en el audio si es documento
-      caption: asDocument ? `🎵 ${title}\n\n🤖 La Suki Bot\n🔗 https://api-sky.ultraplus.click` : undefined 
+      caption: asDocument ? `🎵 ${title}\n\n🤖 La Suki Bot\n🔗 https://api-sky.ultraplus.click` : undefined,
     },
     { quoted }
   );
@@ -379,8 +687,7 @@ async function downloadVideo(conn, job, asDocument, quoted) {
     return;
   }
 
-  // ✅ CAPTION CON PUBLICIDAD AGREGADO
-  const finalCaption = 
+  const finalCaption =
 `🎬 𝗩𝗶𝗱𝗲𝗼: ${title}
 ⚡ 𝗖𝗮𝗹𝗶𝗱𝗮𝗱: ${tag}
 
@@ -393,7 +700,7 @@ async function downloadVideo(conn, job, asDocument, quoted) {
       [asDocument ? "document" : "video"]: fs.readFileSync(file),
       mimetype: "video/mp4",
       fileName: `${base}_${tag}.mp4`,
-      caption: asDocument ? finalCaption : finalCaption, // Caption siempre visible
+      caption: finalCaption,
     },
     { quoted }
   );
@@ -402,4 +709,3 @@ async function downloadVideo(conn, job, asDocument, quoted) {
 }
 
 module.exports.command = ["play2"];
-
