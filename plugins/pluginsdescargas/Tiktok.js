@@ -113,9 +113,9 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
     // 🎨 Caption con diseño elegante según estado de botones
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
-   ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╭━━━━━━━━━━━━━━━━━━╮
+ ⚡𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
