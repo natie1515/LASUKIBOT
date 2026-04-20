@@ -438,9 +438,9 @@ async function downloadAudio(conn, job, asDocument, quoted) {
 
   // 🎨 Caption final con TODA la info + marca de agua
   const finalCaption =
-`╭━━━━━━━━━━━━━━━━━━━━╮
+`╭━━━━━━━━━━━━━━━━╮
    🎵 𝗔𝗨𝗗𝗜𝗢 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 👤 *Autor:* ${authorName}
@@ -449,10 +449,10 @@ async function downloadAudio(conn, job, asDocument, quoted) {
 📦 *Formato:* ${asDocument ? "Documento MP3" : "Audio MP3"}
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}
-━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━`;
 
   await conn.sendMessage(
     chatId,
