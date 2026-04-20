@@ -147,9 +147,9 @@ Cita este mensaje y escribe:
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}`.trim()
       : `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
@@ -158,9 +158,9 @@ Cita este mensaje y escribe:
 ✦ *Duración:* ${durTxt}
 ✦ *Estadísticas:* 👍 ${likes} · 💬 ${comments}
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -172,7 +172,7 @@ Cita este mensaje y escribe:
    *1*  →  Video normal
    *2*  →  Video como documento
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}`.trim();
 
