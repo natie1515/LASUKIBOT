@@ -1,8 +1,8 @@
 // comandos/ytmp3.js — YouTube MP3 (URL)
-// ✅ MISMO patrón de play.js (botones text/sections/rows + headerType: 4)
-// ✅ Botones: "🎵 Audio" y "📄 Audio Documento"
+// ✅ Botones directos: 🎵 Audio / 📄 Audio Documento (sin menú desplegable)
+// ✅ Mensaje de opciones: solo explicación de descarga
+// ✅ Info del audio: va con el archivo descargado
 // ✅ Respeta activoss.json (sistema de activar/desactivar botones)
-// ✅ Soporta Reacciones, Menú Interactivo y Respuestas Citadas
 
 "use strict";
 
@@ -95,7 +95,7 @@ async function downloadToFile(url, filePath) {
   return filePath;
 }
 
-// ---------- API (mismo patrón que play.js) ----------
+// ---------- API ----------
 async function callYoutubeResolve(videoUrl) {
   const endpoint = `${API_BASE}/youtube/resolve`;
   const body = { url: videoUrl, type: "audio", format: DEFAULT_AUDIO_FORMAT };
@@ -150,7 +150,7 @@ module.exports = async (msg, { conn, args, command }) => {
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-  // Buscar info del video con yt-search
+  // Buscar info del video con yt-search (se guarda para el caption final)
   let title = "YouTube Audio";
   let thumbnail = "";
   let duration = "—";
@@ -173,40 +173,44 @@ module.exports = async (msg, { conn, args, command }) => {
 
   const usarBotones = botonesActivos();
 
-  // 🎨 Caption — info del video + explicación de descarga
+  // 🎨 Caption LIMPIO — solo explicación + marca de agua
   const caption = usarBotones
     ? `
-╭━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
-╰━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-📝 *Título:* ${title}
-👤 *Autor:* ${authorName}
-⏱️ *Duración:* ${duration}
-
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 
-🟢 *OPCIÓN 1 — Menú de Botones*
-Toca el botón *📥 Menú de descarga* abajo del mensaje. Se abrirá la lista con las opciones de audio.
+🟢 *OPCIÓN 1 — Botones*
+Toca un botón abajo del mensaje:
+   🎵 *Audio*
+   📄 *Audio Documento*
 
-━━━━━━━━━━━━━━━━━
+🟡 *OPCIÓN 2 — Reaccionar*
+Reacciona con un emoji:
+   👍  →  Audio MP3
+   📄  →  Audio como documento
+
+🔵 *OPCIÓN 3 — Responder número*
+Cita este mensaje y escribe:
+   *1* o *audio*      →  Audio MP3
+   *2* o *audiodoc*   →  Audio como documento
+
+━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 `.trim()
     : `
-╭━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
-╰━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-📝 *Título:* ${title}
-👤 *Autor:* ${authorName}
-⏱️ *Duración:* ${duration}
-
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -218,26 +222,15 @@ Cita este mensaje y escribe:
    *1* o *audio*      →  Audio MP3
    *2* o *audiodoc*   →  Audio como documento
 
-━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-  // ====== MENÚ INTERACTIVO (mismo formato que play.js — el que SÍ funciona en tu Baileys) ======
+  // ====== 🆕 BOTONES DIRECTOS (2 opciones, sin menú desplegable) ======
   const nativeFlowButtons = [
-    {
-      text: "📥 Menú de descarga",
-      sections: [
-        {
-          title: "🎵 AUDIO",
-          highlight_label: "MP3",
-          rows: [
-            { header: "", title: "🎵 Audio",            description: "Descargar como nota de audio reproducible", id: `${pref}ytmp3_audio`    },
-            { header: "", title: "📄 Audio Documento",  description: "Descargar como archivo mp3 descargable",    id: `${pref}ytmp3_audiodoc` },
-          ],
-        },
-      ],
-    },
+    { text: "🎵 Audio",           id: `${pref}ytmp3_audio`    },
+    { text: "📄 Audio Documento", id: `${pref}ytmp3_audiodoc` },
   ];
 
   // Enviar con o sin botones
@@ -249,14 +242,14 @@ Cita este mensaje y escribe:
         {
           image: thumbnail ? { url: thumbnail } : undefined,
           caption,
-          footer: "❦ Selecciona una opción del menú ❦",
+          footer: "❦ La Suki Bot — Selecciona una opción ❦",
           buttons: nativeFlowButtons,
           headerType: 4,
         },
         { quoted: msg }
       );
     } catch (e) {
-      console.log("[ytmp3] menú nativo falló, usando fallback:", e.message);
+      console.log("[ytmp3] botones fallaron, fallback:", e.message);
       preview = await conn.sendMessage(
         msg.key.remoteJid,
         thumbnail ? { image: { url: thumbnail }, caption } : { text: caption },
@@ -287,7 +280,7 @@ Cita este mensaje y escribe:
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
 
-  // ====== Listener único (mismo patrón que play.js) ======
+  // ====== Listener único ======
   if (!conn._ytmp3ProListener) {
     conn._ytmp3ProListener = true;
 
@@ -301,24 +294,24 @@ Cita este mensaje y escribe:
           continue;
         }
 
-        // 2) RESPUESTAS DEL MENÚ INTERACTIVO
+        // 2) BOTONES / MENÚ INTERACTIVO
         try {
           const interactiveReply =
             m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
-            m.message?.listResponseMessage ||
             m.message?.buttonsResponseMessage ||
             m.message?.templateButtonReplyMessage ||
+            m.message?.listResponseMessage ||
             null;
 
           if (interactiveReply) {
             let selectedId = "";
 
-            if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
-              selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
-            } else if (m.message?.buttonsResponseMessage?.selectedButtonId) {
+            if (m.message?.buttonsResponseMessage?.selectedButtonId) {
               selectedId = m.message.buttonsResponseMessage.selectedButtonId;
             } else if (m.message?.templateButtonReplyMessage?.selectedId) {
               selectedId = m.message.templateButtonReplyMessage.selectedId;
+            } else if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
+              selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
             } else if (interactiveReply?.paramsJson) {
               try {
                 const params = JSON.parse(interactiveReply.paramsJson);
@@ -350,7 +343,7 @@ Cita este mensaje y escribe:
             continue;
           }
         } catch (e) {
-          console.error("[ytmp3] error menú:", e);
+          console.error("[ytmp3] error botones:", e);
         }
 
         // 3) RESPUESTAS CITADAS
@@ -381,7 +374,7 @@ Cita este mensaje y escribe:
   }
 };
 
-// ====== Manejar selección del menú ======
+// ====== Manejar selección de botones ======
 async function handleMenuSelection(conn, job, selectedId, m, pref) {
   const chatId = m.key.remoteJid;
   const id = String(selectedId).trim();
@@ -455,9 +448,9 @@ async function downloadAudio(conn, job, asDocument, quoted) {
 
   // 🎨 Caption final con TODA la info + marca de agua
   const finalCaption =
-`╭━━━━━━━━━━━━━━━━━━╮
+`╭━━━━━━━━━━━━━━━━━━━━╮
    🎵 𝗔𝗨𝗗𝗜𝗢 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
-╰━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 👤 *Autor:* ${authorName}
