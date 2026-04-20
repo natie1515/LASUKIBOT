@@ -1,8 +1,7 @@
 // comandos/tt.js — TikTok con Botones
-// ✅ Botones: 🎬 Video Normal / 📁 Video Documento
-// ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
+// ✅ Mensaje de opciones: solo explicación de descarga
+// ✅ Info del video: va con el archivo descargado
 // ✅ Respeta activoss.json (botones on/off)
-// ✅ Multiuso: Puedes descargar varias veces sin reenviar el comando
 
 "use strict";
 
@@ -14,7 +13,6 @@ const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").rep
 const API_KEY  = process.env.API_KEY  || "Russellxz";
 const MAX_TIMEOUT = 60000;
 
-// Archivo de configuración de botones
 const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 const fmtSec = (s) => {
@@ -25,7 +23,6 @@ const fmtSec = (s) => {
   return (h ? `${h}:` : "") + `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
 };
 
-// 🆕 Verifica si los botones están activos (crea archivo si no existe)
 function botonesActivos() {
   const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
   if (!fs.existsSync(ACTIVOSS_FILE)) {
@@ -110,19 +107,12 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
 
     const usarBotones = botonesActivos();
 
-    // 🎨 Caption con diseño elegante según estado de botones
+    // 🎨 Caption LIMPIO — solo explicación + marca de agua
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━╮
- ⚡𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━╯
-
-📀 *INFORMACIÓN*
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-✦ *Título:* ${title}
-✦ *Autor:* ${author}
-✦ *Duración:* ${durTxt}
-✦ *Estadísticas:* 👍 ${likes} · 💬 ${comments}
+╭━━━━━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━━━╯
 
 ━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
@@ -143,24 +133,17 @@ Cita este mensaje y escribe:
    *1*  →  Video normal
    *2*  →  Video como documento
 
-━━━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
-🔗 *API:* ${API_BASE}`.trim()
+━━━━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━━━━`.trim()
       : `
 ╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
 ╰━━━━━━━━━━━━━━━━━╯
 
-📀 *INFORMACIÓN*
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-✦ *Título:* ${title}
-✦ *Autor:* ${author}
-✦ *Duración:* ${durTxt}
-✦ *Estadísticas:* 👍 ${likes} · 💬 ${comments}
-
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -173,10 +156,9 @@ Cita este mensaje y escribe:
    *2*  →  Video como documento
 
 ━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
-🔗 *API:* ${API_BASE}`.trim();
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━━━`.trim();
 
-    // Botones nativos (solo 2 opciones)
     const nativeFlowButtons = [
       { text: "🎬 Video Normal",    id: `${pref}tt_video` },
       { text: "📁 Video Documento", id: `${pref}tt_videodoc` },
@@ -208,7 +190,6 @@ Cita este mensaje y escribe:
         preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
       }
     } else {
-      // Botones desactivados
       if (d.cover) {
         preview = await conn.sendMessage(chatId, { image: { url: d.cover }, caption }, { quoted: msg });
       } else {
@@ -216,19 +197,15 @@ Cita este mensaje y escribe:
       }
     }
 
-    // Guardar trabajo
+    // Guardar trabajo con TODA la info para el caption final
     pendingTT[preview.key.id] = {
       chatId,
       url: d.video,
-      caption:
-`⚡ 𝗧𝗶𝗸𝗧𝗼𝗸 — 𝗩𝗶𝗱𝗲𝗼
-
-✦ 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
-✦ 𝗔𝘂𝘁𝗼𝗿: ${author}
-✦ 𝗗𝘂𝗿𝗮𝗰𝗶𝗼́𝗻: ${durTxt}
-
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: ${API_BASE}`,
+      title,
+      author,
+      durTxt,
+      likes,
+      comments,
       quotedBase: msg,
       isBusy: false,
       _createdAt: Date.now(),
@@ -240,14 +217,13 @@ Cita este mensaje y escribe:
 
     await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-    // Listener único
     if (!conn._ttListener) {
       conn._ttListener = true;
 
       conn.ev.on("messages.upsert", async ev => {
         for (const m of ev.messages) {
           try {
-            // A) REACCIONES 👍 / ❤️
+            // A) REACCIONES
             if (m.message?.reactionMessage) {
               const { key: reactKey, text: emoji } = m.message.reactionMessage;
               const job = pendingTT[reactKey.id];
@@ -255,16 +231,14 @@ Cita este mensaje y escribe:
               if (!job) continue;
               if (job.chatId !== m.key.remoteJid) continue;
               if (emoji !== "👍" && emoji !== "❤️") continue;
-
               if (job.isBusy) continue;
-              job.isBusy = true;
 
               const asDoc = emoji === "❤️";
               await processSend(conn, job, asDoc, m);
               continue;
             }
 
-            // B) BOTONES / MENÚ INTERACTIVO
+            // B) BOTONES
             const interactiveReply =
               m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
               m.message?.buttonsResponseMessage ||
@@ -305,13 +279,11 @@ Cita este mensaje y escribe:
 
               if (!job || job.isBusy) continue;
 
-              if (id.endsWith("tt_video") || id === `${(global.prefixes?.[0] || ".")}tt_video`) {
-                job.isBusy = true;
+              if (id.endsWith("tt_video")) {
                 await processSend(conn, job, false, m);
                 continue;
               }
-              if (id.endsWith("tt_videodoc") || id === `${(global.prefixes?.[0] || ".")}tt_videodoc`) {
-                job.isBusy = true;
+              if (id.endsWith("tt_videodoc")) {
                 await processSend(conn, job, true, m);
                 continue;
               }
@@ -327,9 +299,7 @@ Cita este mensaje y escribe:
 
               const textLow = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim().toLowerCase();
               if (textLow !== "1" && textLow !== "2") continue;
-
               if (job.isBusy) continue;
-              job.isBusy = true;
 
               const asDoc = textLow === "2";
               await processSend(conn, job, asDoc, m);
@@ -351,27 +321,44 @@ Cita este mensaje y escribe:
 };
 
 async function processSend(conn, job, asDocument, triggerMsg){
-  const { chatId, url, caption, quotedBase } = job;
+  job.isBusy = true;
+  const { chatId, url, title, author, durTxt, likes, comments, quotedBase } = job;
 
   try {
     await conn.sendMessage(chatId, { react: { text: asDocument ? "📁" : "🎬", key: triggerMsg.key } });
-
     await conn.sendMessage(chatId, {
       text: `⏳ Espere, descargando video${asDocument ? " en documento" : ""}...`
     }, { quoted: quotedBase });
+
+    // 🎨 Caption final con TODA la info del video + marca de agua
+    const finalCaption =
+`╭━━━━━━━━━━━━━━━╮
+   ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 — 𝗩𝗜𝗗𝗘𝗢
+╰━━━━━━━━━━━━━━━━╯
+
+📝 *Título:* ${title}
+👤 *Autor:* ${author}
+⏱️ *Duración:* ${durTxt}
+📊 *Estadísticas:* 👍 ${likes} · 💬 ${comments}
+📦 *Formato:* ${asDocument ? "Documento" : "Video"}
+
+━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}
+━━━━━━━━━━━━━━━━━━`;
 
     if (asDocument) {
       await conn.sendMessage(chatId, {
         document: { url },
         mimetype: "video/mp4",
         fileName: `tiktok-${Date.now()}.mp4`,
-        caption
+        caption: finalCaption
       }, { quoted: quotedBase });
     } else {
       await conn.sendMessage(chatId, {
         video: { url },
         mimetype: "video/mp4",
-        caption
+        caption: finalCaption
       }, { quoted: quotedBase });
     }
 
