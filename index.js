@@ -217,24 +217,63 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   if (!m || !m.message) return;
 
   // 🔎 Normalizar JID real del autor para TODOS los comandos (una sola vez)
+  // ✅ Compatible con cualquier Baileys: oficial, forks, modificados, etc.
   (() => {
     const DIGITS = (s = "") => (s || "").replace(/\D/g, "");
     const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+    const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
 
-    const cand =
-      (isUser(m.key?.jid) && m.key.jid) ||
+    // 🆕 Prioridad 1: Campos PN explícitos (Baileys v6.8+/v7+ los trae cuando existen)
+    // Estos SIEMPRE son el número real, aunque el remoteJid/participant vengan como @lid
+    const altPn =
+      (isUser(m.key?.senderPn)        && m.key.senderPn) ||
+      (isUser(m.key?.participantPn)   && m.key.participantPn) ||
+      (isUser(m.key?.senderAlt)       && m.key.senderAlt) ||
+      (isUser(m.key?.participantAlt)  && m.key.participantAlt) ||
+      null;
+
+    // Prioridad 2: Campos custom del fork de tu amigo (m.key.jid) y campos estándar
+    const legacy =
+      (isUser(m.key?.jid)         && m.key.jid) ||
       (isUser(m.key?.participant) && m.key.participant) ||
       (m.key?.remoteJid && !m.key.remoteJid.endsWith("@g.us") && isUser(m.key.remoteJid) && m.key.remoteJid) ||
       null;
 
+    // Elegir el mejor candidato: prioriza el PN explícito sobre lo legacy
+    const cand = altPn || legacy;
+
+    // Guardar también el LID por si lo necesitas
+    const lid =
+      (isLid(m.key?.senderLid)       && m.key.senderLid) ||
+      (isLid(m.key?.participantLid)  && m.key.participantLid) ||
+      (isLid(m.key?.participant)     && m.key.participant) ||
+      (isLid(m.key?.remoteJid)       && m.key.remoteJid) ||
+      null;
+
     if (cand) {
-      m.key.jid = cand;             // siempre JID real del autor
-      m.key.participant = cand;     // <- muchos plugins leen participant: ahora verán el real
+      m.key.jid = cand;              // siempre JID real del autor
+      m.key.participant = cand;      // muchos plugins leen participant: ahora ven el REAL
       m.realJid = cand;
       m.realNumber = DIGITS(cand);
+      m.realLid = lid;               // por si también lo necesitas
+    } else if (lid) {
+      // No hay PN disponible (grupo con "ocultar números" o similar)
+      // Dejamos el LID como último recurso para poder responder
+      m.realJid = lid;
+      m.realNumber = DIGITS(lid);
+      m.realLid = lid;
     } else {
       m.realJid = null;
       m.realNumber = null;
+      m.realLid = null;
+    }
+
+    // 🧠 Guardar mapeo LID <-> PN en memoria para futuras referencias
+    // (útil cuando después llegue un mensaje solo con LID del mismo usuario)
+    if (cand && lid) {
+      global.lidMap = global.lidMap || new Map();
+      global.lidMap.set(lid, cand);  // LID → PN
+      global.lidMap.set(cand, lid);  // PN → LID (inverso)
     }
   })();
 
