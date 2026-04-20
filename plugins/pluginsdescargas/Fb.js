@@ -1,8 +1,8 @@
-// comandos/fb.js — Facebook (URL)
+// comandos/fb.js — Facebook (URL) con Botones
+// ✅ Botones: 🎬 Video Normal / 📁 Video Documento
 // ✅ Reacciones: 👍 (Video) / ❤️ (Documento) o Respuestas 1 / 2
-// ✅ Mensaje de espera: "Descargando su video..."
+// ✅ Respeta activoss.json (botones on/off)
 // ✅ Branding: La Suki Bot + Link API + Thumbnail
-// ✅ Multiuso: No se borra al instante
 
 "use strict";
 
@@ -12,14 +12,30 @@ const path = require("path");
 
 // === Config API ===
 const API_BASE = "https://api-sky.ultraplus.click";
-const API_KEY  = "Russellxz"; // Tu API Key
+const API_KEY  = "Russellxz";
+const MAX_MB = 200;
 
-const MAX_MB = 200; // Límite de tamaño (MB)
+// Archivo de configuración de botones
+const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
-// Jobs pendientes
 const pendingFB = Object.create(null);
 
 const mb = (n) => n / (1024 * 1024);
+
+// 🆕 Verifica si los botones están activos (crea archivo si no existe)
+function botonesActivos() {
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
+  if (!fs.existsSync(ACTIVOSS_FILE)) {
+    try { fs.writeFileSync(ACTIVOSS_FILE, JSON.stringify(defaultCfg, null, 2)); } catch {}
+    return true;
+  }
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8"));
+    return cfg.botones !== false;
+  } catch {
+    return true;
+  }
+}
 
 function isUrl(u = "") {
   return /^https?:\/\//i.test(String(u || ""));
@@ -32,7 +48,6 @@ function isFB(u = "") {
 
 function normalizeUrl(input = "") {
   let u = String(input || "").trim().replace(/^<|>$/g, "").trim();
-  // Arregla links cortos sin protocolo
   if (/^(www\.)?facebook\.com\//i.test(u) || /^fb\.watch\//i.test(u)) {
     u = "https://" + u.replace(/^\/+/, "");
   }
@@ -48,43 +63,33 @@ async function react(conn, chatId, key, emoji) {
   try { await conn.sendMessage(chatId, { react: { text: emoji, key } }); } catch {}
 }
 
-// Elige la mejor calidad disponible
 function pickBestVideoUrl(result) {
   const hd = String(result?.media?.video_hd || "").trim();
   const sd = String(result?.media?.video_sd || "").trim();
-
-  if (hd && isUrl(hd)) return hd; 
+  if (hd && isUrl(hd)) return hd;
   if (sd && isUrl(sd)) return sd;
   return null;
 }
 
-// 1. OBTENER INFO (POST /facebook)
+// API
 async function getFacebookInfo(url) {
   const endpoint = `${API_BASE}/facebook`;
-
   const r = await axios.post(endpoint, { url }, {
     headers: { "Content-Type": "application/json", apikey: API_KEY },
     timeout: 60000,
     validateStatus: () => true,
   });
-
   const data = r.data;
   const ok = data?.status === true || data?.status === "true";
-  
   if (!ok) throw new Error(data?.message || "Error en la API de Facebook");
-  
   return data.result;
 }
 
-// 2. DESCARGAR USANDO PROXY (GET /facebook/dl)
-// Esto asegura que se use la IP del servidor para descargar el video
 async function downloadVideoToTmp(srcUrl, filenameBase) {
   const tmpDir = path.resolve("./tmp");
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
   const fname = `${safeFileName(filenameBase)}.mp4`;
-  
-  // Construimos la URL del proxy de tu API
   const dlUrl = `${API_BASE}/facebook/dl` +
     `?type=video` +
     `&src=${encodeURIComponent(srcUrl)}` +
@@ -94,14 +99,13 @@ async function downloadVideoToTmp(srcUrl, filenameBase) {
   const res = await axios.get(dlUrl, {
     responseType: "stream",
     timeout: 180000,
-    headers: { 
+    headers: {
       apikey: API_KEY,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36" 
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36"
     }
   });
 
   const filePath = path.join(tmpDir, `fb-${Date.now()}.mp4`);
-  
   const writer = fs.createWriteStream(filePath);
   res.data.pipe(writer);
 
@@ -111,7 +115,7 @@ async function downloadVideoToTmp(srcUrl, filenameBase) {
   });
 }
 
-// 3. HANDLER PRINCIPAL
+// HANDLER PRINCIPAL
 module.exports = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
@@ -138,7 +142,6 @@ module.exports = async (msg, { conn, args, command }) => {
   try {
     await react(conn, chatId, msg.key, "⏳");
 
-    // A) Obtener metadatos
     const result = await getFacebookInfo(text);
     const videoUrl = pickBestVideoUrl(result);
 
@@ -150,28 +153,104 @@ module.exports = async (msg, { conn, args, command }) => {
     const title = result?.title || "Facebook Video";
     const thumb = result?.thumbnail || result?.image || "";
 
-    // B) Construir mensaje de opciones
-    const caption =
-`⚡ 𝗙𝗮𝗰𝗲𝗯𝗼𝗼𝗸 — 𝗢𝗽𝗰𝗶𝗼𝗻𝗲𝘀
+    const usarBotones = botonesActivos();
 
-📝 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
+    // 🎨 Caption con diseño elegante según estado de botones
+    const caption = usarBotones
+      ? `
+╭━━━━━━━━━━━━━━━━━━━━╮
+  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-Elige cómo enviarlo:
-👍 𝗩𝗶𝗱𝗲𝗼 (normal)
-❤️ 𝗩𝗶𝗱𝗲𝗼 𝗰𝗼𝗺𝗼 𝗱𝗼𝗰𝘂𝗺𝗲𝗻𝘁𝗼
-— o responde: 1 = normal · 2 = documento
+📝 *Título:* ${title}
 
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: https://api-sky.ultraplus.click`;
+━━━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
+
+🟢 *OPCIÓN 1 — Botones*
+Toca un botón abajo del mensaje:
+   🎬 *Video Normal*
+   📁 *Video Documento*
+
+🟡 *OPCIÓN 2 — Reaccionar*
+Reacciona con un emoji:
+   👍  →  Video normal
+   ❤️  →  Video como documento
+
+🔵 *OPCIÓN 3 — Responder número*
+Cita este mensaje y escribe:
+   *1*  →  Video normal
+   *2*  →  Video como documento
+
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}`.trim()
+      : `
+╭━━━━━━━━━━━━━━━━━━━━╮
+  ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+╰━━━━━━━━━━━━━━━━━━━━╯
+
+📝 *Título:* ${title}
+
+━━━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
+
+🟡 *OPCIÓN 1 — Reaccionar*
+Reacciona con un emoji:
+   👍  →  Video normal
+   ❤️  →  Video como documento
+
+🔵 *OPCIÓN 2 — Responder número*
+Cita este mensaje y escribe:
+   *1*  →  Video normal
+   *2*  →  Video como documento
+
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}`.trim();
+
+    // Botones nativos (solo 2 opciones)
+    const nativeFlowButtons = [
+      { text: "🎬 Video Normal",    id: `${pref}fb_video` },
+      { text: "📁 Video Documento", id: `${pref}fb_videodoc` },
+    ];
 
     let preview;
-    if (thumb && isUrl(thumb)) {
+    if (usarBotones && thumb && isUrl(thumb)) {
+      try {
+        preview = await conn.sendMessage(chatId, {
+          image: { url: thumb },
+          caption,
+          footer: "❦ La Suki Bot — Selecciona una opción ❦",
+          buttons: nativeFlowButtons,
+          headerType: 4,
+        }, { quoted: msg });
+      } catch (e) {
+        console.log("[fb] botones fallaron, fallback:", e.message);
         preview = await conn.sendMessage(chatId, { image: { url: thumb }, caption }, { quoted: msg });
-    } else {
+      }
+    } else if (usarBotones) {
+      try {
+        preview = await conn.sendMessage(chatId, {
+          text: caption,
+          footer: "❦ La Suki Bot — Selecciona una opción ❦",
+          buttons: nativeFlowButtons,
+        }, { quoted: msg });
+      } catch (e) {
+        console.log("[fb] botones fallaron, fallback:", e.message);
         preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
+      }
+    } else {
+      // Botones desactivados
+      if (thumb && isUrl(thumb)) {
+        preview = await conn.sendMessage(chatId, { image: { url: thumb }, caption }, { quoted: msg });
+      } else {
+        preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
+      }
     }
 
-    // C) Guardar tarea
     pendingFB[preview.key.id] = {
       chatId,
       url: videoUrl,
@@ -179,37 +258,88 @@ Elige cómo enviarlo:
       quotedBase: msg,
       previewKey: preview.key,
       isBusy: false,
+      _createdAt: Date.now(),
     };
 
-    // Auto-limpieza (10 minutos)
     setTimeout(() => {
-        if (pendingFB[preview.key.id]) delete pendingFB[preview.key.id];
+      if (pendingFB[preview.key.id]) delete pendingFB[preview.key.id];
     }, 10 * 60 * 1000);
 
     await react(conn, chatId, msg.key, "✅");
 
-    // D) Listener de eventos
+    // Listener único
     if (!conn._fbInteractiveListener) {
       conn._fbInteractiveListener = true;
 
       conn.ev.on("messages.upsert", async (ev) => {
         for (const m of ev.messages) {
           try {
-            // Reacciones
+            // A) REACCIONES
             if (m.message?.reactionMessage) {
               const { key: reactKey, text: emoji } = m.message.reactionMessage;
               const job = pendingFB[reactKey.id];
-              
               if (!job || job.chatId !== m.key.remoteJid) continue;
               if (emoji !== "👍" && emoji !== "❤️") continue;
-
               if (job.isBusy) continue;
+
               const asDoc = emoji === "❤️";
               await sendVideo(conn, job, asDoc, m);
               continue;
             }
 
-            // Respuestas texto
+            // B) BOTONES / MENÚ INTERACTIVO
+            const interactiveReply =
+              m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
+              m.message?.buttonsResponseMessage ||
+              m.message?.templateButtonReplyMessage ||
+              m.message?.listResponseMessage ||
+              null;
+
+            if (interactiveReply) {
+              let selectedId = "";
+              if (m.message?.buttonsResponseMessage?.selectedButtonId) {
+                selectedId = m.message.buttonsResponseMessage.selectedButtonId;
+              } else if (m.message?.templateButtonReplyMessage?.selectedId) {
+                selectedId = m.message.templateButtonReplyMessage.selectedId;
+              } else if (m.message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
+                selectedId = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+              } else if (interactiveReply?.paramsJson) {
+                try {
+                  const params = JSON.parse(interactiveReply.paramsJson);
+                  selectedId = params.id || "";
+                } catch {}
+              } else if (interactiveReply?.body?.text) {
+                selectedId = interactiveReply.body.text;
+              }
+
+              if (!selectedId) continue;
+              const id = String(selectedId).trim();
+
+              // Buscar job: primero por stanzaId, luego el más reciente del chat
+              const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
+              let job = null;
+              if (ctxQuoted && pendingFB[ctxQuoted]) {
+                job = pendingFB[ctxQuoted];
+              } else {
+                const jobs = Object.values(pendingFB)
+                  .filter(j => j.chatId === m.key.remoteJid)
+                  .sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
+                if (jobs.length > 0) job = jobs[0];
+              }
+
+              if (!job || job.isBusy) continue;
+
+              if (id.endsWith("fb_video") || id === `${pref}fb_video`) {
+                await sendVideo(conn, job, false, m);
+                continue;
+              }
+              if (id.endsWith("fb_videodoc") || id === `${pref}fb_videodoc`) {
+                await sendVideo(conn, job, true, m);
+                continue;
+              }
+            }
+
+            // C) RESPUESTAS 1/2
             const ctx = m.message?.extendedTextMessage?.contextInfo;
             if (ctx?.stanzaId && pendingFB[ctx.stanzaId]) {
               const job = pendingFB[ctx.stanzaId];
@@ -217,8 +347,8 @@ Elige cómo enviarlo:
 
               const body = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim();
               if (body !== "1" && body !== "2") continue;
-
               if (job.isBusy) continue;
+
               const asDoc = body === "2";
               await sendVideo(conn, job, asDoc, m);
             }
@@ -236,17 +366,14 @@ Elige cómo enviarlo:
   }
 };
 
-// 4. FUNCIÓN DE ENVÍO
 async function sendVideo(conn, job, asDocument, triggerMsg) {
   job.isBusy = true;
-  const { chatId, url, title, previewKey, quotedBase } = job;
+  const { chatId, url, title, quotedBase } = job;
 
   try {
-    // Feedback visual
     await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : "🎬");
     await conn.sendMessage(chatId, { text: "⏳ Espere, descargando su video..." }, { quoted: quotedBase });
 
-    // Descarga
     const filePath = await downloadVideoToTmp(url, title);
     const sizeMB = mb(fs.statSync(filePath).size);
 
@@ -255,12 +382,11 @@ async function sendVideo(conn, job, asDocument, triggerMsg) {
       return conn.sendMessage(chatId, { text: `❌ El video pesa ${sizeMB.toFixed(2)} MB, excede el límite de ${MAX_MB} MB.` }, { quoted: quotedBase });
     }
 
-    // Caption final
-    const finalCaption = 
+    const finalCaption =
 `📝 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
 
 🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: https://api-sky.ultraplus.click`;
+🔗 𝗔𝗣𝗜: ${API_BASE}`;
 
     const buf = fs.readFileSync(filePath);
 
@@ -283,7 +409,7 @@ async function sendVideo(conn, job, asDocument, triggerMsg) {
     await conn.sendMessage(chatId, { text: `❌ Falló el envío: ${e.message}` }, { quoted: quotedBase });
     await react(conn, chatId, triggerMsg.key, "❌");
   } finally {
-    job.isBusy = false; // Liberar para otra descarga
+    job.isBusy = false;
   }
 }
 
@@ -291,4 +417,3 @@ module.exports.command = ["facebook", "fb"];
 module.exports.help = ["facebook <url>", "fb <url>"];
 module.exports.tags = ["descargas"];
 module.exports.register = true;
-
