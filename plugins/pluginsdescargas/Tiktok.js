@@ -110,22 +110,19 @@ Ej: ${pref}${command} https://vm.tiktok.com/xxxxxx/`
     // 🎨 Caption LIMPIO — solo explicación + marca de agua
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
-
-━━━━━━━━━━━━━━━━━━━━
+╰━━━━━━━━━━━━━━━━━╯
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
-
+━━━━━━━━━━━━━━━━━━
 🟢 *OPCIÓN — Botones*
 Toca un botón abajo del mensaje:
    🎬 *Video Normal*
    📁 *Video Documento*
-
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━`.trim()
+━━━━━━━━━━━━━━━`.trim()
       : `
 ╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗧𝗜𝗞𝗧𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
@@ -145,9 +142,9 @@ Cita este mensaje y escribe:
    *1*  →  Video normal
    *2*  →  Video como documento
 
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━`.trim();
+━━━━━━━━━━━━━━━━`.trim();
 
     const nativeFlowButtons = [
       { text: "🎬 Video Normal",    id: `${pref}tt_video` },
