@@ -186,9 +186,9 @@ module.exports = async (msg, { conn, text }) => {
 
   // ====== 🎨 CAPTION ELEGANTE Y ENTENDIBLE ======
   const caption = `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━╮
    ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN DEL VIDEO*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
