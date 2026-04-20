@@ -1,9 +1,7 @@
 // commands/twitter.js — X/Twitter con Botones
-// ✅ Botones: 🎬 Normal / 📁 Documento
-// ✅ Reacciones: 👍 (Normal) / ❤️ (Documento) o Respuestas 1 / 2
+// ✅ Mensaje de opciones: solo explicación de descarga
+// ✅ Info del post: va con el archivo descargado
 // ✅ Respeta activoss.json (botones on/off)
-// ✅ FIX 401: Descarga con Axios y Buffer si es necesario
-// ✅ Multiuso: No se borra al instante (10 min activo)
 
 "use strict";
 
@@ -16,12 +14,10 @@ const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").rep
 const API_KEY  = process.env.API_KEY  || "Russellxz";
 const MAX_TIMEOUT = 60000;
 
-// Archivo de configuración de botones
 const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 const pendingTW = Object.create(null);
 
-// 🆕 Verifica si los botones están activos (crea archivo si no existe)
 function botonesActivos() {
   const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
   if (!fs.existsSync(ACTIVOSS_FILE)) {
@@ -46,7 +42,6 @@ function isValidX(url) {
       || /^https?:\/\/(www\.)?x\.com\/i\/status\/\d+/i.test(u);
 }
 
-// Obtener datos de la API
 async function getTwitterFromSky(url) {
   const endpoint = `${API_BASE}/twitter`;
 
@@ -94,7 +89,6 @@ async function getTwitterFromSky(url) {
     date: r.date || "",
     text: r.text || "",
     sourceUrl: r.url || url,
-    thumbnail: best?.thumbnail || r?.thumbnail || null,
   };
 }
 
@@ -117,39 +111,58 @@ async function fetchBuffer(url, useAuthHeaders) {
 
 async function sendMedia(conn, job, asDocument, triggerMsg) {
   job.isBusy = true;
-  const { chatId, type, direct, proxyInline, proxyDownload, caption, quotedBase } = job;
+  const { chatId, type, direct, proxyInline, proxyDownload, quotedBase } = job;
+  const { authorName, username, likes, replies, retweets, date } = job;
 
   const isVideo = type === "video";
   const mimetype = isVideo ? "video/mp4" : "image/jpeg";
   const ext = isVideo ? "mp4" : "jpg";
+  const tipo = isVideo ? "Video" : "Imagen";
 
   try {
     await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : "🎬");
     await conn.sendMessage(chatId, { text: "⏳ Espere, descargando su archivo..." }, { quoted: quotedBase });
 
+    // 🎨 Caption final con TODA la info + marca de agua
+    const finalCaption =
+`╭━━━━━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗫 / 𝗧𝗪𝗜𝗧𝗧𝗘𝗥 — ${tipo.toUpperCase()}
+╰━━━━━━━━━━━━━━━━━━━━╯
+
+👤 *Autor:* ${authorName} ${username}
+📊 *Estadísticas:* ❤️ ${likes} · 💬 ${replies} · 🔁 ${retweets}
+${date ? `📅 *Fecha:* ${date}\n` : ""}📦 *Formato:* ${asDocument ? "Documento" : "Normal"}
+
+━━━━━━━━━━━━━━━━━━━━
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${API_BASE}
+━━━━━━━━━━━━━━━━━━━━`;
+
+    // A) Intento: URL directa
     const urlTry = direct || proxyInline;
     if (urlTry) {
       try {
         if (asDocument) {
           await conn.sendMessage(
             chatId,
-            { document: { url: urlTry }, mimetype, fileName: `twitter-${Date.now()}.${ext}`, caption },
+            { document: { url: urlTry }, mimetype, fileName: `twitter-${Date.now()}.${ext}`, caption: finalCaption },
             { quoted: quotedBase || triggerMsg }
           );
         } else {
           if (isVideo) {
-            await conn.sendMessage(chatId, { video: { url: urlTry }, mimetype: "video/mp4", caption }, { quoted: quotedBase || triggerMsg });
+            await conn.sendMessage(chatId, { video: { url: urlTry }, mimetype: "video/mp4", caption: finalCaption }, { quoted: quotedBase || triggerMsg });
           } else {
-            await conn.sendMessage(chatId, { image: { url: urlTry }, caption }, { quoted: quotedBase || triggerMsg });
+            await conn.sendMessage(chatId, { image: { url: urlTry }, caption: finalCaption }, { quoted: quotedBase || triggerMsg });
           }
         }
         await react(conn, chatId, triggerMsg.key, "✅");
         return;
       } catch (e) {
-        // Falló URL directa, intentamos buffer
+        // URL falló, intentamos buffer
       }
     }
 
+    // B) Fallback: buffer
     let bufRes = null;
     if (direct) {
       try { bufRes = await fetchBuffer(direct, false); } catch {}
@@ -165,14 +178,14 @@ async function sendMedia(conn, job, asDocument, triggerMsg) {
     if (asDocument) {
       await conn.sendMessage(
         chatId,
-        { document: mediaBuffer, mimetype, fileName: `twitter-${Date.now()}.${ext}`, caption },
+        { document: mediaBuffer, mimetype, fileName: `twitter-${Date.now()}.${ext}`, caption: finalCaption },
         { quoted: quotedBase || triggerMsg }
       );
     } else {
       if (isVideo) {
-        await conn.sendMessage(chatId, { video: mediaBuffer, mimetype: "video/mp4", caption }, { quoted: quotedBase || triggerMsg });
+        await conn.sendMessage(chatId, { video: mediaBuffer, mimetype: "video/mp4", caption: finalCaption }, { quoted: quotedBase || triggerMsg });
       } else {
-        await conn.sendMessage(chatId, { image: mediaBuffer, caption }, { quoted: quotedBase || triggerMsg });
+        await conn.sendMessage(chatId, { image: mediaBuffer, caption: finalCaption }, { quoted: quotedBase || triggerMsg });
       }
     }
 
@@ -222,23 +235,15 @@ module.exports = async (msg, { conn, args }) => {
     const likes = Number(d.stats?.likes || 0);
     const replies = Number(d.stats?.replies || 0);
     const retweets = Number(d.stats?.retweets || 0);
-    const tipo = d.type === "video" ? "Video" : "Imagen";
 
     const usarBotones = botonesActivos();
 
-    // 🎨 Caption con diseño elegante según estado de botones
+    // 🎨 Caption LIMPIO — solo explicación + marca de agua
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗫 / 𝗧𝗪𝗜𝗧𝗧𝗘𝗥 𝗗𝗟
-╰━━━━━━━━━━━━━━━━━╯
-
-📀 *INFORMACIÓN*
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-✦ *Tipo:* ${tipo}
-✦ *Autor:* ${authorName} ${username}
-✦ *Estadísticas:* ❤️ ${likes} · 💬 ${replies} · 🔁 ${retweets}
-${d.date ? `✦ *Fecha:* ${d.date}` : ""}
+╰━━━━━━━━━━━━━━━━━━╯
 
 ━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
@@ -259,24 +264,17 @@ Cita este mensaje y escribe:
    *1*  →  Enviar normal
    *2*  →  Enviar como documento
 
-━━━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
-🔗 *API:* ${API_BASE}`.trim()
+━━━━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━━━━`.trim()
       : `
-╭━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗫 / 𝗧𝗪𝗜𝗧𝗧𝗘𝗥 𝗗𝗟
-╰━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━╯
 
-📀 *INFORMACIÓN*
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-✦ *Tipo:* ${tipo}
-✦ *Autor:* ${authorName} ${username}
-✦ *Estadísticas:* ❤️ ${likes} · 💬 ${replies} · 🔁 ${retweets}
-${d.date ? `✦ *Fecha:* ${d.date}` : ""}
-
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -289,10 +287,9 @@ Cita este mensaje y escribe:
    *2*  →  Enviar como documento
 
 ━━━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
-🔗 *API:* ${API_BASE}`.trim();
+🤖 *La Suki Bot*
+━━━━━━━━━━━━━━━━━━━━`.trim();
 
-    // Botones nativos (solo 2 opciones)
     const nativeFlowButtons = [
       { text: "🎬 Normal",    id: `${pref}tw_normal` },
       { text: "📁 Documento", id: `${pref}tw_documento` },
@@ -311,23 +308,22 @@ Cita este mensaje y escribe:
         preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
       }
     } else {
-      // Botones desactivados
       preview = await conn.sendMessage(chatId, { text: caption }, { quoted: msg });
     }
 
+    // Guardar TODA la info en el job para el caption final
     pendingTW[preview.key.id] = {
       chatId,
       type: d.type,
       direct: d.direct,
       proxyInline: d.proxyInline,
       proxyDownload: d.proxyDownload,
-      caption:
-`✅ 𝗧𝘄𝗶𝘁𝘁𝗲𝗿/𝗫 — ${tipo}
-
-✦ 𝗔𝘂𝘁𝗼𝗿: ${authorName} ${username}
-
-🤖 𝗕𝗼𝘁: La Suki Bot
-🔗 𝗔𝗣𝗜: ${API_BASE}`,
+      authorName,
+      username,
+      likes,
+      replies,
+      retweets,
+      date: d.date,
       quotedBase: msg,
       previewKey: preview.key,
       _createdAt: Date.now(),
@@ -354,13 +350,13 @@ Cita este mensaje y escribe:
               if (!job) continue;
               if (job.chatId !== m.key.remoteJid) continue;
               if (emoji !== "👍" && emoji !== "❤️") continue;
-
               if (job.isBusy) continue;
+
               await sendMedia(conn, job, emoji === "❤️", m);
               continue;
             }
 
-            // B) BOTONES / MENÚ INTERACTIVO
+            // B) BOTONES
             const interactiveReply =
               m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
               m.message?.buttonsResponseMessage ||
@@ -420,8 +416,8 @@ Cita este mensaje y escribe:
 
               const body = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim();
               if (body !== "1" && body !== "2") continue;
-
               if (job.isBusy) continue;
+
               await sendMedia(conn, job, body === "2", m);
             }
           } catch (e) {
