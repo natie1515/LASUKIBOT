@@ -176,41 +176,31 @@ module.exports = async (msg, { conn, args, command }) => {
   // 🎨 Caption LIMPIO — solo explicación + marca de agua
   const caption = usarBotones
     ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━╯
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Botones*
 Toca un botón abajo del mensaje:
    🎵 *Audio*
    📄 *Audio Documento*
 
-🟡 *OPCIÓN 2 — Reaccionar*
-Reacciona con un emoji:
-   👍  →  Audio MP3
-   📄  →  Audio como documento
-
-🔵 *OPCIÓN 3 — Responder número*
-Cita este mensaje y escribe:
-   *1* o *audio*      →  Audio MP3
-   *2* o *audiodoc*   →  Audio como documento
-
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 `.trim()
     : `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━╯
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -222,9 +212,9 @@ Cita este mensaje y escribe:
    *1* o *audio*      →  Audio MP3
    *2* o *audiodoc*   →  Audio como documento
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━
 `.trim();
 
   // ====== 🆕 BOTONES DIRECTOS (2 opciones, sin menú desplegable) ======
