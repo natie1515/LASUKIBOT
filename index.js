@@ -216,9 +216,9 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   const m = messages[0];
   if (!m || !m.message) return;
 
-  // 🔎 Normalización PROFUNDA: convierte LIDs a números reales en TODO el mensaje
-  // para que los comandos vean el número real sin necesidad de adaptarlos.
-  (() => {
+  // 🔎 Normalización PROFUNDA: convierte LIDs a números reales en TODO el mensaje,
+  // incluyendo chats PRIVADOS (consulta al signalRepository cuando hace falta).
+  await (async () => {
     const DIGITS = (s = "") => (s || "").replace(/\D/g, "");
     const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
     const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
@@ -226,18 +226,42 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     // 🧠 Mapa global LID ↔ PN (se va llenando con cada mensaje)
     global.lidMap = global.lidMap || new Map();
 
-    // 🔄 Función que intenta resolver cualquier JID a su versión PN (número real)
-    const toRealJid = (jid) => {
+    // 🔄 Resolver LID → PN (usa mapa local primero, luego consulta a Baileys)
+    const toRealJid = async (jid) => {
       if (!jid || typeof jid !== "string") return jid;
-      if (isUser(jid)) return jid;                         // ya es real
-      if (isLid(jid) && global.lidMap.has(jid)) {
-        return global.lidMap.get(jid);                     // encontrado en el mapa
-      }
-      return jid;                                          // no se pudo resolver, dejar como está
+      if (isUser(jid)) return jid;                         // ya es PN real
+      if (!isLid(jid)) return jid;                         // no es LID, devolver tal cual
+
+      // 1) Buscar en mapa local
+      if (global.lidMap.has(jid)) return global.lidMap.get(jid);
+
+      // 2) Intentar resolver con signalRepository (Baileys v7+)
+      try {
+        if (sock.signalRepository?.lidMapping?.getPNForLID) {
+          const pn = await sock.signalRepository.lidMapping.getPNForLID(jid);
+          if (pn && isUser(pn)) {
+            global.lidMap.set(jid, pn);   // cachear para futuras llamadas
+            global.lidMap.set(pn, jid);
+            return pn;
+          }
+        }
+      } catch {}
+
+      // 3) No se pudo resolver, dejar el LID tal cual
+      return jid;
+    };
+
+    // Versión sincrónica para campos donde no podemos usar await
+    // (usa solo el mapa local, sin consultar a WhatsApp)
+    const toRealJidSync = (jid) => {
+      if (!jid || typeof jid !== "string") return jid;
+      if (isUser(jid)) return jid;
+      if (isLid(jid) && global.lidMap.has(jid)) return global.lidMap.get(jid);
+      return jid;
     };
 
     // ========= PASO 1: Identificar el PN real del autor del mensaje =========
-    // Prioridad 1: Campos PN explícitos (Baileys v6.8+/v7+ los trae si existen)
+    // Prioridad 1: Campos PN explícitos (Baileys v6.8+/v7+ los trae en grupos)
     const altPn =
       (isUser(m.key?.senderPn)        && m.key.senderPn) ||
       (isUser(m.key?.participantPn)   && m.key.participantPn) ||
@@ -245,16 +269,16 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       (isUser(m.key?.participantAlt)  && m.key.participantAlt) ||
       null;
 
-    // Prioridad 2: Campos legacy (forks custom, como el de tu amigo)
+    // Prioridad 2: Campos legacy (forks custom)
     const legacy =
       (isUser(m.key?.jid)         && m.key.jid) ||
       (isUser(m.key?.participant) && m.key.participant) ||
       (m.key?.remoteJid && !m.key.remoteJid.endsWith("@g.us") && isUser(m.key.remoteJid) && m.key.remoteJid) ||
       null;
 
-    const realJidOfSender = altPn || legacy;
+    let realJidOfSender = altPn || legacy;
 
-    // Capturar el LID también (si existe)
+    // Capturar el LID del autor
     const lidOfSender =
       (isLid(m.key?.senderLid)       && m.key.senderLid) ||
       (isLid(m.key?.participantLid)  && m.key.participantLid) ||
@@ -262,14 +286,21 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       (isLid(m.key?.remoteJid)       && m.key.remoteJid) ||
       null;
 
-    // ========= PASO 2: Guardar el mapeo LID ↔ PN en el mapa global =========
-    // Esto ayuda a resolver LIDs de otros mensajes donde no venga el PN
+    // 🆕 PRIVADOS: si no tenemos PN pero SÍ tenemos un LID, consultar a Baileys
+    if (!realJidOfSender && lidOfSender) {
+      const resolved = await toRealJid(lidOfSender);
+      if (resolved && isUser(resolved)) {
+        realJidOfSender = resolved;
+      }
+    }
+
+    // ========= PASO 2: Guardar el mapeo LID ↔ PN =========
     if (realJidOfSender && lidOfSender) {
       global.lidMap.set(lidOfSender, realJidOfSender);
       global.lidMap.set(realJidOfSender, lidOfSender);
     }
 
-    // ========= PASO 3: Sobrescribir los campos del mensaje con el REAL =========
+    // ========= PASO 3: Sobrescribir los campos del mensaje =========
     if (realJidOfSender) {
       m.key.jid = realJidOfSender;
       m.key.participant = realJidOfSender;
@@ -277,7 +308,6 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       m.realNumber = DIGITS(realJidOfSender);
       m.realLid = lidOfSender;
     } else if (lidOfSender) {
-      // No hay PN disponible → fallback al LID (al menos se puede responder)
       m.realJid = lidOfSender;
       m.realNumber = DIGITS(lidOfSender);
       m.realLid = lidOfSender;
@@ -287,13 +317,12 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       m.realLid = null;
     }
 
-    // ========= PASO 4: Normalizar el remoteJid si es un LID en chat privado =========
+    // ========= PASO 4: Normalizar el remoteJid si es LID en chat privado =========
     if (m.key?.remoteJid && isLid(m.key.remoteJid) && realJidOfSender) {
       m.key.remoteJid = realJidOfSender;
     }
 
-    // ========= PASO 5: Normalizar el contextInfo (respuestas, menciones, etc) =========
-    // Aquí es donde viven las menciones y las respuestas a mensajes.
+    // ========= PASO 5: Normalizar el contextInfo =========
     const ctx =
       m.message?.extendedTextMessage?.contextInfo ||
       m.message?.imageMessage?.contextInfo ||
@@ -305,33 +334,36 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
 
     if (ctx) {
       // Participant del mensaje citado (cuando responden a alguien)
-      if (ctx.participant) ctx.participant = toRealJid(ctx.participant);
+      if (ctx.participant) {
+        ctx.participant = await toRealJid(ctx.participant);
+      }
       if (ctx.participantPn && isUser(ctx.participantPn)) {
-        ctx.participant = ctx.participantPn; // preferir el PN explícito
+        ctx.participant = ctx.participantPn;
       }
 
       // remoteJid del contexto
       if (ctx.remoteJid && isLid(ctx.remoteJid)) {
-        ctx.remoteJid = toRealJid(ctx.remoteJid);
+        ctx.remoteJid = await toRealJid(ctx.remoteJid);
       }
 
-      // Menciones con @ en el texto
+      // Menciones con @ (usa versión sincrónica porque es array)
       if (Array.isArray(ctx.mentionedJid)) {
-        ctx.mentionedJid = ctx.mentionedJid.map(toRealJid);
+        ctx.mentionedJid = ctx.mentionedJid.map(toRealJidSync);
       }
 
-      // Grupos mencionados en el mensaje citado
+      // Grupos mencionados
       if (Array.isArray(ctx.groupMentions)) {
         ctx.groupMentions = ctx.groupMentions.map((g) => {
-          if (g && g.groupJid) g.groupJid = toRealJid(g.groupJid);
+          if (g && g.groupJid) g.groupJid = toRealJidSync(g.groupJid);
           return g;
         });
       }
     }
 
-    // ========= PASO 6: Exponer un helper global para uso manual si se ocupa =========
-    global.resolveRealJid = (jid) => toRealJid(jid);
-    global.resolveRealNumber = (jid) => DIGITS(toRealJid(jid) || "");
+    // ========= PASO 6: Exponer helpers globales =========
+    global.resolveRealJid = toRealJidSync;
+    global.resolveRealJidAsync = toRealJid;
+    global.resolveRealNumber = (jid) => DIGITS(toRealJidSync(jid) || "");
   })();
 
   global.mActual = m; // debug opcional
