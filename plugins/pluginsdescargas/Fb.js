@@ -158,15 +158,15 @@ module.exports = async (msg, { conn, args, command }) => {
     // 🎨 Caption con diseño elegante según estado de botones
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━╮
   ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Botones*
 Toca un botón abajo del mensaje:
@@ -187,15 +187,15 @@ Cita este mensaje y escribe:
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}`.trim()
       : `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━╮
   ⚡ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
