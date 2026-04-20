@@ -216,15 +216,28 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   const m = messages[0];
   if (!m || !m.message) return;
 
-  // 🔎 Normalizar JID real del autor para TODOS los comandos (una sola vez)
-  // ✅ Compatible con cualquier Baileys: oficial, forks, modificados, etc.
+  // 🔎 Normalización PROFUNDA: convierte LIDs a números reales en TODO el mensaje
+  // para que los comandos vean el número real sin necesidad de adaptarlos.
   (() => {
     const DIGITS = (s = "") => (s || "").replace(/\D/g, "");
     const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
     const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
 
-    // 🆕 Prioridad 1: Campos PN explícitos (Baileys v6.8+/v7+ los trae cuando existen)
-    // Estos SIEMPRE son el número real, aunque el remoteJid/participant vengan como @lid
+    // 🧠 Mapa global LID ↔ PN (se va llenando con cada mensaje)
+    global.lidMap = global.lidMap || new Map();
+
+    // 🔄 Función que intenta resolver cualquier JID a su versión PN (número real)
+    const toRealJid = (jid) => {
+      if (!jid || typeof jid !== "string") return jid;
+      if (isUser(jid)) return jid;                         // ya es real
+      if (isLid(jid) && global.lidMap.has(jid)) {
+        return global.lidMap.get(jid);                     // encontrado en el mapa
+      }
+      return jid;                                          // no se pudo resolver, dejar como está
+    };
+
+    // ========= PASO 1: Identificar el PN real del autor del mensaje =========
+    // Prioridad 1: Campos PN explícitos (Baileys v6.8+/v7+ los trae si existen)
     const altPn =
       (isUser(m.key?.senderPn)        && m.key.senderPn) ||
       (isUser(m.key?.participantPn)   && m.key.participantPn) ||
@@ -232,49 +245,93 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       (isUser(m.key?.participantAlt)  && m.key.participantAlt) ||
       null;
 
-    // Prioridad 2: Campos custom del fork de tu amigo (m.key.jid) y campos estándar
+    // Prioridad 2: Campos legacy (forks custom, como el de tu amigo)
     const legacy =
       (isUser(m.key?.jid)         && m.key.jid) ||
       (isUser(m.key?.participant) && m.key.participant) ||
       (m.key?.remoteJid && !m.key.remoteJid.endsWith("@g.us") && isUser(m.key.remoteJid) && m.key.remoteJid) ||
       null;
 
-    // Elegir el mejor candidato: prioriza el PN explícito sobre lo legacy
-    const cand = altPn || legacy;
+    const realJidOfSender = altPn || legacy;
 
-    // Guardar también el LID por si lo necesitas
-    const lid =
+    // Capturar el LID también (si existe)
+    const lidOfSender =
       (isLid(m.key?.senderLid)       && m.key.senderLid) ||
       (isLid(m.key?.participantLid)  && m.key.participantLid) ||
       (isLid(m.key?.participant)     && m.key.participant) ||
       (isLid(m.key?.remoteJid)       && m.key.remoteJid) ||
       null;
 
-    if (cand) {
-      m.key.jid = cand;              // siempre JID real del autor
-      m.key.participant = cand;      // muchos plugins leen participant: ahora ven el REAL
-      m.realJid = cand;
-      m.realNumber = DIGITS(cand);
-      m.realLid = lid;               // por si también lo necesitas
-    } else if (lid) {
-      // No hay PN disponible (grupo con "ocultar números" o similar)
-      // Dejamos el LID como último recurso para poder responder
-      m.realJid = lid;
-      m.realNumber = DIGITS(lid);
-      m.realLid = lid;
+    // ========= PASO 2: Guardar el mapeo LID ↔ PN en el mapa global =========
+    // Esto ayuda a resolver LIDs de otros mensajes donde no venga el PN
+    if (realJidOfSender && lidOfSender) {
+      global.lidMap.set(lidOfSender, realJidOfSender);
+      global.lidMap.set(realJidOfSender, lidOfSender);
+    }
+
+    // ========= PASO 3: Sobrescribir los campos del mensaje con el REAL =========
+    if (realJidOfSender) {
+      m.key.jid = realJidOfSender;
+      m.key.participant = realJidOfSender;
+      m.realJid = realJidOfSender;
+      m.realNumber = DIGITS(realJidOfSender);
+      m.realLid = lidOfSender;
+    } else if (lidOfSender) {
+      // No hay PN disponible → fallback al LID (al menos se puede responder)
+      m.realJid = lidOfSender;
+      m.realNumber = DIGITS(lidOfSender);
+      m.realLid = lidOfSender;
     } else {
       m.realJid = null;
       m.realNumber = null;
       m.realLid = null;
     }
 
-    // 🧠 Guardar mapeo LID <-> PN en memoria para futuras referencias
-    // (útil cuando después llegue un mensaje solo con LID del mismo usuario)
-    if (cand && lid) {
-      global.lidMap = global.lidMap || new Map();
-      global.lidMap.set(lid, cand);  // LID → PN
-      global.lidMap.set(cand, lid);  // PN → LID (inverso)
+    // ========= PASO 4: Normalizar el remoteJid si es un LID en chat privado =========
+    if (m.key?.remoteJid && isLid(m.key.remoteJid) && realJidOfSender) {
+      m.key.remoteJid = realJidOfSender;
     }
+
+    // ========= PASO 5: Normalizar el contextInfo (respuestas, menciones, etc) =========
+    // Aquí es donde viven las menciones y las respuestas a mensajes.
+    const ctx =
+      m.message?.extendedTextMessage?.contextInfo ||
+      m.message?.imageMessage?.contextInfo ||
+      m.message?.videoMessage?.contextInfo ||
+      m.message?.documentMessage?.contextInfo ||
+      m.message?.audioMessage?.contextInfo ||
+      m.message?.stickerMessage?.contextInfo ||
+      null;
+
+    if (ctx) {
+      // Participant del mensaje citado (cuando responden a alguien)
+      if (ctx.participant) ctx.participant = toRealJid(ctx.participant);
+      if (ctx.participantPn && isUser(ctx.participantPn)) {
+        ctx.participant = ctx.participantPn; // preferir el PN explícito
+      }
+
+      // remoteJid del contexto
+      if (ctx.remoteJid && isLid(ctx.remoteJid)) {
+        ctx.remoteJid = toRealJid(ctx.remoteJid);
+      }
+
+      // Menciones con @ en el texto
+      if (Array.isArray(ctx.mentionedJid)) {
+        ctx.mentionedJid = ctx.mentionedJid.map(toRealJid);
+      }
+
+      // Grupos mencionados en el mensaje citado
+      if (Array.isArray(ctx.groupMentions)) {
+        ctx.groupMentions = ctx.groupMentions.map((g) => {
+          if (g && g.groupJid) g.groupJid = toRealJid(g.groupJid);
+          return g;
+        });
+      }
+    }
+
+    // ========= PASO 6: Exponer un helper global para uso manual si se ocupa =========
+    global.resolveRealJid = (jid) => toRealJid(jid);
+    global.resolveRealNumber = (jid) => DIGITS(toRealJid(jid) || "");
   })();
 
   global.mActual = m; // debug opcional
@@ -285,11 +342,11 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   const isGroup = chatId.endsWith("@g.us");
 
   let messageContent =
-  m.message?.conversation ||
-  m.message?.extendedTextMessage?.text ||
-  m.message?.imageMessage?.caption ||
-  m.message?.videoMessage?.caption ||
-  "";
+    m.message?.conversation ||
+    m.message?.extendedTextMessage?.text ||
+    m.message?.imageMessage?.caption ||
+    m.message?.videoMessage?.caption ||
+    "";
 
   console.log(chalk.yellow(`\n📩 Nuevo mensaje recibido`));
   console.log(chalk.green(`📨 De: ${fromMe ? "[Tú]" : "[Usuario]"} ${chalk.bold(sender)}`));
