@@ -1,7 +1,8 @@
 // comandos/ytmp3.js — YouTube MP3 (URL)
-// ✅ Lógica de Listeners idéntica a play.js
-// ✅ 2 Botones rápidos (Audio y Documento)
+// ✅ API original que SÍ funciona (POST /youtube/resolve, type: audio)
+// ✅ 2 Botones rápidos (Audio Normal y Documento)
 // ✅ Respeta activoss.json
+// ✅ Sistema de bloqueo isBusy con aviso al usuario
 
 "use strict";
 
@@ -39,7 +40,7 @@ function ensureTmp() {
 
 function botonesActivos() {
   if (!fs.existsSync(ACTIVOSS_FILE)) return true;
-  try { return JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8")).botones !== false; } 
+  try { return JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8")).botones !== false; }
   catch { return true; }
 }
 
@@ -50,23 +51,41 @@ function isYouTube(u = "") {
 async function downloadToFile(url, filePath) {
   const headers = { "User-Agent": "Mozilla/5.0", Accept: "*/*" };
   if (url.includes(new URL(API_BASE).host)) headers["apikey"] = API_KEY;
-  const res = await axios.get(url, { responseType: "stream", timeout: 180000, headers, maxRedirects: 5, validateStatus: () => true });
+  const res = await axios.get(url, {
+    responseType: "stream",
+    timeout: 180000,
+    headers,
+    maxRedirects: 5,
+    validateStatus: () => true
+  });
   if (res.status >= 400) throw new Error(`HTTP_${res.status}`);
   await streamPipe(res.data, fs.createWriteStream(filePath));
   return filePath;
 }
 
 async function callYoutubeResolve(videoUrl) {
-  const r = await axios.post(`${API_BASE}/youtube/resolve`, 
+  const r = await axios.post(`${API_BASE}/youtube/resolve`,
     { url: videoUrl, type: "audio", format: "mp3" },
     { headers: { "Content-Type": "application/json", apikey: API_KEY }, validateStatus: () => true }
   );
   const data = typeof r.data === "object" ? r.data : null;
-  if (!data || (!data.status && !data.ok && !data.success)) throw new Error(data?.message || "Error en la API");
+  if (!data || (!data.status && !data.ok && !data.success)) {
+    throw new Error(data?.message || data?.error || "Error en la API");
+  }
   const result = data.result || data.data || data;
-  let dl = result.media?.dl_download || result.media?.direct || "";
+  let dl = result.media?.dl_download
+    || result.media?.direct
+    || result.media?.url
+    || result.url
+    || result.download
+    || "";
   if (dl && dl.startsWith("/")) dl = API_BASE + dl;
-  return { title: result.title || "YouTube Audio", author: result.author?.name || "Desconocido", duration: result.duration || 0, mediaUrl: dl };
+  return {
+    title: result.title || "YouTube Audio",
+    author: (typeof result.author === "object" ? result.author?.name : result.author) || "Desconocido",
+    duration: result.duration || result.timestamp || 0,
+    mediaUrl: dl
+  };
 }
 
 // ---------- main ----------
@@ -79,46 +98,53 @@ module.exports = async (msg, { conn, args, command }) => {
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-  let title = "YouTube Audio", thumbnail = "", durationTxt = "—";
+  let title = "YouTube Audio", thumbnail = "", durationTxt = "—", author = "Desconocido";
   try {
     const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
     if (videoIdMatch) {
       const searchRes = await yts({ videoId: videoIdMatch[1] });
-      if (searchRes) { title = searchRes.title; thumbnail = searchRes.thumbnail; durationTxt = searchRes.timestamp; }
+      if (searchRes) {
+        title = searchRes.title;
+        thumbnail = searchRes.thumbnail;
+        durationTxt = searchRes.timestamp;
+        author = searchRes.author?.name || "Desconocido";
+      }
     }
   } catch {}
 
   const usarBotones = botonesActivos();
 
-  const caption = usarBotones ? 
+  const caption = usarBotones ?
 `╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
 ╰━━━━━━━━━━━━━━━━╯
 
 🎵 *Título:* ${title}
+👤 *Canal:* ${author}
 ⏱️ *Duración:* ${durationTxt}
 
-👇 *Elige una opción abajo:*` 
-  : 
+👇 *Elige una opción abajo:*`
+  :
 `╭━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
 ╰━━━━━━━━━━━━━━━━╯
 
 🎵 *Título:* ${title}
+👤 *Canal:* ${author}
 ⏱️ *Duración:* ${durationTxt}
 
 🟡 *OPCIÓN 1 — Reaccionar*
    👍  →  Audio Normal
    📄  →  Audio como Documento
 
-🔵 *OPCIÓN 2 — Responder*
+🔵 *OPCIÓN 2 — Responder citando este mensaje*
    *1* →  Audio Normal
    *2* →  Audio como Documento`;
 
-  // 2 Botones Rápidos (Quick Replies)
+  // 2 Botones rápidos (quick_reply)
   const nativeFlowButtons = [
     { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "🎵 Audio Normal", id: `${pref}ytmp3_audio` }) },
-    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "📄 Documento", id: `${pref}ytmp3_audiodoc` }) }
+    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "📄 Documento",    id: `${pref}ytmp3_audiodoc` }) }
   ];
 
   let preview;
@@ -128,61 +154,79 @@ module.exports = async (msg, { conn, args, command }) => {
       if (thumbnail) { payload.image = { url: thumbnail }; payload.headerType = 4; }
       preview = await conn.sendMessage(msg.key.remoteJid, payload, { quoted: msg });
     } catch (e) {
-      preview = await conn.sendMessage(msg.key.remoteJid, { image: { url: thumbnail }, caption }, { quoted: msg });
+      preview = await conn.sendMessage(msg.key.remoteJid,
+        thumbnail ? { image: { url: thumbnail }, caption } : { text: caption },
+        { quoted: msg });
     }
   } else {
-    preview = await conn.sendMessage(msg.key.remoteJid, { image: { url: thumbnail }, caption }, { quoted: msg });
+    preview = await conn.sendMessage(msg.key.remoteJid,
+      thumbnail ? { image: { url: thumbnail }, caption } : { text: caption },
+      { quoted: msg });
   }
 
-  // Guardar en pending
-  pendingYTA[preview.key.id] = { chatId: msg.key.remoteJid, url, title, thumbnail, commandMsg: msg, isBusy: false, _createdAt: Date.now() };
+  pendingYTA[preview.key.id] = {
+    chatId: msg.key.remoteJid, url, title, thumbnail, author, durationTxt,
+    commandMsg: msg, isBusy: false, _createdAt: Date.now()
+  };
   setTimeout(() => { delete pendingYTA[preview.key.id]; }, 10 * 60 * 1000);
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
 
-  // ====== listener único idéntico a play.js ======
+  // ====== Listener único ======
   if (!conn._ytmp3Listener) {
     conn._ytmp3Listener = true;
     conn.ev.on("messages.upsert", async (ev) => {
       for (const m of ev.messages) {
-        
+
         // 1) REACCIONES
         if (m.message?.reactionMessage) {
           const { key: reactKey, text: emoji } = m.message.reactionMessage;
           const job = pendingYTA[reactKey.id];
           if (job) {
-             if (emoji === "👍") await downloadAudio(conn, job, false, m);
-             if (emoji === "📄" || emoji === "❤️") await downloadAudio(conn, job, true, m);
+            if (emoji === "👍") await downloadAudio(conn, job, false, m);
+            if (emoji === "📄" || emoji === "❤️") await downloadAudio(conn, job, true, m);
           }
           continue;
         }
 
         // 2) BOTONES INTERACTIVOS
         try {
-          const interactiveReply = m.message?.interactiveResponseMessage?.nativeFlowResponseMessage || m.message?.listResponseMessage || m.message?.buttonsResponseMessage || m.message?.templateButtonReplyMessage || null;
+          const interactiveReply =
+               m.message?.interactiveResponseMessage?.nativeFlowResponseMessage
+            || m.message?.listResponseMessage
+            || m.message?.buttonsResponseMessage
+            || m.message?.templateButtonReplyMessage
+            || null;
+
           if (interactiveReply) {
             let selectedId = "";
             if (interactiveReply?.paramsJson) {
               try { selectedId = JSON.parse(interactiveReply.paramsJson).id || ""; } catch {}
-            } else if (interactiveReply?.body?.text) {
-              selectedId = interactiveReply.body.text;
+            } else if (m.message?.buttonsResponseMessage?.selectedButtonId) {
+              selectedId = m.message.buttonsResponseMessage.selectedButtonId;
+            } else if (m.message?.templateButtonReplyMessage?.selectedId) {
+              selectedId = m.message.templateButtonReplyMessage.selectedId;
             }
 
             if (!selectedId) continue;
+            // Solo IDs propios de ytmp3 (evita conflicto con ytmp4)
+            if (!selectedId.includes("ytmp3_")) continue;
 
             const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
             let job = null;
             if (ctxQuoted && pendingYTA[ctxQuoted]) {
               job = pendingYTA[ctxQuoted];
             } else {
-              const jobsInChat = Object.entries(pendingYTA).filter(([, j]) => j.chatId === m.key.remoteJid).sort(([, a], [, b]) => (b._createdAt || 0) - (a._createdAt || 0));
+              const jobsInChat = Object.entries(pendingYTA)
+                .filter(([, j]) => j.chatId === m.key.remoteJid)
+                .sort(([, a], [, b]) => (b._createdAt || 0) - (a._createdAt || 0));
               if (jobsInChat.length > 0) job = jobsInChat[0][1];
             }
 
             if (!job) continue;
-            
-            if (selectedId === `${pref}ytmp3_audio`) await downloadAudio(conn, job, false, m);
-            else if (selectedId === `${pref}ytmp3_audiodoc`) await downloadAudio(conn, job, true, m);
+
+            if (selectedId.endsWith("ytmp3_audio")) await downloadAudio(conn, job, false, m);
+            else if (selectedId.endsWith("ytmp3_audiodoc")) await downloadAudio(conn, job, true, m);
             continue;
           }
         } catch (e) {}
@@ -194,7 +238,7 @@ module.exports = async (msg, { conn, args, command }) => {
           const job = pendingYTA[citado];
           if (citado && job) {
             if (texto === "1" || texto === "audio") await downloadAudio(conn, job, false, m);
-            else if (texto === "2" || texto === "documento") await downloadAudio(conn, job, true, m);
+            else if (texto === "2" || texto === "documento" || texto === "doc") await downloadAudio(conn, job, true, m);
           }
         } catch (e) {}
       }
@@ -203,8 +247,16 @@ module.exports = async (msg, { conn, args, command }) => {
 };
 
 async function downloadAudio(conn, job, asDocument, m) {
-  if (job.isBusy) return;
+  if (job.isBusy) {
+    try {
+      await conn.sendMessage(job.chatId, {
+        text: "⌛ Ya estoy procesando este audio, espere a que termine la descarga actual..."
+      }, { quoted: m });
+    } catch {}
+    return;
+  }
   job.isBusy = true;
+
   const tmp = ensureTmp();
   const inFile = path.join(tmp, `${Date.now()}_in.bin`);
   const outFile = path.join(tmp, `${Date.now()}_out.mp3`);
@@ -219,18 +271,31 @@ async function downloadAudio(conn, job, asDocument, m) {
     await downloadToFile(res.mediaUrl, inFile);
 
     await new Promise((resolve, reject) => {
-      ffmpeg(inFile).audioCodec("libmp3lame").audioBitrate("128k").format("mp3").save(outFile).on("end", resolve).on("error", reject);
+      ffmpeg(inFile).audioCodec("libmp3lame").audioBitrate("128k").format("mp3").save(outFile)
+        .on("end", resolve).on("error", reject);
     });
 
     const sizeMB = fileSizeMB(outFile);
     if (sizeMB > MAX_MB) throw new Error(`Audio supera los ${MAX_MB}MB.`);
 
-    const caption = `🎵 𝗧𝗶́𝘁𝘂𝗹𝗼: ${res.title}\n💾 𝗣𝗲𝘀𝗼: ${sizeMB.toFixed(2)} MB\n\n🤖 𝗕𝗼𝘁: La Suki Bot`;
+    const finalTitle = res.title || job.title;
+    const caption =
+`╭━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗠𝗣𝟯 ⚡
+╰━━━━━━━━━━━━━━━━╯
+
+🎵 *Título:* ${finalTitle}
+👤 *Canal:* ${job.author || res.author || "Desconocido"}
+⏱️ *Duración:* ${job.durationTxt || "—"}
+💾 *Peso:* ${sizeMB.toFixed(2)} MB
+📦 *Tipo:* ${asDocument ? "Documento" : "Audio"}
+
+🤖 *Bot:* La Suki Bot`;
 
     await conn.sendMessage(job.chatId, {
       [asDocument ? "document" : "audio"]: fs.readFileSync(outFile),
       mimetype: "audio/mpeg",
-      fileName: `${safeName(res.title)}.mp3`,
+      fileName: `${safeName(finalTitle)}.mp3`,
       caption: asDocument ? caption : undefined
     }, { quoted: job.commandMsg });
 
@@ -238,6 +303,7 @@ async function downloadAudio(conn, job, asDocument, m) {
     await conn.sendMessage(job.chatId, { react: { text: "✅", key: m.key } });
   } catch (e) {
     await conn.sendMessage(job.chatId, { text: `❌ Error: ${e.message}` }, { quoted: m });
+    try { await conn.sendMessage(job.chatId, { react: { text: "❌", key: m.key } }); } catch {}
   } finally {
     try { fs.unlinkSync(inFile); } catch {}
     try { fs.unlinkSync(outFile); } catch {}
