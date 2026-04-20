@@ -229,9 +229,9 @@ module.exports = async (msg, { conn, args }) => {
     // 🎨 Caption con diseño elegante según estado de botones
     const caption = usarBotones
       ? `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗫 / 𝗧𝗪𝗜𝗧𝗧𝗘𝗥 𝗗𝗟
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
@@ -240,9 +240,9 @@ module.exports = async (msg, { conn, args }) => {
 ✦ *Estadísticas:* ❤️ ${likes} · 💬 ${replies} · 🔁 ${retweets}
 ${d.date ? `✦ *Fecha:* ${d.date}` : ""}
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Botones*
 Toca un botón abajo del mensaje:
@@ -263,9 +263,9 @@ Cita este mensaje y escribe:
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}`.trim()
       : `
-╭━━━━━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗫 / 𝗧𝗪𝗜𝗧𝗧𝗘𝗥 𝗗𝗟
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
