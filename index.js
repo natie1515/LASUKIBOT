@@ -212,6 +212,7 @@ let phoneNumber = "";
 
       
       // 💬 Manejo de mensajes
+
 sock.ev.on("messages.upsert", async ({ messages }) => {
   const m = messages[0];
   if (!m || !m.message) return;
@@ -379,6 +380,7 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     m.message?.imageMessage?.caption ||
     m.message?.videoMessage?.caption ||
     "";
+
 
   console.log(chalk.yellow(`\n📩 Nuevo mensaje recibido`));
   console.log(chalk.green(`📨 De: ${fromMe ? "[Tú]" : "[Usuario]"} ${chalk.bold(sender)}`));
