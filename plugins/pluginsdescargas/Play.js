@@ -3,6 +3,7 @@
 // ✅ Soporta Calidad, Reacciones y Respuestas Citadas
 // ✅ Menú interactivo tipo lista con múltiples calidades de documento
 // ✅ Diseño elegante y entendible
+// ✅ Respeta activoss.json (on/off de botones)
 
 "use strict";
 
@@ -27,6 +28,9 @@ const MAX_MB = 200;
 // Calidades válidas
 const VALID_QUALITIES = new Set(["144", "240", "360", "720", "1080", "1440", "4k"]);
 
+// Archivo de configuración de botones
+const ACTIVOSS_FILE = path.resolve("./activoss.json");
+
 // Almacena tareas pendientes por previewMessageId
 const pending = {};
 
@@ -50,6 +54,26 @@ function ensureTmp() {
   const tmp = path.join(__dirname, "../tmp");
   if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
   return tmp;
+}
+
+// 🆕 Leer activoss.json para saber si los botones están activos
+// Si el archivo no existe, lo crea con botones activados por defecto
+function botonesActivos() {
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
+
+  if (!fs.existsSync(ACTIVOSS_FILE)) {
+    try {
+      fs.writeFileSync(ACTIVOSS_FILE, JSON.stringify(defaultCfg, null, 2));
+    } catch {}
+    return true;
+  }
+
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ACTIVOSS_FILE, "utf-8"));
+    return cfg.botones !== false; // default: true
+  } catch {
+    return true;
+  }
 }
 
 function extractQualityFromText(input = "") {
@@ -184,11 +208,17 @@ module.exports = async (msg, { conn, text }) => {
   const chosenQuality = VALID_QUALITIES.has(quality) ? quality : DEFAULT_VIDEO_QUALITY;
   const qualityLabel = chosenQuality === "4k" ? "4K" : `${chosenQuality}p`;
 
+  // 🆕 Consultar estado de botones
+  const usarBotones = botonesActivos();
+
   // ====== 🎨 CAPTION ELEGANTE Y ENTENDIBLE ======
-  const caption = `
-╭━━━━━━━━━━━━━━━━━╮
+  // Si los botones están activos, muestra las 3 opciones
+  // Si NO, muestra solo las 2 opciones (reacción y respuesta)
+  const caption = usarBotones
+    ? `
+╭━━━━━━━━━━━━━━━╮
    ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
-╰━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━╯
 
 📀 *INFORMACIÓN DEL VIDEO*
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
@@ -203,9 +233,9 @@ module.exports = async (msg, { conn, text }) => {
 📹 Calidad video: *${qualityLabel}*
 🎵 Formato audio: *MP3*
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Menú de Botones*
 Toca el botón *📥 Menú de descarga* que aparece debajo del mensaje. Se abrirá una lista con todas las opciones de audio y video en distintas calidades.
@@ -227,12 +257,55 @@ Cita este mensaje y escribe:
 💡 *Tip:* Puedes cambiar la calidad escribiendo por ejemplo:
    _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
 
+━━━━━━━━━━━━━━━━━━
+     ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+━━━━━━━━━━━━━━━━━━
+`.trim()
+    : `
+╭━━━━━━━━━━━━━━━━╮
+   ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+╰━━━━━━━━━━━━━━━━╯
+
+📀 *INFORMACIÓN DEL VIDEO*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+🎵 *Título:* ${title}
+⏱️ *Duración:* ${duration}
+👁️ *Vistas:* ${viewsFmt}
+👤 *Autor:* ${author?.name || author || "Desconocido"}
+🔗 *Link:* ${videoUrl}
+
+⚙️ *AJUSTES ACTUALES*
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+📹 Calidad video: *${qualityLabel}*
+🎵 Formato audio: *MP3*
+
+━━━━━━━━━━━━━━━━━━━━
+*📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━━━
+
+🟡 *OPCIÓN 1 — Reaccionar*
+Reacciona a este mensaje con un emoji:
+   👍  →  Audio MP3
+   ❤️  →  Video (${qualityLabel})
+   📄  →  Audio como documento
+   📁  →  Video como documento
+
+🔵 *OPCIÓN 2 — Responder con número*
+Cita este mensaje y escribe:
+   *1* o *audio*      →  Audio MP3
+   *2* o *video*      →  Video (${qualityLabel})
+   *3* o *videodoc*   →  Video como documento
+   *4* o *audiodoc*   →  Audio como documento
+
+💡 *Tip:* Puedes cambiar la calidad escribiendo por ejemplo:
+   _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
+
 ━━━━━━━━━━━━━━━━━━━━
      ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
 ━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-  // ====== MENÚ INTERACTIVO (lista desplegable con más opciones) ======
+  // ====== MENÚ INTERACTIVO (solo si los botones están activos) ======
   const nativeFlowButtons = [
     {
       text: "📥 Menú de descarga",
@@ -285,21 +358,31 @@ Cita este mensaje y escribe:
     },
   ];
 
+  // 🆕 Enviar con o sin botones según activoss.json
   let preview;
-  try {
-    preview = await conn.sendMessage(
-      msg.key.remoteJid,
-      {
-        image: { url: thumbnail },
-        caption,
-        footer: "❦ Selecciona una opción del menú ❦",
-        buttons: nativeFlowButtons,
-        headerType: 4,
-      },
-      { quoted: msg }
-    );
-  } catch (e) {
-    console.log("[play] menú nativo falló, usando fallback:", e.message);
+  if (usarBotones) {
+    try {
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
+        {
+          image: { url: thumbnail },
+          caption,
+          footer: "❦ Selecciona una opción del menú ❦",
+          buttons: nativeFlowButtons,
+          headerType: 4,
+        },
+        { quoted: msg }
+      );
+    } catch (e) {
+      console.log("[play] menú nativo falló, usando fallback:", e.message);
+      preview = await conn.sendMessage(
+        msg.key.remoteJid,
+        { image: { url: thumbnail }, caption },
+        { quoted: msg }
+      );
+    }
+  } else {
+    // Botones desactivados → enviar solo imagen + caption
     preview = await conn.sendMessage(
       msg.key.remoteJid,
       { image: { url: thumbnail }, caption },
@@ -455,7 +538,7 @@ async function handleMenuSelection(conn, job, selectedId, m, pref) {
     return downloadAudio(conn, job, true, m);
   }
 
-  // 🆕 Video documento con calidad específica (formato: play_videodoc_720)
+  // Video documento con calidad específica (formato: play_videodoc_720)
   const videoDocMatch = id.match(/play_videodoc_(\d+|4k)$/i);
   if (videoDocMatch) {
     const q = videoDocMatch[1].toLowerCase();
