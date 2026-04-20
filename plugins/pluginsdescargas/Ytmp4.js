@@ -1,7 +1,6 @@
 // comandos/ytmp4.js — YouTube MP4 (URL)
-// ✅ MISMO patrón de play.js (botones text/sections/rows + headerType: 4)
-// ✅ Menú de calidades: 144p, 240p, 360p, 720p, 1080p, 1440p, 4K
-// ✅ Dos secciones: VIDEO NORMAL y VIDEO COMO DOCUMENTO
+// ✅ Mensaje de opciones: solo explicación de descarga
+// ✅ Info del video: va con el archivo descargado
 // ✅ Respeta activoss.json (sistema de activar/desactivar botones)
 // ✅ Soporta Reacciones, Menú Interactivo y Respuestas Citadas
 
@@ -104,7 +103,7 @@ async function downloadToFile(url, filePath) {
   return filePath;
 }
 
-// ---------- API (mismo patrón que play.js) ----------
+// ---------- API ----------
 async function callYoutubeResolveVideo(videoUrl, quality) {
   const endpoint = `${API_BASE}/youtube/resolve`;
   const body = { url: videoUrl, type: "video", quality: quality || DEFAULT_VIDEO_QUALITY };
@@ -159,7 +158,7 @@ module.exports = async (msg, { conn, args, command }) => {
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-  // Buscar info del video con yt-search
+  // Buscar info del video con yt-search (se guarda para el caption final)
   let title = "YouTube Video";
   let thumbnail = "";
   let duration = "—";
@@ -185,40 +184,32 @@ module.exports = async (msg, { conn, args, command }) => {
 
   const usarBotones = botonesActivos();
 
-  // 🎨 Caption — info del video + explicación de descarga
+  // 🎨 Caption LIMPIO — solo explicación + marca de agua
   const caption = usarBotones
     ? `
-╭━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗩𝗜𝗗𝗘𝗢 ⚡
-╰━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-📝 *Título:* ${title}
-👤 *Autor:* ${authorName}
-⏱️ *Duración:* ${duration}
-
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 
 🟢 *OPCIÓN 1 — Menú de Botones*
 Toca el botón *📥 Menú de descarga* abajo del mensaje. Se abrirá la lista con todas las calidades disponibles (144p hasta 4K) en formato Video o Documento.
 
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 `.trim()
     : `
-╭━━━━━━━━━━━━━━━━╮
+╭━━━━━━━━━━━━━━━━━━━━╮
    ⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗩𝗜𝗗𝗘𝗢 ⚡
-╰━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-📝 *Título:* ${title}
-👤 *Autor:* ${authorName}
-⏱️ *Duración:* ${duration}
-
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
  *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 
 🟡 *OPCIÓN 1 — Reaccionar*
 Reacciona con un emoji:
@@ -233,12 +224,12 @@ Cita este mensaje y escribe:
 💡 *Tip:* Puedes cambiar la calidad escribiendo:
    _"video 720"_   o   _"2 1080"_   o   _"videodoc 4k"_
 
-━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
-━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-  // ====== MENÚ INTERACTIVO (mismo formato que play.js — el que SÍ funciona en tu Baileys) ======
+  // ====== MENÚ INTERACTIVO ======
   const nativeFlowButtons = [
     {
       text: "📥 Menú de descarga",
@@ -321,7 +312,7 @@ Cita este mensaje y escribe:
 
   await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
 
-  // ====== Listener único (mismo patrón que play.js) ======
+  // ====== Listener único ======
   if (!conn._ytmp4ProListener) {
     conn._ytmp4ProListener = true;
 
@@ -363,7 +354,7 @@ Cita este mensaje y escribe:
             }
 
             if (!selectedId) continue;
-            // Solo IDs propios de ytmp4 (evita conflicto con ytmp3 / play)
+            // Solo IDs propios de ytmp4
             if (!selectedId.includes("ytmp4_")) continue;
 
             const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
@@ -444,7 +435,7 @@ async function handleMenuSelection(conn, job, selectedId, m, pref) {
     }
   }
 
-  // Fallback genérico (sin calidad específica)
+  // Fallback genérico
   if (id === `${pref}ytmp4_video` || id.endsWith("ytmp4_video")) {
     const q = job.videoQuality || DEFAULT_VIDEO_QUALITY;
     const label = q === "4k" ? "4K" : `${q}p`;
@@ -512,9 +503,9 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   // 🎨 Caption final con TODA la info + marca de agua
   const qualityLabel = q === "4k" ? "4K" : `${q}p`;
   const finalCaption =
-`╭━━━━━━━━━━━━━━╮
+`╭━━━━━━━━━━━━━━━━━━━━╮
    🎬 𝗩𝗜𝗗𝗘𝗢 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
-╰━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━╯
 
 📝 *Título:* ${title}
 👤 *Autor:* ${authorName}
@@ -524,10 +515,10 @@ async function downloadVideo(conn, job, asDocument, quoted) {
 📦 *Formato:* ${asDocument ? "Documento MP4" : "Video MP4"}
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━
 🤖 *Bot:* La Suki Bot
 🔗 *API:* ${API_BASE}
-━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━`;
 
   await conn.sendMessage(
     chatId,
