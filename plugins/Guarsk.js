@@ -1,18 +1,24 @@
 // plugins/guarsk.js
-// Guarda un sticker respondido con una palabra clave para animarlo después.
-// Uso: .guarsk <palabra clave>  (respondiendo a un sticker)
-// Ej:  .guarsk hola  /  .guarsk meme feliz
+// Guarda una imagen con una palabra clave.
+// Esta imagen se usará después para reemplazar la imagen interna de stickers .was
+//
+// Uso: .guarsk <palabra_clave>  (respondiendo a una imagen)
+// Ej:  .guarsk hola
+//      .guarsk cara feliz
 
 "use strict";
 
 const fs = require("fs");
 const path = require("path");
+const Crypto = require("crypto");
+const ffmpeg = require("fluent-ffmpeg");
 
-const STICKERS_DIR = path.resolve("./sticker_base");
+const IMAGES_DIR = path.resolve("./sticker_base");
 const DB_FILE = path.resolve("./sticker_base.json");
+const TMP_DIR = path.resolve("./tmp");
 
-// Crear carpeta si no existe
-if (!fs.existsSync(STICKERS_DIR)) fs.mkdirSync(STICKERS_DIR, { recursive: true });
+if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
+if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
 function unwrapMessage(m) {
   let n = m;
@@ -49,11 +55,7 @@ function sanitizeKey(key) {
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(DB_FILE, "utf-8")); } catch { return {}; }
 }
 
 function saveDB(db) {
@@ -62,6 +64,37 @@ function saveDB(db) {
   } catch (e) {
     console.error("[guarsk] error guardando DB:", e);
   }
+}
+
+function randomName(ext) {
+  return `${Crypto.randomBytes(6).toString("hex")}.${ext}`;
+}
+
+// 🖼️ Normaliza la imagen a PNG 540x540 (tamaño ideal para Lottie)
+async function normalizeImage(buffer, ext = "jpg") {
+  const tmpIn = path.join(TMP_DIR, randomName(ext));
+  const tmpOut = path.join(TMP_DIR, randomName("png"));
+  fs.writeFileSync(tmpIn, buffer);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(tmpIn)
+      .outputOptions([
+        "-vf", "scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+      ])
+      .on("error", (err) => {
+        try { fs.unlinkSync(tmpIn); } catch {}
+        reject(err);
+      })
+      .on("end", () => {
+        try {
+          const buf = fs.readFileSync(tmpOut);
+          fs.unlinkSync(tmpIn);
+          fs.unlinkSync(tmpOut);
+          resolve(buf);
+        } catch (e) { reject(e); }
+      })
+      .save(tmpOut);
+  });
 }
 
 const handler = async (msg, { conn, wa, args }) => {
@@ -77,12 +110,12 @@ const handler = async (msg, { conn, wa, args }) => {
 `⚠️ *Debes indicar una palabra clave.*
 
 ✳️ Uso:
-*${pref}guarsk <palabra clave>* (respondiendo a un sticker)
+*${pref}guarsk <palabra clave>* (respondiendo a una imagen)
 
 Ejemplos:
 • ${pref}guarsk hola
-• ${pref}guarsk meme feliz
-• ${pref}guarsk bailando`,
+• ${pref}guarsk cara feliz
+• ${pref}guarsk logo`,
     }, { quoted: msg });
   }
 
@@ -93,14 +126,18 @@ Ejemplos:
     }, { quoted: msg });
   }
 
-  // 🎯 Verificar que haya sticker citado
+  // 🎯 Verificar que haya imagen citada
   const ctx = msg.message?.extendedTextMessage?.contextInfo;
   const quotedRaw = ctx?.quotedMessage;
   const quoted = quotedRaw ? unwrapMessage(quotedRaw) : null;
 
-  if (!quoted?.stickerMessage) {
+  if (!quoted?.imageMessage) {
     return conn.sendMessage(chatId, {
-      text: `⚠️ *Responde a un sticker para guardarlo.*`,
+      text:
+`⚠️ *Debes responder a una imagen.*
+
+✳️ Uso:
+*${pref}guarsk <palabra clave>* (respondiendo a una imagen)`,
     }, { quoted: msg });
   }
 
@@ -110,17 +147,20 @@ Ejemplos:
     const WA = ensureWA(wa, conn);
     if (!WA) throw new Error("No se pudo acceder a Baileys.");
 
-    // Descargar sticker
-    const stream = await WA.downloadContentFromMessage(quoted.stickerMessage, "sticker");
+    // Descargar imagen
+    const stream = await WA.downloadContentFromMessage(quoted.imageMessage, "image");
     let buffer = Buffer.alloc(0);
     for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+    if (!buffer.length) throw new Error("La imagen está vacía.");
 
-    if (!buffer.length) throw new Error("El sticker está vacío.");
+    // Normalizar a PNG 540x540
+    const pngBuffer = await normalizeImage(buffer, "jpg");
+    if (!pngBuffer || !pngBuffer.length) throw new Error("No se pudo procesar la imagen.");
 
-    // Guardar archivo físico
-    const fileName = `${safeKey}.webp`;
-    const filePath = path.join(STICKERS_DIR, fileName);
-    fs.writeFileSync(filePath, buffer);
+    // Guardar
+    const fileName = `${safeKey}.png`;
+    const filePath = path.join(IMAGES_DIR, fileName);
+    fs.writeFileSync(filePath, pngBuffer);
 
     // Actualizar DB
     const db = loadDB();
@@ -131,7 +171,7 @@ Ejemplos:
       path: filePath,
       savedBy: senderId,
       savedAt: new Date().toISOString(),
-      size: buffer.length,
+      size: pngBuffer.length,
     };
     saveDB(db);
 
@@ -140,17 +180,20 @@ Ejemplos:
     return conn.sendMessage(chatId, {
       text:
 `╭━━━━━━━━━━━━━━━━━━━━╮
-   💾 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 𝗚𝗨𝗔𝗥𝗗𝗔𝗗𝗢
+   💾 𝗜𝗠𝗔𝗚𝗘𝗡 𝗚𝗨𝗔𝗥𝗗𝗔𝗗𝗔
 ╰━━━━━━━━━━━━━━━━━━━━╯
 
 🗝️ *Palabra clave:* ${keyword}
-📂 *Guardado como:* ${fileName}
-💾 *Tamaño:* ${(buffer.length / 1024).toFixed(2)} KB
-${alreadyExists ? "♻️ *Nota:* reemplazó el sticker anterior con la misma clave." : "🆕 *Nuevo sticker agregado.*"}
+📂 *Archivo:* ${fileName}
+💾 *Tamaño:* ${(pngBuffer.length / 1024).toFixed(2)} KB
+${alreadyExists ? "♻️ Reemplazó la imagen anterior." : "🆕 Nueva imagen guardada."}
 
 ━━━━━━━━━━━━━━━━━━━━
-🎬 Anímalo con: *${pref}anim ${keyword}*
-📤 Envíalo con: *${pref}sk ${keyword}*
+💡 *Cómo usar:*
+Responde a un sticker .was con:
+*${pref}anim ${keyword}*
+
+Y tu imagen se meterá dentro de esa animación.
 ━━━━━━━━━━━━━━━━━━━━`,
     }, { quoted: msg });
 
