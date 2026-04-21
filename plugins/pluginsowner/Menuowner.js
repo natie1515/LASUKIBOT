@@ -68,6 +68,7 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}setmenuowner
 │๛ ${pref}delmenu
 │๛ ${pref}delmenugrupo 
+│๛ ${pref}botones on o off
 │๛ ${pref}delmenuowner
 ╰─────◆
 
