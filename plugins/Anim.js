@@ -3,6 +3,8 @@
 // El bot extrae la animación del sticker, le inyecta la imagen guardada con .guarsk
 // y la reempaqueta como un nuevo sticker .was animado.
 //
+// Usa adm-zip (100% JavaScript, sin necesidad del binario zip/unzip).
+//
 // Incluye un menú de EFECTOS para aplicar a la imagen antes de inyectarla:
 // Original, Flip H/V, Rotación, Zoom In/Out, B/N, Negativo, etc.
 //
@@ -12,10 +14,9 @@
 
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 const Crypto = require("crypto");
 const ffmpeg = require("fluent-ffmpeg");
-const { execSync } = require("child_process");
+const AdmZip = require("adm-zip");
 
 const IMAGES_DIR = path.resolve("./sticker_base");
 const DB_FILE = path.resolve("./sticker_base.json");
@@ -86,12 +87,11 @@ function randomName(ext) {
 }
 
 // ====== 🎨 CATÁLOGO DE EFECTOS ======
-// Cada efecto aplica una transformación a la imagen base ANTES de inyectarla en el .was
 const EFECTOS = {
   original: {
     label: "🖼️ Original",
     desc: "Imagen tal cual sin efectos",
-    filter: null, // sin filtro
+    filter: null,
   },
   flip_h: {
     label: "↔️ Flip Horizontal",
@@ -168,98 +168,25 @@ async function applyEffect(inputPath, effectKey) {
   const tmpOut = path.join(TMP_DIR, randomName("png"));
 
   return new Promise((resolve, reject) => {
-    const cmd = ffmpeg(inputPath);
-
-    // Si hay filtro, aplicarlo; si no, solo copiar/reescalar a 540x540
     const filterChain = efecto.filter
       ? `${efecto.filter},scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000`
       : `scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000`;
 
-    cmd.outputOptions([
-      "-vf", filterChain,
-      "-frames:v", "1",
-    ])
+    ffmpeg(inputPath)
+      .outputOptions([
+        "-vf", filterChain,
+        "-frames:v", "1",
+      ])
       .on("error", reject)
       .on("end", () => resolve(tmpOut))
       .save(tmpOut);
   });
 }
 
-// ====== LÓGICA LOTTIE-WHATSAPP ======
-function copyDir(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  for (const item of fs.readdirSync(src, { withFileTypes: true })) {
-    const from = path.join(src, item.name);
-    const to = path.join(dest, item.name);
-    if (item.isDirectory()) copyDir(from, to);
-    else fs.copyFileSync(from, to);
-  }
-}
-
+// ====== LÓGICA LOTTIE CON ADM-ZIP ======
 function toDataUri(buffer, mime = "image/png") {
   if (!buffer || !Buffer.isBuffer(buffer)) throw new Error("Buffer inválido.");
   return `data:${mime};base64,${buffer.toString("base64")}`;
-}
-
-// Reemplazar imagen base64 dentro de TODOS los JSON del template
-function replaceBase64InAllJson(folder, dataUri) {
-  let count = 0;
-  const walk = (dir) => {
-    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, item.name);
-      if (item.isDirectory()) {
-        walk(full);
-      } else if (item.name.toLowerCase().endsWith(".json")) {
-        try {
-          const json = JSON.parse(fs.readFileSync(full, "utf8"));
-          if (Array.isArray(json.assets)) {
-            let changed = false;
-            for (const asset of json.assets) {
-              if (typeof asset?.p === "string" && asset.p.startsWith("data:image/")) {
-                asset.p = dataUri;
-                changed = true;
-                count++;
-              }
-            }
-            if (changed) fs.writeFileSync(full, JSON.stringify(json));
-          }
-        } catch {
-          // JSON inválido, lo saltamos
-        }
-      }
-    }
-  };
-  walk(folder);
-  return count;
-}
-
-// Desempaquetar .was → carpeta
-function unpackWas(wasBuffer) {
-  const tmpIn = path.join(TMP_DIR, randomName("was"));
-  fs.writeFileSync(tmpIn, wasBuffer);
-
-  const folder = path.join(TMP_DIR, `was-extracted-${Crypto.randomBytes(4).toString("hex")}`);
-  fs.mkdirSync(folder, { recursive: true });
-
-  try {
-    execSync(`unzip -o "${tmpIn}" -d "${folder}"`, { stdio: "ignore" });
-  } finally {
-    try { fs.unlinkSync(tmpIn); } catch {}
-  }
-
-  return folder;
-}
-
-// Empaquetar carpeta → .was
-function packWas(folder, outputPath) {
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  const zipPath = outputPath.replace(/\.was$/i, ".zip");
-  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-  if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-
-  execSync(`zip -r "${zipPath}" .`, { cwd: folder, stdio: "ignore" });
-  fs.renameSync(zipPath, outputPath);
-  return outputPath;
 }
 
 // Detectar si un buffer es un ZIP (.was es un ZIP)
@@ -268,13 +195,67 @@ function isZipBuffer(buf) {
   return buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04;
 }
 
+// 🔑 Núcleo: abre .was, reemplaza imagen base64 en todos los JSON, reempaqueta
+function rebuildWasWithImage(wasBuffer, imageBuffer) {
+  // 1) Abrir el .was como ZIP
+  const zip = new AdmZip(wasBuffer);
+  const entries = zip.getEntries();
+
+  if (!entries || entries.length === 0) {
+    throw new Error("El sticker .was está vacío o corrupto.");
+  }
+
+  // 2) Buscar todos los JSON y reemplazar imágenes base64 en ellos
+  const dataUri = toDataUri(imageBuffer, "image/png");
+  let replacedTotal = 0;
+  let jsonEncontrados = 0;
+
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    if (!entry.entryName.toLowerCase().endsWith(".json")) continue;
+
+    jsonEncontrados++;
+    try {
+      const rawContent = entry.getData().toString("utf8");
+      const json = JSON.parse(rawContent);
+
+      if (!Array.isArray(json.assets)) continue;
+
+      let changedInThisJson = false;
+      for (const asset of json.assets) {
+        if (typeof asset?.p === "string" && asset.p.startsWith("data:image/")) {
+          asset.p = dataUri;
+          changedInThisJson = true;
+          replacedTotal++;
+        }
+      }
+
+      if (changedInThisJson) {
+        zip.updateFile(entry.entryName, Buffer.from(JSON.stringify(json), "utf8"));
+      }
+    } catch (e) {
+      // JSON inválido, lo saltamos
+    }
+  }
+
+  if (jsonEncontrados === 0) {
+    throw new Error("El sticker .was no contiene archivos JSON.");
+  }
+
+  if (replacedTotal === 0) {
+    throw new Error("El sticker .was no tiene imagen base64 reemplazable.");
+  }
+
+  // 3) Devolver el buffer del .was actualizado
+  return zip.toBuffer();
+}
+
 // ====== PROCESAR Y ENVIAR ======
 async function procesarEfecto(conn, job, effectKey, triggerMsg) {
   const { chatId, keyword, safeKey, basePath, wasBuffer, quotedBase } = job;
   job.isBusy = true;
 
   let effectImage = null;
-  let extracted = null;
 
   try {
     const efecto = EFECTOS[effectKey];
@@ -289,22 +270,16 @@ async function procesarEfecto(conn, job, effectKey, triggerMsg) {
     effectImage = await applyEffect(basePath, effectKey);
     const imgBuffer = fs.readFileSync(effectImage);
 
-    // 2) Desempaquetar el .was
-    extracted = unpackWas(wasBuffer);
+    // 2) Reconstruir el .was con la imagen nueva
+    const newWasBuffer = rebuildWasWithImage(wasBuffer, imgBuffer);
 
-    // 3) Reemplazar la imagen base64 en TODOS los JSON
-    const replaced = replaceBase64InAllJson(extracted, toDataUri(imgBuffer, "image/png"));
-    if (replaced === 0) {
-      throw new Error("Ese sticker no tiene imagen base64 reemplazable (formato no compatible).");
-    }
-
-    // 4) Reempaquetar como .was
+    // 3) Guardar el resultado
     const outputPath = path.join(ANIM_DIR, `${safeKey}_${effectKey}.was`);
-    packWas(extracted, outputPath);
+    fs.writeFileSync(outputPath, newWasBuffer);
 
-    // 5) Enviar como sticker .was nativo
+    // 4) Enviar como sticker .was nativo
     await conn.sendMessage(chatId, {
-      sticker: fs.readFileSync(outputPath),
+      sticker: newWasBuffer,
       mimetype: "application/was",
     }, { quoted: quotedBase });
 
@@ -317,9 +292,7 @@ async function procesarEfecto(conn, job, effectKey, triggerMsg) {
       text: `❌ Error al aplicar efecto: \`${e.message}\``
     }, { quoted: quotedBase });
   } finally {
-    // Limpiar temporales
     try { if (effectImage) fs.unlinkSync(effectImage); } catch {}
-    try { if (extracted) fs.rmSync(extracted, { recursive: true, force: true }); } catch {}
     job.isBusy = false;
   }
 }
@@ -363,7 +336,6 @@ Guárdala primero con:
     }, { quoted: msg });
   }
 
-  // 🎯 Verificar que haya sticker citado
   const ctx = msg.message?.extendedTextMessage?.contextInfo;
   const quotedRaw = ctx?.quotedMessage;
   const quoted = quotedRaw ? unwrapMessage(quotedRaw) : null;
@@ -385,14 +357,12 @@ Guárdala primero con:
     const WA = ensureWA(wa, conn);
     if (!WA) throw new Error("No se pudo acceder a Baileys.");
 
-    // Descargar el sticker
     const stream = await WA.downloadContentFromMessage(quoted.stickerMessage, "sticker");
     wasBuffer = Buffer.alloc(0);
     for await (const chunk of stream) wasBuffer = Buffer.concat([wasBuffer, chunk]);
 
     if (!wasBuffer.length) throw new Error("El sticker está vacío.");
 
-    // Verificar que sea un .was (ZIP por dentro)
     if (!isZipBuffer(wasBuffer)) {
       await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
       return conn.sendMessage(chatId, {
@@ -414,13 +384,11 @@ Los stickers normales WebP no tienen animación Lottie reemplazable.`,
 
   const usarBotones = botonesActivos();
 
-  // Lista de efectos numerados (para sin botones)
   const efectosEntries = Object.entries(EFECTOS);
   const listaNumerada = efectosEntries
     .map(([k, v], i) => `   *${i + 1}* →  ${v.label}`)
     .join("\n");
 
-  // 🎨 Caption
   const caption = usarBotones
     ? `
 ╭━━━━━━━━━━━━━━━━━━━━╮
@@ -465,11 +433,9 @@ ${listaNumerada}
 🤖 *La Suki Bot*
 ━━━━━━━━━━━━━━━━━━━━`.trim();
 
-  // Mapa número → key de efecto
   const NUMERO_EFECTO = {};
   efectosEntries.forEach(([k], i) => { NUMERO_EFECTO[String(i + 1)] = k; });
 
-  // Menú desplegable con todos los efectos
   const nativeFlowButtons = [
     {
       text: "🎨 Menú de efectos",
@@ -512,7 +478,6 @@ ${listaNumerada}
     }, { quoted: msg });
   }
 
-  // Guardar job (¡incluye el wasBuffer del sticker que respondió!)
   pendingAnim[preview.key.id] = {
     chatId,
     keyword,
@@ -529,7 +494,6 @@ ${listaNumerada}
     delete pendingAnim[preview.key.id];
   }, 10 * 60 * 1000);
 
-  // Listener único
   if (!conn._animLottieListener) {
     conn._animLottieListener = true;
 
