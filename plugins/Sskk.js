@@ -1,30 +1,31 @@
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
-const { execSync } = require("child_process");
+
+const { buildLottieSticker } =
+require("../Lottie-Whatsapp/src");
+
+const DB = "./ssy_db.json";
 
 function unwrapMessage(m){
 
-let node = m;
+let n=m;
 
 while(
 
-node?.viewOnceMessage?.message ||
-node?.viewOnceMessageV2?.message ||
-node?.viewOnceMessageV2Extension?.message ||
-node?.ephemeralMessage?.message
+n?.viewOnceMessage?.message ||
+n?.viewOnceMessageV2?.message ||
+n?.ephemeralMessage?.message
 
 ){
 
-node =
-node.viewOnceMessage?.message ||
-node.viewOnceMessageV2?.message ||
-node.viewOnceMessageV2Extension?.message ||
-node.ephemeralMessage?.message;
+n=
+n.viewOnceMessage?.message ||
+n.viewOnceMessageV2?.message ||
+n.ephemeralMessage?.message;
 
 }
 
-return node;
+return n;
 
 }
 
@@ -36,254 +37,139 @@ return wa;
 if(conn?.wa?.downloadContentFromMessage)
 return conn.wa;
 
-if(global.wa?.downloadContentFromMessage)
-return global.wa;
-
 return null;
 
 }
 
-function createLottie(base64,w,h){
-
-return {
-
-v:"5.9.0",
-fr:60,
-ip:0,
-op:180,
-w,
-h,
-nm:"sskk",
-ddd:0,
-assets:[
-{
-
-id:"image_0",
-w,
-h,
-u:"",
-p:`data:image/png;base64,${base64}`,
-e:1
-
-}
-],
-
-layers:[
-{
-
-ddd:0,
-ind:1,
-ty:2,
-nm:"image",
-cl:"png",
-refId:"image_0",
-sr:1,
-ks:{
-o:{a:0,k:100},
-r:{a:0,k:0},
-p:{a:0,k:[w/2,h/2,0]},
-a:{a:0,k:[w/2,h/2,0]},
-s:{a:0,k:[100,100,100]}
-},
-ao:0,
-ip:0,
-op:180,
-st:0,
-bm:0
-
-}
-]
-
-};
-
-}
-
-function hashFile(content){
-
-return crypto
-.createHash("sha256")
-.update(content)
-.digest("hex");
-
-}
-
-const handler = async (msg,{conn,wa})=>{
+const handler = async (msg,{conn,wa,args})=>{
 
 const chatId =
 msg.key.remoteJid;
 
-const quotedRaw =
+const key =
+(args||[]).join(" ")
+.toLowerCase()
+.trim();
+
+if(!key){
+
+return conn.sendMessage(chatId,{
+text:
+"usa:\n.sskk nombre"
+},{quoted:msg});
+
+}
+
+const db=
+JSON.parse(
+fs.readFileSync(DB)
+);
+
+if(!db[key]){
+
+return conn.sendMessage(chatId,{
+text:
+"no existe imagen"
+},{quoted:msg});
+
+}
+
+const quoted =
 msg.message?.extendedTextMessage
 ?.contextInfo?.quotedMessage;
 
-if(!quotedRaw){
+const q=
+unwrapMessage(quoted);
+
+const stickerNode=
+
+q?.stickerMessage ||
+q?.lottieStickerMessage
+?.message?.stickerMessage;
+
+if(!stickerNode){
 
 return conn.sendMessage(chatId,{
-
 text:
-"responde a una imagen"
-
+"responde a sticker animado"
 },{quoted:msg});
 
 }
-
-const q =
-unwrapMessage(quotedRaw);
-
-const imageMsg =
-q?.imageMessage;
-
-if(!imageMsg){
-
-return conn.sendMessage(chatId,{
-
-text:
-"eso no es imagen"
-
-},{quoted:msg});
-
-}
-
-await conn.sendMessage(chatId,{
-react:{text:"⚙️",key:msg.key}
-}).catch(()=>{});
 
 try{
 
-const WA =
+const WA=
 ensureWA(wa,conn);
 
-const stream =
+const stream=
 await WA.downloadContentFromMessage(
-imageMsg,
-"image"
+stickerNode,
+"sticker"
 );
 
-let buffer =
+let wasBuffer=
 Buffer.alloc(0);
 
 for await(const chunk of stream)
-buffer = Buffer.concat([buffer,chunk]);
+wasBuffer=
+Buffer.concat([wasBuffer,chunk]);
 
-const base64 =
-buffer.toString("base64");
-
-const tmpDir =
-path.join(
-__dirname,
-"../tmp_"+Date.now()
-);
+const tmpDir=
+"./tmp_"+Date.now();
 
 fs.mkdirSync(tmpDir);
 
-const animDir =
-path.join(tmpDir,"animation");
-
-fs.mkdirSync(animDir);
-
-const lottie512 =
-createLottie(base64,512,512);
-
-const lottie2048 =
-createLottie(base64,2048,2048);
-
-const jsonMain =
-JSON.stringify(lottie512);
-
-const jsonSecondary =
-JSON.stringify(lottie2048);
+const wasPath=
+path.join(tmpDir,"base.was");
 
 fs.writeFileSync(
-path.join(animDir,"animation.json"),
-jsonMain
+wasPath,
+wasBuffer
 );
 
-fs.writeFileSync(
-path.join(animDir,"animation_secondary.json"),
-jsonSecondary
+// extraer base
+require("child_process")
+.execSync(
+`unzip ${wasPath} -d ${tmpDir}`
 );
 
-fs.writeFileSync(
+// crear nuevo
+const output=
+await buildLottieSticker({
 
-path.join(animDir,"animation.json.trust_token"),
+baseFolder:
+tmpDir,
 
-hashFile(jsonMain)
+imagePath:
+db[key],
 
-);
+output:
+path.join(tmpDir,"new.was")
 
-fs.writeFileSync(
-
-path.join(animDir,"animation_secondary.json.trust_token"),
-
-hashFile(jsonSecondary)
-
-);
-
-fs.writeFileSync(
-
-path.join(animDir,"animation.json.overridden_metadata"),
-
-JSON.stringify({
-
-loop:true,
-autoplay:true
-
-})
-
-);
-
-const wasPath =
-path.join(tmpDir,"sticker.was");
-
-execSync(
-`cd "${tmpDir}" && zip -r sticker.was animation`
-);
-
-await conn.sendMessage(chatId,{
-
-sticker:
-fs.readFileSync(wasPath),
-
-mimetype:
-"application/was"
-
-},{quoted:msg});
-
-await conn.sendMessage(chatId,{
-react:{text:"✅",key:msg.key}
 });
+
+// enviar sticker
+await conn.sendMessage(
+chatId,
+{
+sticker:
+fs.readFileSync(output)
+},
+{quoted:msg}
+);
 
 }
 catch(e){
 
-console.log(e);
-
-await conn.sendMessage(chatId,{
-
+conn.sendMessage(chatId,{
 text:
-"error\n"+e.message
-
+e.message
 },{quoted:msg});
-
-await conn.sendMessage(chatId,{
-react:{text:"❌",key:msg.key}
-});
 
 }
 
 };
 
-handler.command =
-["sskk"];
+handler.command=["sskk"];
 
-handler.help =
-["sskk"];
-
-handler.tags =
-["tools"];
-
-handler.register =
-true;
-
-module.exports =
-handler;
+module.exports=handler;
