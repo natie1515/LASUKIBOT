@@ -1,17 +1,23 @@
 // plugins/anim.js
-// Aplica una animación a un sticker guardado con .guarsk
-// Uso: .anim <palabra clave>
-// Se abre un menú de botones para elegir la animación.
+// Responde a un sticker .was (Lottie) con una palabra clave.
+// El bot extrae la animación del sticker, le inyecta la imagen guardada con .guarsk
+// y la reempaqueta como un nuevo sticker .was animado.
+//
+// Incluye un menú de EFECTOS para aplicar a la imagen antes de inyectarla:
+// Original, Flip H/V, Rotación, Zoom In/Out, B/N, Negativo, etc.
+//
+// Uso: .anim <palabra>  (respondiendo a un sticker .was)
 
 "use strict";
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const Crypto = require("crypto");
 const ffmpeg = require("fluent-ffmpeg");
-const webp = require("node-webpmux");
+const { execSync } = require("child_process");
 
-const STICKERS_DIR = path.resolve("./sticker_base");
+const IMAGES_DIR = path.resolve("./sticker_base");
 const DB_FILE = path.resolve("./sticker_base.json");
 const ANIM_DIR = path.resolve("./sticker_anim");
 const TMP_DIR = path.resolve("./tmp");
@@ -21,6 +27,31 @@ if (!fs.existsSync(ANIM_DIR)) fs.mkdirSync(ANIM_DIR, { recursive: true });
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
 const pendingAnim = Object.create(null);
+
+// ====== HELPERS ======
+function unwrapMessage(m) {
+  let n = m;
+  while (
+    n?.viewOnceMessage?.message ||
+    n?.viewOnceMessageV2?.message ||
+    n?.viewOnceMessageV2Extension?.message ||
+    n?.ephemeralMessage?.message
+  ) {
+    n =
+      n.viewOnceMessage?.message ||
+      n.viewOnceMessageV2?.message ||
+      n.viewOnceMessageV2Extension?.message ||
+      n.ephemeralMessage?.message;
+  }
+  return n;
+}
+
+function ensureWA(wa, conn) {
+  if (wa && wa.downloadContentFromMessage) return wa;
+  if (conn && conn.wa && conn.wa.downloadContentFromMessage) return conn.wa;
+  if (global.wa && global.wa.downloadContentFromMessage) return global.wa;
+  return null;
+}
 
 function sanitizeKey(key) {
   return String(key || "")
@@ -54,200 +85,247 @@ function randomName(ext) {
   return `${Crypto.randomBytes(6).toString("hex")}.${ext}`;
 }
 
-// 🎬 ===== CATÁLOGO DE ANIMACIONES =====
-// Cada animación tiene un id corto, su label visible y un filtro FFmpeg.
-// FPS = 12, duración = 2.5s (aprox 30 frames), tamaño 320x320
-const ANIMACIONES = {
-  rotar: {
-    label: "🔄 Rotar",
-    desc: "Giro completo 360°",
-    // Rotación continua
-    filter: "scale=320:320,rotate='2*PI*t/2.5':c=none:ow=320:oh=320"
+// ====== 🎨 CATÁLOGO DE EFECTOS ======
+// Cada efecto aplica una transformación a la imagen base ANTES de inyectarla en el .was
+const EFECTOS = {
+  original: {
+    label: "🖼️ Original",
+    desc: "Imagen tal cual sin efectos",
+    filter: null, // sin filtro
   },
-  zoom: {
-    label: "🔍 Zoom In/Out",
-    desc: "Acerca y aleja",
-    filter: "scale=320:320,zoompan=z='if(lte(mod(on,30),15),1+0.03*mod(on,15),1.45-0.03*mod(on,15))':d=1:s=320x320:fps=12"
+  flip_h: {
+    label: "↔️ Flip Horizontal",
+    desc: "Voltea la imagen horizontalmente",
+    filter: "hflip",
   },
-  shake: {
-    label: "🫨 Shake",
-    desc: "Tiembla como gelatina",
-    filter: "scale=320:320,crop=300:300:'10+5*sin(4*PI*t)':'10+5*cos(4*PI*t)',scale=320:320"
+  flip_v: {
+    label: "↕️ Flip Vertical",
+    desc: "Voltea la imagen verticalmente",
+    filter: "vflip",
   },
-  pulse: {
-    label: "💓 Pulso",
-    desc: "Palpita como corazón",
-    filter: "scale=320:320,zoompan=z='1+0.1*abs(sin(2*PI*on/15))':d=1:s=320x320:fps=12"
+  rot90: {
+    label: "🔄 Rotar 90°",
+    desc: "Gira 90 grados",
+    filter: "transpose=1",
   },
-  fade: {
-    label: "🌗 Fade",
-    desc: "Aparece y desaparece",
-    filter: "scale=320:320,fade=t=in:st=0:d=0.6:alpha=1,fade=t=out:st=1.9:d=0.6:alpha=1"
-  },
-  flip: {
-    label: "🔁 Flip",
-    desc: "Se voltea de lado",
-    filter: "scale=320:320,hflip,scale=320:320"
-  },
-  glitch: {
-    label: "⚡ Glitch",
-    desc: "Efecto glitch",
-    filter: "scale=320:320,hue=h='30*sin(6*PI*t)':s='1+0.3*sin(8*PI*t)'"
-  },
-  arcoiris: {
-    label: "🌈 Arcoíris",
-    desc: "Cambio de colores",
-    filter: "scale=320:320,hue=h='360*t/2.5'"
-  },
-  bounce: {
-    label: "🏀 Rebote",
-    desc: "Sube y baja",
-    filter: "scale=320:320,crop=320:300:0:'10+8*abs(sin(3*PI*t))',pad=320:320:0:0:color=0x00000000"
-  },
-  spin3d: {
-    label: "🌀 Spin 3D",
-    desc: "Giro estilo moneda",
-    filter: "scale='320*abs(cos(2*PI*t/2.5))+1':320,pad=320:320:'(ow-iw)/2':0:color=0x00000000"
+  rot180: {
+    label: "🔃 Rotar 180°",
+    desc: "De cabeza (180°)",
+    filter: "transpose=2,transpose=2",
   },
   zoom_in: {
-    label: "📈 Zoom In",
-    desc: "Se acerca lento",
-    filter: "scale=320:320,zoompan=z='1+0.5*on/30':d=1:s=320x320:fps=12"
+    label: "🔍 Zoom In",
+    desc: "Acerca la imagen (crop central)",
+    filter: "crop=iw/1.5:ih/1.5:(iw-iw/1.5)/2:(ih-ih/1.5)/2,scale=540:540",
   },
   zoom_out: {
-    label: "📉 Zoom Out",
-    desc: "Se aleja lento",
-    filter: "scale=320:320,zoompan=z='1.5-0.5*on/30':d=1:s=320x320:fps=12"
+    label: "🔭 Zoom Out",
+    desc: "Aleja la imagen (con marco)",
+    filter: "scale=400:400,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+  },
+  bn: {
+    label: "⚫ Blanco y Negro",
+    desc: "Convierte a escala de grises",
+    filter: "hue=s=0",
+  },
+  negativo: {
+    label: "🌓 Negativo",
+    desc: "Invierte los colores",
+    filter: "negate",
+  },
+  sepia: {
+    label: "🟤 Sepia",
+    desc: "Efecto foto antigua",
+    filter: "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131",
+  },
+  hue_rojo: {
+    label: "🔴 Tonalidad Rojo",
+    desc: "Cambia tonalidad a rojo",
+    filter: "hue=h=0:s=1.5",
+  },
+  hue_azul: {
+    label: "🔵 Tonalidad Azul",
+    desc: "Cambia tonalidad a azul",
+    filter: "hue=h=210:s=1.5",
+  },
+  brillo: {
+    label: "☀️ Más Brillo",
+    desc: "Aumenta el brillo",
+    filter: "eq=brightness=0.15:saturation=1.3",
+  },
+  contraste: {
+    label: "🎯 Más Contraste",
+    desc: "Aumenta el contraste",
+    filter: "eq=contrast=1.5:saturation=1.2",
   },
 };
 
-// ===== Convertir imagen a WebP animado con filtro FFmpeg =====
-async function applyAnimation(inputPath, outputPath, animKey) {
-  const anim = ANIMACIONES[animKey];
-  if (!anim) throw new Error(`Animación desconocida: ${animKey}`);
+// ====== APLICAR EFECTO A IMAGEN ======
+async function applyEffect(inputPath, effectKey) {
+  const efecto = EFECTOS[effectKey];
+  if (!efecto) throw new Error(`Efecto desconocido: ${effectKey}`);
+
+  const tmpOut = path.join(TMP_DIR, randomName("png"));
 
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .inputOptions([
-        "-loop", "1",
-        "-t", "2.5",
-      ])
-      .outputOptions([
-        "-vcodec", "libwebp",
-        "-vf", `${anim.filter},format=yuva420p`,
-        "-loop", "0",
-        "-preset", "default",
-        "-an",
-        "-vsync", "0",
-        "-pix_fmt", "yuva420p",
-        "-q:v", "60",
-      ])
-      .toFormat("webp")
-      .on("error", (err) => {
-        console.error(`[anim] ffmpeg error (${animKey}):`, err.message);
-        reject(err);
-      })
-      .on("end", resolve)
-      .save(outputPath);
+    const cmd = ffmpeg(inputPath);
+
+    // Si hay filtro, aplicarlo; si no, solo copiar/reescalar a 540x540
+    const filterChain = efecto.filter
+      ? `${efecto.filter},scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000`
+      : `scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=0x00000000`;
+
+    cmd.outputOptions([
+      "-vf", filterChain,
+      "-frames:v", "1",
+    ])
+      .on("error", reject)
+      .on("end", () => resolve(tmpOut))
+      .save(tmpOut);
   });
 }
 
-// ===== Agregar metadata EXIF al webp =====
-async function addExif(webpPath, packname, author) {
-  const tmpIn = webpPath;
-  const tmpOut = path.join(TMP_DIR, randomName("webp"));
-
-  const json = {
-    "sticker-pack-id": "suki-anim",
-    "sticker-pack-name": packname,
-    "sticker-pack-publisher": author,
-    emojis: [""],
-  };
-
-  const exifAttr = Buffer.from([
-    0x49, 0x49, 0x2A, 0x00,
-    0x08, 0x00, 0x00, 0x00,
-    0x01, 0x00, 0x41, 0x57,
-    0x07, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x16, 0x00,
-    0x00, 0x00
-  ]);
-
-  const jsonBuff = Buffer.from(JSON.stringify(json), "utf-8");
-  const exif = Buffer.concat([exifAttr, jsonBuff]);
-  exif.writeUIntLE(jsonBuff.length, 14, 4);
-
-  const img = new webp.Image();
-  await img.load(tmpIn);
-  img.exif = exif;
-  await img.save(tmpOut);
-
-  return tmpOut;
+// ====== LÓGICA LOTTIE-WHATSAPP ======
+function copyDir(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const item of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, item.name);
+    const to = path.join(dest, item.name);
+    if (item.isDirectory()) copyDir(from, to);
+    else fs.copyFileSync(from, to);
+  }
 }
 
-// ===== Procesar y enviar sticker animado =====
-async function procesarAnimacion(conn, job, animKey, triggerMsg) {
-  const { chatId, keyword, safeKey, basePath, quotedBase, senderName } = job;
-  job.isBusy = true;
+function toDataUri(buffer, mime = "image/png") {
+  if (!buffer || !Buffer.isBuffer(buffer)) throw new Error("Buffer inválido.");
+  return `data:${mime};base64,${buffer.toString("base64")}`;
+}
+
+// Reemplazar imagen base64 dentro de TODOS los JSON del template
+function replaceBase64InAllJson(folder, dataUri) {
+  let count = 0;
+  const walk = (dir) => {
+    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, item.name);
+      if (item.isDirectory()) {
+        walk(full);
+      } else if (item.name.toLowerCase().endsWith(".json")) {
+        try {
+          const json = JSON.parse(fs.readFileSync(full, "utf8"));
+          if (Array.isArray(json.assets)) {
+            let changed = false;
+            for (const asset of json.assets) {
+              if (typeof asset?.p === "string" && asset.p.startsWith("data:image/")) {
+                asset.p = dataUri;
+                changed = true;
+                count++;
+              }
+            }
+            if (changed) fs.writeFileSync(full, JSON.stringify(json));
+          }
+        } catch {
+          // JSON inválido, lo saltamos
+        }
+      }
+    }
+  };
+  walk(folder);
+  return count;
+}
+
+// Desempaquetar .was → carpeta
+function unpackWas(wasBuffer) {
+  const tmpIn = path.join(TMP_DIR, randomName("was"));
+  fs.writeFileSync(tmpIn, wasBuffer);
+
+  const folder = path.join(TMP_DIR, `was-extracted-${Crypto.randomBytes(4).toString("hex")}`);
+  fs.mkdirSync(folder, { recursive: true });
 
   try {
-    const anim = ANIMACIONES[animKey];
-    if (!anim) throw new Error("Animación no encontrada.");
+    execSync(`unzip -o "${tmpIn}" -d "${folder}"`, { stdio: "ignore" });
+  } finally {
+    try { fs.unlinkSync(tmpIn); } catch {}
+  }
+
+  return folder;
+}
+
+// Empaquetar carpeta → .was
+function packWas(folder, outputPath) {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const zipPath = outputPath.replace(/\.was$/i, ".zip");
+  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+  if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+  execSync(`zip -r "${zipPath}" .`, { cwd: folder, stdio: "ignore" });
+  fs.renameSync(zipPath, outputPath);
+  return outputPath;
+}
+
+// Detectar si un buffer es un ZIP (.was es un ZIP)
+function isZipBuffer(buf) {
+  if (!buf || buf.length < 4) return false;
+  return buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04;
+}
+
+// ====== PROCESAR Y ENVIAR ======
+async function procesarEfecto(conn, job, effectKey, triggerMsg) {
+  const { chatId, keyword, safeKey, basePath, wasBuffer, quotedBase } = job;
+  job.isBusy = true;
+
+  let effectImage = null;
+  let extracted = null;
+
+  try {
+    const efecto = EFECTOS[effectKey];
+    if (!efecto) throw new Error("Efecto no encontrado.");
 
     await conn.sendMessage(chatId, { react: { text: "⏳", key: triggerMsg.key } });
     await conn.sendMessage(chatId, {
-      text: `🎬 Aplicando animación *${anim.label}*...`
+      text: `🎨 Aplicando efecto *${efecto.label}* y ensamblando sticker...`
     }, { quoted: quotedBase });
 
-    // Convertir webp base → PNG (para que FFmpeg lo entienda bien)
-    const pngPath = path.join(TMP_DIR, randomName("png"));
-    await new Promise((resolve, reject) => {
-      ffmpeg(basePath)
-        .outputOptions(["-vframes", "1"])
-        .save(pngPath)
-        .on("end", resolve)
-        .on("error", reject);
-    });
+    // 1) Aplicar efecto a la imagen base
+    effectImage = await applyEffect(basePath, effectKey);
+    const imgBuffer = fs.readFileSync(effectImage);
 
-    // Aplicar animación
-    const rawWebp = path.join(TMP_DIR, randomName("webp"));
-    await applyAnimation(pngPath, rawWebp, animKey);
+    // 2) Desempaquetar el .was
+    extracted = unpackWas(wasBuffer);
 
-    // Agregar EXIF (metadata)
-    const fecha = new Date();
-    const fechaStr = `${fecha.getDate()}/${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
-    const finalWebp = await addExif(
-      rawWebp,
-      `✨ ${anim.label} — ${keyword}`,
-      `🦋 La Suki Bot\n🎬 Animación: ${anim.label}\n📅 ${fechaStr}`
-    );
+    // 3) Reemplazar la imagen base64 en TODOS los JSON
+    const replaced = replaceBase64InAllJson(extracted, toDataUri(imgBuffer, "image/png"));
+    if (replaced === 0) {
+      throw new Error("Ese sticker no tiene imagen base64 reemplazable (formato no compatible).");
+    }
 
-    // Enviar sticker animado
-    await conn.sendMessage(chatId, { sticker: { url: finalWebp } }, { quoted: quotedBase });
+    // 4) Reempaquetar como .was
+    const outputPath = path.join(ANIM_DIR, `${safeKey}_${effectKey}.was`);
+    packWas(extracted, outputPath);
+
+    // 5) Enviar como sticker .was nativo
+    await conn.sendMessage(chatId, {
+      sticker: fs.readFileSync(outputPath),
+      mimetype: "application/was",
+    }, { quoted: quotedBase });
+
     await conn.sendMessage(chatId, { react: { text: "✅", key: triggerMsg.key } });
-
-    // Guardar una copia animada (opcional, para usar después con .sk)
-    const savedPath = path.join(ANIM_DIR, `${safeKey}_${animKey}.webp`);
-    try { fs.copyFileSync(finalWebp, savedPath); } catch {}
-
-    // Limpiar temporales
-    try { fs.unlinkSync(pngPath); } catch {}
-    try { fs.unlinkSync(rawWebp); } catch {}
-    try { fs.unlinkSync(finalWebp); } catch {}
 
   } catch (e) {
     console.error("[anim] error:", e);
     await conn.sendMessage(chatId, { react: { text: "❌", key: triggerMsg.key } });
     await conn.sendMessage(chatId, {
-      text: `❌ Error al animar: \`${e.message}\``
+      text: `❌ Error al aplicar efecto: \`${e.message}\``
     }, { quoted: quotedBase });
   } finally {
+    // Limpiar temporales
+    try { if (effectImage) fs.unlinkSync(effectImage); } catch {}
+    try { if (extracted) fs.rmSync(extracted, { recursive: true, force: true }); } catch {}
     job.isBusy = false;
   }
 }
 
-// ===== HANDLER PRINCIPAL =====
-const handler = async (msg, { conn, args }) => {
+// ====== HANDLER PRINCIPAL ======
+const handler = async (msg, { conn, wa, args }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
@@ -255,16 +333,17 @@ const handler = async (msg, { conn, args }) => {
   if (!keyword) {
     return conn.sendMessage(chatId, {
       text:
-`⚠️ *Indica la palabra clave del sticker.*
+`⚠️ *Indica la palabra clave de la imagen.*
 
 ✳️ Uso:
-*${pref}anim <palabra clave>*
+*${pref}anim <palabra>* (respondiendo a un sticker .was)
 
 Ejemplos:
 • ${pref}anim hola
-• ${pref}anim meme feliz
+• ${pref}anim cara feliz
 
-💡 Antes debes guardar el sticker con *${pref}guarsk*`,
+💡 Antes guarda la imagen con:
+*${pref}guarsk <palabra>*`,
     }, { quoted: msg });
   }
 
@@ -275,111 +354,134 @@ Ejemplos:
   if (!entry || !fs.existsSync(entry.path)) {
     return conn.sendMessage(chatId, {
       text:
-`⚠️ *No hay sticker guardado con esa palabra clave.*
+`⚠️ *No hay imagen guardada con esa palabra clave.*
 
 🗝️ Buscado: \`${keyword}\`
 
-Guárdalo primero con:
-*${pref}guarsk ${keyword}* (respondiendo a un sticker)`,
+Guárdala primero con:
+*${pref}guarsk ${keyword}* (respondiendo a una imagen)`,
     }, { quoted: msg });
   }
 
-  await conn.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });
+  // 🎯 Verificar que haya sticker citado
+  const ctx = msg.message?.extendedTextMessage?.contextInfo;
+  const quotedRaw = ctx?.quotedMessage;
+  const quoted = quotedRaw ? unwrapMessage(quotedRaw) : null;
+
+  if (!quoted?.stickerMessage) {
+    return conn.sendMessage(chatId, {
+      text:
+`⚠️ *Debes responder a un sticker .was (animado Lottie).*
+
+✳️ Uso:
+*${pref}anim ${keyword}* (respondiendo al sticker .was)`,
+    }, { quoted: msg });
+  }
+
+  await conn.sendMessage(chatId, { react: { text: "📥", key: msg.key } });
+
+  let wasBuffer;
+  try {
+    const WA = ensureWA(wa, conn);
+    if (!WA) throw new Error("No se pudo acceder a Baileys.");
+
+    // Descargar el sticker
+    const stream = await WA.downloadContentFromMessage(quoted.stickerMessage, "sticker");
+    wasBuffer = Buffer.alloc(0);
+    for await (const chunk of stream) wasBuffer = Buffer.concat([wasBuffer, chunk]);
+
+    if (!wasBuffer.length) throw new Error("El sticker está vacío.");
+
+    // Verificar que sea un .was (ZIP por dentro)
+    if (!isZipBuffer(wasBuffer)) {
+      await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+      return conn.sendMessage(chatId, {
+        text:
+`❌ *Ese no es un sticker animado .was*
+
+Solo sirve con stickers animados tipo Lottie (los que WhatsApp marca como "beta/animados").
+
+Los stickers normales WebP no tienen animación Lottie reemplazable.`,
+      }, { quoted: msg });
+    }
+  } catch (e) {
+    console.error("[anim] error descargando:", e);
+    await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    return conn.sendMessage(chatId, {
+      text: `❌ Error al descargar el sticker: \`${e.message}\``,
+    }, { quoted: msg });
+  }
 
   const usarBotones = botonesActivos();
 
-  // 🎨 Caption con explicación
+  // Lista de efectos numerados (para sin botones)
+  const efectosEntries = Object.entries(EFECTOS);
+  const listaNumerada = efectosEntries
+    .map(([k, v], i) => `   *${i + 1}* →  ${v.label}`)
+    .join("\n");
+
+  // 🎨 Caption
   const caption = usarBotones
     ? `
 ╭━━━━━━━━━━━━━━━━━━━━╮
-   🎬 𝗔𝗡𝗜𝗠𝗔𝗗𝗢𝗥 𝗗𝗘 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦
+   🎬 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 𝗟𝗢𝗧𝗧𝗜𝗘
 ╰━━━━━━━━━━━━━━━━━━━━╯
 
-🗝️ *Sticker:* ${keyword}
+🗝️ *Imagen:* ${keyword}
+✅ *Sticker .was detectado*
 
 ━━━━━━━━━━━━━━━━━━━━
- *🎬 ELIGE UNA ANIMACIÓN*
+ *🎨 ELIGE UN EFECTO*
 ━━━━━━━━━━━━━━━━━━━━
 
-🟢 *OPCIÓN 1 — Menú de Botones*
-Toca *📥 Menú de animaciones* abajo.
+El efecto se aplica a tu imagen *antes* de meterla en la animación.
+
+🟢 *OPCIÓN 1 — Botones*
+Toca *🎨 Menú de efectos* abajo.
 
 🔵 *OPCIÓN 2 — Responder número*
 Cita este mensaje y escribe el número:
-   *1*  →  🔄 Rotar
-   *2*  →  🔍 Zoom In/Out
-   *3*  →  🫨 Shake
-   *4*  →  💓 Pulso
-   *5*  →  🌗 Fade
-   *6*  →  🔁 Flip
-   *7*  →  ⚡ Glitch
-   *8*  →  🌈 Arcoíris
-   *9*  →  🏀 Rebote
-   *10* →  🌀 Spin 3D
-   *11* →  📈 Zoom In
-   *12* →  📉 Zoom Out
+${listaNumerada}
 
 ━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
 ━━━━━━━━━━━━━━━━━━━━`.trim()
     : `
 ╭━━━━━━━━━━━━━━━━━━━━╮
-   🎬 𝗔𝗡𝗜𝗠𝗔𝗗𝗢𝗥 𝗗𝗘 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦
+   🎬 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 𝗟𝗢𝗧𝗧𝗜𝗘
 ╰━━━━━━━━━━━━━━━━━━━━╯
 
-🗝️ *Sticker:* ${keyword}
+🗝️ *Imagen:* ${keyword}
+✅ *Sticker .was detectado*
 
 ━━━━━━━━━━━━━━━━━━━━
- *🎬 ELIGE UNA ANIMACIÓN*
+ *🎨 ELIGE UN EFECTO*
 ━━━━━━━━━━━━━━━━━━━━
 
 Cita este mensaje y escribe el número:
-   *1*  →  🔄 Rotar
-   *2*  →  🔍 Zoom In/Out
-   *3*  →  🫨 Shake
-   *4*  →  💓 Pulso
-   *5*  →  🌗 Fade
-   *6*  →  🔁 Flip
-   *7*  →  ⚡ Glitch
-   *8*  →  🌈 Arcoíris
-   *9*  →  🏀 Rebote
-   *10* →  🌀 Spin 3D
-   *11* →  📈 Zoom In
-   *12* →  📉 Zoom Out
+${listaNumerada}
 
 ━━━━━━━━━━━━━━━━━━━━
 🤖 *La Suki Bot*
 ━━━━━━━━━━━━━━━━━━━━`.trim();
 
-  // Mapeo de número → animación
-  const NUMERO_ANIM = {
-    "1":  "rotar",
-    "2":  "zoom",
-    "3":  "shake",
-    "4":  "pulse",
-    "5":  "fade",
-    "6":  "flip",
-    "7":  "glitch",
-    "8":  "arcoiris",
-    "9":  "bounce",
-    "10": "spin3d",
-    "11": "zoom_in",
-    "12": "zoom_out",
-  };
+  // Mapa número → key de efecto
+  const NUMERO_EFECTO = {};
+  efectosEntries.forEach(([k], i) => { NUMERO_EFECTO[String(i + 1)] = k; });
 
-  // Menú de botones (lista desplegable)
+  // Menú desplegable con todos los efectos
   const nativeFlowButtons = [
     {
-      text: "📥 Menú de animaciones",
+      text: "🎨 Menú de efectos",
       sections: [
         {
-          title: "🎬 ANIMACIONES",
-          highlight_label: "FX",
-          rows: Object.entries(ANIMACIONES).map(([k, v]) => ({
+          title: "🎨 EFECTOS DE IMAGEN",
+          highlight_label: ".was",
+          rows: efectosEntries.map(([k, v]) => ({
             header: "",
             title: v.label,
             description: v.desc,
-            id: `${pref}anim_${k}`,
+            id: `${pref}efec_${k}`,
           })),
         },
       ],
@@ -392,7 +494,7 @@ Cita este mensaje y escribe el número:
       preview = await conn.sendMessage(chatId, {
         image: { url: entry.path },
         caption,
-        footer: "❦ La Suki Bot — Elige una animación ❦",
+        footer: "❦ La Suki Bot — Elige un efecto ❦",
         buttons: nativeFlowButtons,
         headerType: 4,
       }, { quoted: msg });
@@ -410,16 +512,17 @@ Cita este mensaje y escribe el número:
     }, { quoted: msg });
   }
 
-  // Guardar job pendiente
+  // Guardar job (¡incluye el wasBuffer del sticker que respondió!)
   pendingAnim[preview.key.id] = {
     chatId,
     keyword,
     safeKey,
     basePath: entry.path,
+    wasBuffer,
     quotedBase: msg,
-    senderName: msg.pushName || "Usuario",
     isBusy: false,
     _createdAt: Date.now(),
+    numeroMap: NUMERO_EFECTO,
   };
 
   setTimeout(() => {
@@ -427,13 +530,13 @@ Cita este mensaje y escribe el número:
   }, 10 * 60 * 1000);
 
   // Listener único
-  if (!conn._animListener) {
-    conn._animListener = true;
+  if (!conn._animLottieListener) {
+    conn._animLottieListener = true;
 
     conn.ev.on("messages.upsert", async (ev) => {
       for (const m of ev.messages) {
         try {
-          // A) BOTONES / MENÚ INTERACTIVO
+          // A) BOTONES / MENÚ
           const interactiveReply =
             m.message?.interactiveResponseMessage?.nativeFlowResponseMessage ||
             m.message?.listResponseMessage ||
@@ -459,13 +562,12 @@ Cita este mensaje y escribe el número:
             }
 
             if (!selectedId) continue;
-            if (!selectedId.includes("anim_")) continue;
+            if (!selectedId.includes("efec_")) continue;
 
-            // Extraer key de animación (ej: .anim_rotar → rotar)
-            const match = selectedId.match(/anim_([a-z0-9_]+)/i);
+            const match = selectedId.match(/efec_([a-z0-9_]+)/i);
             if (!match) continue;
-            const animKey = match[1].toLowerCase();
-            if (!ANIMACIONES[animKey]) continue;
+            const effectKey = match[1].toLowerCase();
+            if (!EFECTOS[effectKey]) continue;
 
             const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
             let job = null;
@@ -479,11 +581,11 @@ Cita este mensaje y escribe el número:
             }
             if (!job || job.isBusy) continue;
 
-            await procesarAnimacion(conn, job, animKey, m);
+            await procesarEfecto(conn, job, effectKey, m);
             continue;
           }
 
-          // B) RESPUESTAS CITADAS (número 1-12)
+          // B) RESPUESTAS CITADAS (número)
           const ctx = m.message?.extendedTextMessage?.contextInfo;
           const citado = ctx?.stanzaId;
           const job = pendingAnim[citado];
@@ -496,11 +598,11 @@ Cita este mensaje y escribe el número:
             ).trim().toLowerCase();
 
             const firstWord = texto.split(/\s+/)[0];
-            const animKey = NUMERO_ANIM[firstWord];
+            const effectKey = job.numeroMap[firstWord];
 
-            if (animKey && ANIMACIONES[animKey]) {
+            if (effectKey && EFECTOS[effectKey]) {
               if (job.isBusy) continue;
-              await procesarAnimacion(conn, job, animKey, m);
+              await procesarEfecto(conn, job, effectKey, m);
             }
           }
         } catch (e) {
@@ -512,6 +614,6 @@ Cita este mensaje y escribe el número:
 };
 
 handler.command = ["anim"];
-handler.help = ["anim <palabra_clave>"];
+handler.help = ["anim <palabra>"];
 handler.tags = ["stickers"];
 module.exports = handler;
