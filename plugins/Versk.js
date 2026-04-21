@@ -1,5 +1,5 @@
 // plugins/versk.js
-// Muestra la lista de stickers guardados con .guarsk
+// Muestra la lista de imágenes guardadas con .guarsk y sus stickers .was generados
 // Uso: .versk
 
 "use strict";
@@ -15,13 +15,15 @@ function loadDB() {
   try { return JSON.parse(fs.readFileSync(DB_FILE, "utf-8")); } catch { return {}; }
 }
 
-function countAnimations(safeKey) {
-  if (!fs.existsSync(ANIM_DIR)) return 0;
+function listAnimationsOfKey(safeKey) {
+  if (!fs.existsSync(ANIM_DIR)) return [];
   try {
     const files = fs.readdirSync(ANIM_DIR);
-    return files.filter(f => f.startsWith(`${safeKey}_`) && f.endsWith(".webp")).length;
+    return files
+      .filter(f => f.startsWith(`${safeKey}_`) && f.endsWith(".was"))
+      .map(f => f.replace(`${safeKey}_`, "").replace(".was", ""));
   } catch {
-    return 0;
+    return [];
   }
 }
 
@@ -37,10 +39,14 @@ const handler = async (msg, { conn }) => {
   if (keys.length === 0) {
     return conn.sendMessage(chatId, {
       text:
-`📂 *No hay stickers guardados aún.*
+`╭━━━━━━━━━━━━━━━━━━━━╮
+   📋 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦 𝗚𝗨𝗔𝗥𝗗𝗔𝗗𝗢𝗦
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-Guarda uno con:
-*${pref}guarsk <palabra clave>* (respondiendo a un sticker)`,
+📂 *No hay imágenes guardadas aún.*
+
+Guarda una con:
+*${pref}guarsk <palabra>* (respondiendo a una imagen)`,
     }, { quoted: msg });
   }
 
@@ -68,27 +74,32 @@ Guarda uno con:
   let texto = `╭━━━━━━━━━━━━━━━━━━━━╮\n   📋 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦 𝗚𝗨𝗔𝗥𝗗𝗔𝗗𝗢𝗦\n╰━━━━━━━━━━━━━━━━━━━━╯\n\n`;
 
   let total = 0;
+  let totalWAS = 0;
+
   for (const safeKey of validKeys) {
     const entry = db[safeKey];
     total++;
-    const numAnim = countAnimations(safeKey);
+    const efectos = listAnimationsOfKey(safeKey);
+    totalWAS += efectos.length;
+
     const userNum = entry.savedBy ? String(entry.savedBy).replace(/\D/g, "") : null;
     const userJid = userNum ? `${userNum}@s.whatsapp.net` : null;
     if (userJid && !mentions.includes(userJid)) mentions.push(userJid);
 
     texto += `🗝️ *${entry.key || safeKey}*\n`;
-    if (userNum) texto += `   👤 @${userNum}\n`;
-    if (numAnim > 0) {
-      texto += `   🎬 ${numAnim} animación${numAnim !== 1 ? "es" : ""} guardada${numAnim !== 1 ? "s" : ""}\n`;
+    if (userNum) texto += `   👤 Guardó: @${userNum}\n`;
+    if (efectos.length > 0) {
+      texto += `   🎬 Efectos (.was): ${efectos.map(e => `*${e}*`).join(", ")}\n`;
     } else {
-      texto += `   💤 Sin animar aún\n`;
+      texto += `   💤 Sin sticker .was aún\n`;
     }
     texto += `\n`;
   }
 
   texto += `━━━━━━━━━━━━━━━━━━━━\n`;
-  texto += `📊 *Total:* ${total} sticker${total !== 1 ? "s" : ""}\n\n`;
-  texto += `🎬 Animar: *${pref}anim <palabra>*\n`;
+  texto += `📊 *Total:* ${total} imagen${total !== 1 ? "es" : ""} · ${totalWAS} sticker${totalWAS !== 1 ? "s" : ""} .was\n\n`;
+  texto += `💾 Guardar: *${pref}guarsk <palabra>*\n`;
+  texto += `🎬 Animar: *${pref}anim <palabra>* (respondiendo .was)\n`;
   texto += `📤 Enviar: *${pref}sk <palabra>*`;
 
   return conn.sendMessage(chatId, {
