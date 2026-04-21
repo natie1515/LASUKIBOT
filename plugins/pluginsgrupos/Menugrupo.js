@@ -141,7 +141,6 @@ const handler = async (msg, { conn }) => {
   // IMPORTANTE: el "title" de cada row es lo que WhatsApp envía como texto
   // cuando el usuario toca esa opción. Por eso el title debe ser EXACTAMENTE
   // el comando con prefijo, SIN emojis ni decoración.
-  // La descripción sí puede llevar texto explicativo.
   const nativeFlowButtons = [
     {
       text: "📋 Menú de grupo",
@@ -150,85 +149,85 @@ const handler = async (msg, { conn }) => {
           title: "🛠️ CONFIGURACIONES",
           highlight_label: "SETUP",
           rows: [
-            { header: "", title: `${pref}infogrupo`,     description: "Ver información del grupo",          id: `${pref}infogrupo`     },
-            { header: "", title: `${pref}setinfo`,       description: "Cambiar la descripción del grupo",   id: `${pref}setinfo`       },
-            { header: "", title: `${pref}setname`,       description: "Cambiar el nombre del grupo",        id: `${pref}setname`       },
-            { header: "", title: `${pref}setfoto`,       description: "Cambiar la foto del grupo",          id: `${pref}setfoto`       },
-            { header: "", title: `${pref}setwelcome`,    description: "Configurar mensaje de bienvenida",   id: `${pref}setwelcome`    },
-            { header: "", title: `${pref}setdespedidas`, description: "Configurar mensaje de despedida",    id: `${pref}setdespedidas` },
-            { header: "", title: `${pref}setreglas`,     description: "Configurar las reglas",              id: `${pref}setreglas`     },
-            { header: "", title: `${pref}reglas`,        description: "Mostrar las reglas",                 id: `${pref}reglas`        },
-            { header: "", title: `${pref}configrupo`,    description: "Ver configuración del grupo",       id: `${pref}configrupo`    },
-            { header: "", title: `${pref}addco`,         description: "Agregar comando a stickers",         id: `${pref}addco`         },
-            { header: "", title: `${pref}delco`,         description: "Eliminar comando de stickers",       id: `${pref}delco`         },
+            { header: "", title: `${pref}infogrupo`, id: `${pref}infogrupo` },
+            { header: "", title: `${pref}setinfo`, id: `${pref}setinfo` },
+            { header: "", title: `${pref}setname`, id: `${pref}setname` },
+            { header: "", title: `${pref}setfoto`, id: `${pref}setfoto` },
+            { header: "", title: `${pref}setwelcome`, id: `${pref}setwelcome` },
+            { header: "", title: `${pref}setdespedidas`, id: `${pref}setdespedidas` },
+            { header: "", title: `${pref}setreglas`, id: `${pref}setreglas` },
+            { header: "", title: `${pref}reglas`, id: `${pref}reglas` },
+            { header: "", title: `${pref}configrupo`, id: `${pref}configrupo` },
+            { header: "", title: `${pref}addco`, id: `${pref}addco` },
+            { header: "", title: `${pref}delco`, id: `${pref}delco` },
           ],
         },
         {
           title: "✅ ACTIVAR FUNCIONES",
           highlight_label: "ON",
           rows: [
-            { header: "", title: `${pref}welcome on`,    description: "Activar bienvenidas automáticas",    id: `${pref}welcome on`    },
-            { header: "", title: `${pref}despedidas on`, description: "Activar despedidas automáticas",     id: `${pref}despedidas on` },
-            { header: "", title: `${pref}modoadmins on`, description: "Solo admins pueden usar el bot",     id: `${pref}modoadmins on` },
-            { header: "", title: `${pref}antilink on`,   description: "Bloquear enlaces en el grupo",       id: `${pref}antilink on`   },
-            { header: "", title: `${pref}linkall on`,    description: "Permitir todo tipo de enlaces",      id: `${pref}linkall on`    },
-            { header: "", title: `${pref}antis on`,      description: "Activar antisticker",                id: `${pref}antis on`      },
-            { header: "", title: `${pref}antidelete on`, description: "Recuperar mensajes borrados",        id: `${pref}antidelete on` },
-            { header: "", title: `${pref}antiarabe on`,  description: "Bloquear caracteres árabes",         id: `${pref}antiarabe on`  },
+            { header: "", title: `${pref}welcome on`, id: `${pref}welcome on` },
+            { header: "", title: `${pref}despedidas on`, id: `${pref}despedidas on` },
+            { header: "", title: `${pref}modoadmins on`, id: `${pref}modoadmins on` },
+            { header: "", title: `${pref}antilink on`, id: `${pref}antilink on` },
+            { header: "", title: `${pref}linkall on`, id: `${pref}linkall on` },
+            { header: "", title: `${pref}antis on`, id: `${pref}antis on` },
+            { header: "", title: `${pref}antidelete on`, id: `${pref}antidelete on` },
+            { header: "", title: `${pref}antiarabe on`, id: `${pref}antiarabe on` },
           ],
         },
         {
           title: "❌ DESACTIVAR FUNCIONES",
           highlight_label: "OFF",
           rows: [
-            { header: "", title: `${pref}welcome off`,    description: "Desactivar bienvenidas",            id: `${pref}welcome off`    },
-            { header: "", title: `${pref}despedidas off`, description: "Desactivar despedidas",             id: `${pref}despedidas off` },
-            { header: "", title: `${pref}modoadmins off`, description: "Todos pueden usar el bot",          id: `${pref}modoadmins off` },
-            { header: "", title: `${pref}antilink off`,   description: "Desactivar antilink",               id: `${pref}antilink off`   },
-            { header: "", title: `${pref}linkall off`,    description: "Bloquear todos los enlaces",        id: `${pref}linkall off`    },
-            { header: "", title: `${pref}antis off`,      description: "Desactivar antisticker",            id: `${pref}antis off`      },
-            { header: "", title: `${pref}antidelete off`, description: "Desactivar recuperador",            id: `${pref}antidelete off` },
-            { header: "", title: `${pref}antiarabe off`,  description: "Desactivar filtro de árabe",        id: `${pref}antiarabe off`  },
+            { header: "", title: `${pref}welcome off`, id: `${pref}welcome off` },
+            { header: "", title: `${pref}despedidas off`, id: `${pref}despedidas off` },
+            { header: "", title: `${pref}modoadmins off`, id: `${pref}modoadmins off` },
+            { header: "", title: `${pref}antilink off`, id: `${pref}antilink off` },
+            { header: "", title: `${pref}linkall off`, id: `${pref}linkall off` },
+            { header: "", title: `${pref}antis off`, id: `${pref}antis off` },
+            { header: "", title: `${pref}antidelete off`, id: `${pref}antidelete off` },
+            { header: "", title: `${pref}antiarabe off`, id: `${pref}antiarabe off` },
           ],
         },
         {
           title: "🛡️ ADMINISTRACIÓN",
           highlight_label: "ADMIN",
           rows: [
-            { header: "", title: `${pref}daradmins`,    description: "Dar permisos de admin",              id: `${pref}daradmins`    },
-            { header: "", title: `${pref}quitaradmins`, description: "Quitar permisos de admin",           id: `${pref}quitaradmins` },
-            { header: "", title: `${pref}kick`,         description: "Expulsar a un miembro",              id: `${pref}kick`         },
-            { header: "", title: `${pref}ban`,          description: "Banear a un miembro",                id: `${pref}ban`          },
-            { header: "", title: `${pref}unban`,        description: "Desbanear a un miembro",             id: `${pref}unban`        },
-            { header: "", title: `${pref}mute`,         description: "Silenciar a un miembro",             id: `${pref}mute`         },
-            { header: "", title: `${pref}unmute`,       description: "Quitar silencio",                    id: `${pref}unmute`       },
-            { header: "", title: `${pref}delete`,       description: "Borrar mensaje citado",              id: `${pref}delete`       },
+            { header: "", title: `${pref}daradmins`, id: `${pref}daradmins` },
+            { header: "", title: `${pref}quitaradmins`, id: `${pref}quitaradmins` },
+            { header: "", title: `${pref}kick`, id: `${pref}kick` },
+            { header: "", title: `${pref}ban`, id: `${pref}ban` },
+            { header: "", title: `${pref}unban`, id: `${pref}unban` },
+            { header: "", title: `${pref}mute`, id: `${pref}mute` },
+            { header: "", title: `${pref}unmute`, id: `${pref}unmute` },
+            { header: "", title: `${pref}delete`, id: `${pref}delete` },
           ],
         },
         {
           title: "👥 ETIQUETAR",
           highlight_label: "TAG",
           rows: [
-            { header: "", title: `${pref}tag`,       description: "Etiquetar con mensaje",              id: `${pref}tag`       },
-            { header: "", title: `${pref}tagall`,    description: "Etiquetar a todos visible",          id: `${pref}tagall`    },
-            { header: "", title: `${pref}todos`,     description: "Mencionar a todos",                  id: `${pref}todos`     },
-            { header: "", title: `${pref}invocar`,   description: "Invocar a miembros",                 id: `${pref}invocar`   },
-            { header: "", title: `${pref}totalchat`, description: "Total de mensajes del chat",         id: `${pref}totalchat` },
-            { header: "", title: `${pref}restchat`,  description: "Reset de estadísticas",              id: `${pref}restchat`  },
-            { header: "", title: `${pref}fantasmas`, description: "Ver miembros inactivos",             id: `${pref}fantasmas` },
-            { header: "", title: `${pref}fankick`,   description: "Expulsar a inactivos",               id: `${pref}fankick`   },
-            { header: "", title: `${pref}linkgrupo`, description: "Obtener link del grupo",             id: `${pref}linkgrupo` },
-            { header: "", title: `${pref}restpro`,   description: "Reset del grupo (pro)",              id: `${pref}restpro`   },
+            { header: "", title: `${pref}tag`, id: `${pref}tag` },
+            { header: "", title: `${pref}tagall`, id: `${pref}tagall` },
+            { header: "", title: `${pref}todos`, id: `${pref}todos` },
+            { header: "", title: `${pref}invocar`, id: `${pref}invocar` },
+            { header: "", title: `${pref}totalchat`, id: `${pref}totalchat` },
+            { header: "", title: `${pref}restchat`, id: `${pref}restchat` },
+            { header: "", title: `${pref}fantasmas`, id: `${pref}fantasmas` },
+            { header: "", title: `${pref}fankick`, id: `${pref}fankick` },
+            { header: "", title: `${pref}linkgrupo`, id: `${pref}linkgrupo` },
+            { header: "", title: `${pref}restpro`, id: `${pref}restpro` },
           ],
         },
         {
           title: "🔓 ABRIR / CERRAR GRUPO",
           highlight_label: "LOCK",
           rows: [
-            { header: "", title: `${pref}abrir`,       description: "Abrir grupo automáticamente",       id: `${pref}abrir`       },
-            { header: "", title: `${pref}cerrar`,      description: "Cerrar grupo automáticamente",      id: `${pref}cerrar`      },
-            { header: "", title: `${pref}abrirgrupo`,  description: "Abrir grupo ahora",                 id: `${pref}abrirgrupo`  },
-            { header: "", title: `${pref}cerrargrupo`, description: "Cerrar grupo ahora",                id: `${pref}cerrargrupo` },
+            { header: "", title: `${pref}abrir`, id: `${pref}abrir` },
+            { header: "", title: `${pref}cerrar`, id: `${pref}cerrar` },
+            { header: "", title: `${pref}abrirgrupo`, id: `${pref}abrirgrupo` },
+            { header: "", title: `${pref}cerrargrupo`, id: `${pref}cerrargrupo` },
           ],
         },
       ],
@@ -238,7 +237,6 @@ const handler = async (msg, { conn }) => {
   // ====== ENVIAR ======
   if (usarBotones) {
     try {
-      // Video/GIF + caption completo + botón del menú
       await conn.sendMessage2(
         chatId,
         {
@@ -254,11 +252,9 @@ const handler = async (msg, { conn }) => {
       return;
     } catch (e) {
       console.log("[menugrupo] menú nativo falló, fallback a video sin botones:", e.message);
-      // Si falla, cae al modo manual
     }
   }
 
-  // ====== MODO MANUAL (botones OFF o fallback) ======
   await conn.sendMessage2(
     chatId,
     {
