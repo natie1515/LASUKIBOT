@@ -1,11 +1,12 @@
-// plugins/sks.js — Creador de Stickers con Efectos
-// Responde a una IMAGEN o VIDEO, muestra un menú con 20 efectos,
+// plugins/sks.js — Creador de Stickers con 50 Efectos Pro
+// Responde a una IMAGEN o VIDEO, muestra un menú con 50 efectos,
 // y crea un sticker WebP (animado si es video) con el efecto aplicado.
 //
 // ✅ Usa la misma lógica de s.js (imageToWebp / videoToWebp + addExif)
 // ✅ Menú de botones igual que play.js (nativeFlow con sections/rows)
 // ✅ Respeta activoss.json (botones on/off)
 // ✅ Menú activo 10 minutos — puedes probar varios efectos con la misma imagen
+// ✅ Incluye stickers REDONDOS, animaciones (latido, rebote, shake, etc.)
 //
 // Uso: .sks  (respondiendo a una imagen o video)
 
@@ -22,7 +23,6 @@ const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
-// ====== JOBS PENDIENTES (10 min) ======
 const pendingSks = Object.create(null);
 
 // ====== HELPERS ======
@@ -69,123 +69,264 @@ function botonesActivos() {
   }
 }
 
-// ====== 🎨 CATÁLOGO DE 20 EFECTOS ======
-// Cada efecto tiene: label visible, desc, y filter FFmpeg (null = sin efecto)
+// ====== 🎨 CATÁLOGO DE 50 EFECTOS ======
+// Cada efecto puede tener:
+//   - filter: filtro FFmpeg normal
+//   - animFilter: filtro especial para animaciones (requiere loop + duración)
+//   - needsAnimation: true si debe convertirse a video aunque la entrada sea imagen
 const EFECTOS = {
-  // === SIN EFECTO VISUAL / TRANSFORMACIONES BÁSICAS ===
+  // ============ 🔄 TRANSFORMACIONES (8) ============
   normal: {
-    label: "🖼️ Normal",
-    desc: "Sin efecto, sticker normal",
-    filter: null,
+    label: "🖼️ Normal", desc: "Sin efecto, sticker clásico",
+    section: "basic", filter: null,
   },
   flip_h: {
-    label: "↔️ Voltear Derecha",
-    desc: "Voltea horizontal (espejo)",
-    filter: "hflip",
+    label: "↔️ Voltear Derecha", desc: "Flip horizontal (espejo)",
+    section: "basic", filter: "hflip",
   },
   flip_v: {
-    label: "↕️ Voltear Izquierda",
-    desc: "Voltea vertical",
-    filter: "vflip",
+    label: "↕️ Voltear Izquierda", desc: "Flip vertical",
+    section: "basic", filter: "vflip",
   },
   rot90: {
-    label: "🔄 Voltear Redondo 90°",
-    desc: "Gira 90 grados",
-    filter: "transpose=1",
+    label: "🔄 Voltear Redondo 90°", desc: "Gira 90 grados",
+    section: "basic", filter: "transpose=1",
   },
   rot180: {
-    label: "🔃 De Cabeza 180°",
-    desc: "Pone de cabeza",
-    filter: "transpose=2,transpose=2",
+    label: "🔃 De Cabeza 180°", desc: "Pone de cabeza",
+    section: "basic", filter: "transpose=2,transpose=2",
   },
   rot270: {
-    label: "🔁 Voltear Redondo 270°",
-    desc: "Gira 270 grados",
-    filter: "transpose=2",
+    label: "🔁 Voltear Redondo 270°", desc: "Gira 270 grados",
+    section: "basic", filter: "transpose=2",
   },
-  // === ZOOM ===
   zoom_in: {
-    label: "🔍 Zoom In",
-    desc: "Acerca la imagen",
-    filter: "crop=iw/1.5:ih/1.5:(iw-iw/1.5)/2:(ih-ih/1.5)/2",
+    label: "🔍 Zoom In", desc: "Acerca la imagen",
+    section: "basic", filter: "crop=iw/1.5:ih/1.5:(iw-iw/1.5)/2:(ih-ih/1.5)/2",
   },
   zoom_out: {
-    label: "🔭 Zoom Out",
-    desc: "Aleja la imagen con marco",
-    filter: "scale=iw*0.7:ih*0.7,pad=iw/0.7:ih/0.7:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+    label: "🔭 Zoom Out", desc: "Aleja con marco",
+    section: "basic", filter: "scale=iw*0.7:ih*0.7,pad=iw/0.7:ih/0.7:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
   },
-  // === COLORES ===
+
+  // ============ ⭕ FORMAS (2) ============
+  redondo: {
+    label: "⭕ Sticker Redondo", desc: "Forma circular perfecta",
+    section: "shapes",
+    // Máscara circular usando geq (recorta a círculo)
+    filter: "format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(hypot(X-W/2,Y-H/2),min(W,H)/2),255,0)'",
+  },
+  cuadrado: {
+    label: "⬛ Forma Cuadrada", desc: "Marco con fondo negro",
+    section: "shapes",
+    filter: "pad=iw+40:ih+40:20:20:color=black",
+  },
+
+  // ============ 🎨 COLORES (10) ============
   bn: {
-    label: "⚫ Blanco y Negro",
-    desc: "Escala de grises",
-    filter: "hue=s=0",
+    label: "⚫ Blanco y Negro", desc: "Escala de grises",
+    section: "colors", filter: "hue=s=0",
   },
   negativo: {
-    label: "🌓 Negativo",
-    desc: "Invierte los colores",
-    filter: "negate",
+    label: "🌓 Negativo", desc: "Invierte los colores",
+    section: "colors", filter: "negate",
   },
   sepia: {
-    label: "🟤 Sepia",
-    desc: "Efecto foto antigua",
-    filter: "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131",
+    label: "🟤 Sepia", desc: "Foto antigua",
+    section: "colors", filter: "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131",
   },
   rojo: {
-    label: "🔴 Tono Rojo",
-    desc: "Tonalidad rojiza",
-    filter: "hue=h=0:s=1.5",
+    label: "🔴 Tono Rojo", desc: "Tinte rojizo",
+    section: "colors", filter: "hue=h=0:s=1.5",
   },
   azul: {
-    label: "🔵 Tono Azul",
-    desc: "Tonalidad azul",
-    filter: "hue=h=210:s=1.5",
+    label: "🔵 Tono Azul", desc: "Tinte azul",
+    section: "colors", filter: "hue=h=210:s=1.5",
   },
   verde: {
-    label: "🟢 Tono Verde",
-    desc: "Tonalidad verde",
-    filter: "hue=h=120:s=1.5",
+    label: "🟢 Tono Verde", desc: "Tinte verde",
+    section: "colors", filter: "hue=h=120:s=1.5",
   },
   amarillo: {
-    label: "🟡 Tono Amarillo",
-    desc: "Tonalidad amarilla",
-    filter: "hue=h=60:s=1.5",
+    label: "🟡 Tono Amarillo", desc: "Tinte amarillo",
+    section: "colors", filter: "hue=h=60:s=1.5",
   },
-  // === BRILLO / CONTRASTE ===
+  rosa: {
+    label: "💖 Tono Rosa", desc: "Rosa / fucsia",
+    section: "colors", filter: "hue=h=330:s=1.5",
+  },
+  morado: {
+    label: "🟣 Tono Morado", desc: "Violeta / morado",
+    section: "colors", filter: "hue=h=270:s=1.5",
+  },
+  naranja: {
+    label: "🧡 Tono Naranja", desc: "Tinte anaranjado",
+    section: "colors", filter: "hue=h=30:s=1.5",
+  },
+
+  // ============ ☀️ LUZ / AJUSTES (6) ============
   brillo: {
-    label: "☀️ Más Brillo",
-    desc: "Aumenta el brillo",
-    filter: "eq=brightness=0.15:saturation=1.3",
+    label: "☀️ Más Brillo", desc: "Aumenta el brillo",
+    section: "colors", filter: "eq=brightness=0.15:saturation=1.3",
   },
   contraste: {
-    label: "🎯 Más Contraste",
-    desc: "Aumenta el contraste",
-    filter: "eq=contrast=1.5:saturation=1.2",
+    label: "🎯 Más Contraste", desc: "Mayor contraste",
+    section: "colors", filter: "eq=contrast=1.5:saturation=1.2",
   },
   saturado: {
-    label: "🌈 Súper Saturado",
-    desc: "Colores intensos",
-    filter: "eq=saturation=2.5",
+    label: "🌈 Súper Saturado", desc: "Colores intensos",
+    section: "colors", filter: "eq=saturation=2.5",
   },
-  // === EFECTOS ARTÍSTICOS ===
   oscuro: {
-    label: "🌑 Oscuro",
-    desc: "Más oscuro / nocturno",
-    filter: "eq=brightness=-0.15:contrast=1.3",
+    label: "🌑 Oscuro", desc: "Nocturno",
+    section: "colors", filter: "eq=brightness=-0.15:contrast=1.3",
   },
+  calido: {
+    label: "🌞 Cálido", desc: "Temperatura cálida",
+    section: "colors", filter: "colorbalance=rs=0.3:gs=0.1:bs=-0.3",
+  },
+  frio: {
+    label: "❄️ Frío", desc: "Temperatura fría",
+    section: "colors", filter: "colorbalance=rs=-0.3:gs=-0.1:bs=0.3",
+  },
+
+  // ============ 🌫️ DESENFOQUE / PIXEL (5) ============
+  difuminado: {
+    label: "🌫️ Difuminado Suave", desc: "Blur suave",
+    section: "blur", filter: "gblur=sigma=3",
+  },
+  difuminado_fuerte: {
+    label: "💨 Difuminado Fuerte", desc: "Blur intenso",
+    section: "blur", filter: "gblur=sigma=8",
+  },
+  pixelado: {
+    label: "🔳 Pixelado", desc: "Efecto pixelado",
+    section: "blur", filter: "scale=iw/8:ih/8,scale=iw*8:ih*8:flags=neighbor",
+  },
+  mosaico: {
+    label: "📺 Mosaico Gigante", desc: "Cuadros grandes",
+    section: "blur", filter: "scale=iw/15:ih/15,scale=iw*15:ih*15:flags=neighbor",
+  },
+  bit8: {
+    label: "🖥️ 8-Bit Retro", desc: "Estilo videojuego retro",
+    section: "blur", filter: "scale=iw/6:ih/6,scale=iw*6:ih*6:flags=neighbor,eq=saturation=2",
+  },
+
+  // ============ ⚡ GLITCH / RETRO (5) ============
+  glitch_rgb: {
+    label: "⚡ Glitch RGB", desc: "Canales RGB desplazados",
+    section: "glitch", filter: "rgbashift=rh=8:bv=8:gh=-8",
+  },
+  tv_vieja: {
+    label: "📺 TV Vieja", desc: "Ruido de TV antigua",
+    section: "glitch", filter: "noise=alls=25:allf=t",
+  },
+  grano: {
+    label: "🎞️ Grano de Película", desc: "Textura de grano",
+    section: "glitch", filter: "noise=c0s=20:allf=t+u",
+  },
+  crt: {
+    label: "💿 CRT Vintage", desc: "Monitor CRT antiguo",
+    section: "glitch", filter: "curves=vintage,noise=alls=15:allf=t",
+  },
+  vhs: {
+    label: "📼 VHS", desc: "Cinta VHS clásica",
+    section: "glitch", filter: "curves=vintage,noise=c0s=8:allf=t,rgbashift=rh=3:bv=3",
+  },
+
+  // ============ 🎨 ARTÍSTICOS (9) ============
   vintage: {
-    label: "📷 Vintage",
-    desc: "Look retro vintage",
-    filter: "curves=vintage,vignette",
+    label: "📷 Vintage", desc: "Look retro con viñeta",
+    section: "art", filter: "curves=vintage,vignette",
+  },
+  dibujo: {
+    label: "🖋️ Dibujo / Edges", desc: "Detección de bordes",
+    section: "art", filter: "edgedetect=mode=wires",
+  },
+  lapiz: {
+    label: "✏️ Lápiz", desc: "Dibujo a lápiz",
+    section: "art", filter: "edgedetect=low=0.1:high=0.4",
+  },
+  cartoon: {
+    label: "🎨 Cartoon", desc: "Estilo caricatura",
+    section: "art", filter: "edgedetect=mode=colormix:high=0",
+  },
+  comic: {
+    label: "📖 Cómic", desc: "Estilo cómic colorido",
+    section: "art", filter: "edgedetect=mode=colormix:high=0.3,eq=saturation=1.8",
+  },
+  cine: {
+    label: "🎬 Cinemático", desc: "Look de cine",
+    section: "art", filter: "curves=preset=increase_contrast,eq=saturation=0.85",
+  },
+  pastel: {
+    label: "🌺 Pastel", desc: "Colores pastel suaves",
+    section: "art", filter: "eq=saturation=0.7:brightness=0.08",
+  },
+  intenso: {
+    label: "🔥 Intenso", desc: "Contraste + saturación máx",
+    section: "art", filter: "eq=contrast=1.8:saturation=1.8:brightness=-0.05",
+  },
+  desaturado: {
+    label: "🌅 Desaturado", desc: "Colores apagados",
+    section: "art", filter: "eq=saturation=0.3",
+  },
+
+  // ============ 🎪 ANIMADOS (convierten imagen estática en animación) ============
+  latido: {
+    label: "💓 Latido", desc: "Palpita como corazón",
+    section: "anim", needsAnimation: true,
+    // Oscila escala usando zoompan
+    animFilter: "scale=320:320,zoompan=z='1+0.1*abs(sin(2*PI*on/15))':d=1:s=320x320:fps=15",
+  },
+  rebote: {
+    label: "🏀 Rebote", desc: "Sube y baja como pelota",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:300,pad=320:320:0:'8*abs(sin(3*PI*t))':color=0x00000000",
+  },
+  shake: {
+    label: "🫨 Shake", desc: "Tiembla como gelatina",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=340:340,crop=320:320:'10+5*sin(8*PI*t)':'10+5*cos(8*PI*t)'",
+  },
+  girando: {
+    label: "🌀 Girando", desc: "Rotación 360° continua",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,rotate='2*PI*t/2.5':c=none:ow=320:oh=320",
+  },
+  arcoiris_anim: {
+    label: "🌈 Arcoíris Animado", desc: "Cambia colores en el tiempo",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,hue=h='360*t/2.5'",
+  },
+  pulso: {
+    label: "✨ Pulso Brillante", desc: "Brilla y se apaga",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,eq=brightness='0.2*sin(4*PI*t)'",
+  },
+  flash: {
+    label: "🎇 Flash/Parpadeo", desc: "Parpadea rápido",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,eq=brightness='0.3*sin(10*PI*t)'",
+  },
+  glitch_anim: {
+    label: "🔀 Glitch Animado", desc: "Glitch RGB en movimiento",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,hue=h='30*sin(6*PI*t)':s='1+0.3*sin(8*PI*t)'",
+  },
+  fade_anim: {
+    label: "🌗 Aparece/Desaparece", desc: "Fade in/out loop",
+    section: "anim", needsAnimation: true,
+    animFilter: "scale=320:320,fade=t=in:st=0:d=0.6:alpha=1,fade=t=out:st=1.9:d=0.6:alpha=1",
   },
 };
 
-// ====== FFMPEG: imagen → webp con efecto ======
+// ====== FFMPEG: imagen estática → webp normal con efecto ======
 async function imageToWebp(media, effectFilter) {
   const tmpIn = path.join(TMP_DIR, randomFileName("jpg"));
   const tmpOut = path.join(TMP_DIR, randomFileName("webp"));
   fs.writeFileSync(tmpIn, media);
 
-  // Filtro base (escala y padding como en s.js) + efecto opcional al inicio
   const baseFilter = "scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15,pad=320:320:-1:-1:color=white@0.0,split[a][b];[a]palettegen=reserve_transparent=on:transparency_color=ffffff[p];[b][p]paletteuse";
   const fullFilter = effectFilter ? `${effectFilter},${baseFilter}` : baseFilter;
 
@@ -196,6 +337,40 @@ async function imageToWebp(media, effectFilter) {
       .addOutputOptions([
         "-vcodec", "libwebp",
         "-vf", fullFilter,
+      ])
+      .toFormat("webp")
+      .save(tmpOut);
+  });
+
+  const buff = fs.readFileSync(tmpOut);
+  try { fs.unlinkSync(tmpIn); } catch {}
+  try { fs.unlinkSync(tmpOut); } catch {}
+  return buff;
+}
+
+// ====== FFMPEG: imagen estática → webp animado (para efectos de animación) ======
+async function imageToAnimatedWebp(media, animFilter) {
+  const tmpIn = path.join(TMP_DIR, randomFileName("jpg"));
+  const tmpOut = path.join(TMP_DIR, randomFileName("webp"));
+  fs.writeFileSync(tmpIn, media);
+
+  await new Promise((resolve, reject) => {
+    ffmpeg(tmpIn)
+      .inputOptions([
+        "-loop", "1",
+        "-t", "2.5",
+      ])
+      .on("error", reject)
+      .on("end", resolve)
+      .addOutputOptions([
+        "-vcodec", "libwebp",
+        "-vf", `${animFilter},fps=15`,
+        "-loop", "0",
+        "-preset", "default",
+        "-an",
+        "-vsync", "0",
+        "-q:v", "60",
+        "-pix_fmt", "yuva420p",
       ])
       .toFormat("webp")
       .save(tmpOut);
@@ -274,16 +449,6 @@ async function addExif(webpBuffer, metadata) {
   return tmpOut;
 }
 
-async function writeExifImg(media, metadata, effectFilter) {
-  const wMedia = await imageToWebp(media, effectFilter);
-  return await addExif(wMedia, metadata);
-}
-
-async function writeExifVid(media, metadata, effectFilter) {
-  const wMedia = await videoToWebp(media, effectFilter);
-  return await addExif(wMedia, metadata);
-}
-
 // ====== PROCESAR Y ENVIAR STICKER ======
 async function procesarEfecto(conn, job, effectKey, triggerMsg) {
   const { chatId, mediaType, mediaBuffer, senderName, quotedBase } = job;
@@ -304,10 +469,27 @@ async function procesarEfecto(conn, job, effectKey, triggerMsg) {
       author: `🦋 Bot Creador: ❦La Suki Bot❦\n🎨 Efecto: ${efecto.label}\n🛠️ Desarrollado por: Russell XZ 💻\n📅 ${fechaStr}`,
     };
 
-    const outSticker =
-      mediaType === "image"
-        ? await writeExifImg(mediaBuffer, metadata, efecto.filter)
-        : await writeExifVid(mediaBuffer, metadata, efecto.filter);
+    let webpBuffer;
+
+    if (efecto.needsAnimation) {
+      // Efecto requiere animación
+      if (mediaType === "image") {
+        // Imagen estática → webp animado
+        webpBuffer = await imageToAnimatedWebp(mediaBuffer, efecto.animFilter);
+      } else {
+        // Video → aplicar también el filtro base como video
+        webpBuffer = await videoToWebp(mediaBuffer, efecto.animFilter);
+      }
+    } else {
+      // Efecto estático normal
+      if (mediaType === "image") {
+        webpBuffer = await imageToWebp(mediaBuffer, efecto.filter);
+      } else {
+        webpBuffer = await videoToWebp(mediaBuffer, efecto.filter);
+      }
+    }
+
+    const outSticker = await addExif(webpBuffer, metadata);
 
     await conn.sendMessage(
       chatId,
@@ -334,7 +516,6 @@ const handler = async (msg, { conn, wa }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
-  // 🎯 Buscar media citada
   const ctx = msg.message?.extendedTextMessage?.contextInfo;
   const quotedRaw = ctx?.quotedMessage;
   const quoted = quotedRaw ? unwrapMessage(quotedRaw) : null;
@@ -347,13 +528,13 @@ const handler = async (msg, { conn, wa }) => {
 ✳️ Ejemplo:
 *${pref}sks* (respondiendo a una imagen o video)
 
-💡 Los videos se convierten en stickers *animados*.`,
+💡 Los videos se convierten en stickers *animados*.
+🎨 *50 efectos disponibles* incluyendo latido, rebote, redondo, glitch y más.`,
     }, { quoted: msg });
   }
 
   await conn.sendMessage(chatId, { react: { text: "⏳", key: msg.key } });
 
-  // Descargar media
   let mediaBuffer, mediaType;
   try {
     const WA = ensureWA(wa, conn);
@@ -378,17 +559,16 @@ const handler = async (msg, { conn, wa }) => {
   const senderName = msg.pushName || "Usuario";
   const usarBotones = botonesActivos();
 
-  // Lista numerada de efectos (para botones OFF)
+  // Lista numerada (para OFF)
   const efectosEntries = Object.entries(EFECTOS);
   const listaNumerada = efectosEntries
     .map(([k, v], i) => `   *${i + 1}* →  ${v.label}`)
     .join("\n");
 
-  // Mapa número → key de efecto (para respuestas citadas)
   const NUMERO_EFECTO = {};
   efectosEntries.forEach(([k], i) => { NUMERO_EFECTO[String(i + 1)] = k; });
 
-  // 🎨 Caption (ON = corto, OFF = lista completa)
+  // 🎨 Caption
   const caption = usarBotones
     ? `
 ╭━━━━━━━━━━━━━━━━╮
@@ -396,6 +576,9 @@ const handler = async (msg, { conn, wa }) => {
 ╰━━━━━━━━━━━━━━━━╯
 
 Toca el botón abajo para elegir el efecto que deseas aplicarle a tu sticker.
+
+🎨 *50 efectos disponibles*
+⏱️ *Menú activo por 10 minutos*
 
 ❦ La Suki Bot ❦
 `.trim()
@@ -419,50 +602,43 @@ ${listaNumerada}
 ❦ La Suki Bot ❦
 ━━━━━━━━━━━━━━━━━━━━`.trim();
 
-  // ====== MENÚ INTERACTIVO (estilo play.js) ======
+  // ====== Construir secciones del menú dinámicamente ======
+  const SECTION_TITLES = {
+    basic: { title: "🔄 TRANSFORMACIONES", label: "FX" },
+    shapes: { title: "⭕ FORMAS", label: "SHAPE" },
+    colors: { title: "🎨 COLORES Y LUZ", label: "COLOR" },
+    blur: { title: "🌫️ DESENFOQUE Y PIXEL", label: "BLUR" },
+    glitch: { title: "⚡ GLITCH Y RETRO", label: "RETRO" },
+    art: { title: "🎭 ARTÍSTICOS", label: "ART" },
+    anim: { title: "🎬 ANIMADOS", label: "MOVE" },
+  };
+
+  const sectionMap = {};
+  for (const [k, v] of efectosEntries) {
+    if (!sectionMap[v.section]) sectionMap[v.section] = [];
+    sectionMap[v.section].push({
+      header: "",
+      title: v.label,
+      description: v.desc,
+      id: `${pref}sks_${k}`,
+    });
+  }
+
+  const sections = [];
+  for (const secKey of ["basic", "shapes", "colors", "blur", "glitch", "art", "anim"]) {
+    if (sectionMap[secKey] && sectionMap[secKey].length > 0) {
+      sections.push({
+        title: SECTION_TITLES[secKey].title,
+        highlight_label: SECTION_TITLES[secKey].label,
+        rows: sectionMap[secKey],
+      });
+    }
+  }
+
   const nativeFlowButtons = [
     {
       text: "🎨 Menú de efectos",
-      sections: [
-        {
-          title: "🎨 EFECTOS BÁSICOS",
-          highlight_label: "SKS",
-          rows: [
-            { header: "", title: EFECTOS.normal.label,   description: EFECTOS.normal.desc,   id: `${pref}sks_normal`   },
-            { header: "", title: EFECTOS.flip_h.label,   description: EFECTOS.flip_h.desc,   id: `${pref}sks_flip_h`   },
-            { header: "", title: EFECTOS.flip_v.label,   description: EFECTOS.flip_v.desc,   id: `${pref}sks_flip_v`   },
-            { header: "", title: EFECTOS.rot90.label,    description: EFECTOS.rot90.desc,    id: `${pref}sks_rot90`    },
-            { header: "", title: EFECTOS.rot180.label,   description: EFECTOS.rot180.desc,   id: `${pref}sks_rot180`   },
-            { header: "", title: EFECTOS.rot270.label,   description: EFECTOS.rot270.desc,   id: `${pref}sks_rot270`   },
-            { header: "", title: EFECTOS.zoom_in.label,  description: EFECTOS.zoom_in.desc,  id: `${pref}sks_zoom_in`  },
-            { header: "", title: EFECTOS.zoom_out.label, description: EFECTOS.zoom_out.desc, id: `${pref}sks_zoom_out` },
-          ],
-        },
-        {
-          title: "🎨 COLORES",
-          highlight_label: "FX",
-          rows: [
-            { header: "", title: EFECTOS.bn.label,        description: EFECTOS.bn.desc,        id: `${pref}sks_bn`        },
-            { header: "", title: EFECTOS.negativo.label,  description: EFECTOS.negativo.desc,  id: `${pref}sks_negativo`  },
-            { header: "", title: EFECTOS.sepia.label,     description: EFECTOS.sepia.desc,     id: `${pref}sks_sepia`     },
-            { header: "", title: EFECTOS.rojo.label,      description: EFECTOS.rojo.desc,      id: `${pref}sks_rojo`      },
-            { header: "", title: EFECTOS.azul.label,      description: EFECTOS.azul.desc,      id: `${pref}sks_azul`      },
-            { header: "", title: EFECTOS.verde.label,     description: EFECTOS.verde.desc,     id: `${pref}sks_verde`     },
-            { header: "", title: EFECTOS.amarillo.label,  description: EFECTOS.amarillo.desc,  id: `${pref}sks_amarillo`  },
-          ],
-        },
-        {
-          title: "🎨 ARTÍSTICOS",
-          highlight_label: "PRO",
-          rows: [
-            { header: "", title: EFECTOS.brillo.label,    description: EFECTOS.brillo.desc,    id: `${pref}sks_brillo`    },
-            { header: "", title: EFECTOS.contraste.label, description: EFECTOS.contraste.desc, id: `${pref}sks_contraste` },
-            { header: "", title: EFECTOS.saturado.label,  description: EFECTOS.saturado.desc,  id: `${pref}sks_saturado`  },
-            { header: "", title: EFECTOS.oscuro.label,    description: EFECTOS.oscuro.desc,    id: `${pref}sks_oscuro`    },
-            { header: "", title: EFECTOS.vintage.label,   description: EFECTOS.vintage.desc,   id: `${pref}sks_vintage`   },
-          ],
-        },
-      ],
+      sections,
     },
   ];
 
@@ -498,7 +674,7 @@ ${listaNumerada}
 
   setTimeout(() => {
     delete pendingSks[preview.key.id];
-  }, 10 * 60 * 1000); // 10 minutos
+  }, 10 * 60 * 1000);
 
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
@@ -536,7 +712,6 @@ ${listaNumerada}
             }
 
             if (!selectedId) continue;
-            // Solo IDs propios de sks (evita conflictos con play/ytmp3/etc)
             if (!selectedId.includes("sks_")) continue;
 
             const match = selectedId.match(/sks_([a-z0-9_]+)/i);
@@ -544,7 +719,6 @@ ${listaNumerada}
             const effectKey = match[1].toLowerCase();
             if (!EFECTOS[effectKey]) continue;
 
-            // Buscar job (prioridad: mensaje citado, luego el más reciente del chat)
             const ctxQuoted = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
             let job = null;
 
