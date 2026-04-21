@@ -1,9 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+// plugins/datask.js
+
+const fs = require("fs");
+const path = require("path");
+const { execSync } = require("child_process");
 
 function unwrapMessage(m) {
   let node = m;
+
   while (
     node?.viewOnceMessage?.message ||
     node?.viewOnceMessageV2?.message ||
@@ -16,14 +19,23 @@ function unwrapMessage(m) {
       node.viewOnceMessageV2Extension?.message ||
       node.ephemeralMessage?.message;
   }
+
   return node;
 }
 
 function ensureWA(wa, conn) {
-  if (wa?.downloadContentFromMessage) return wa;
-  if (conn?.wa?.downloadContentFromMessage) return conn.wa;
-  if (global.wa?.downloadContentFromMessage) return global.wa;
+
+  if (wa?.downloadContentFromMessage)
+    return wa;
+
+  if (conn?.wa?.downloadContentFromMessage)
+    return conn.wa;
+
+  if (global.wa?.downloadContentFromMessage)
+    return global.wa;
+
   return null;
+
 }
 
 const handler = async (msg, { conn, wa }) => {
@@ -34,174 +46,237 @@ const handler = async (msg, { conn, wa }) => {
     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
   if (!quotedRaw) {
+
     return conn.sendMessage(chatId, {
-      text: "Responde a un sticker"
+
+      text: "Responde al sticker animado"
+
     }, { quoted: msg });
+
   }
 
   const q = unwrapMessage(quotedRaw);
 
-  const stickerMsg = q?.stickerMessage || null;
-  const docMsg = q?.documentMessage || null;
+  console.log("LOG estructura mensaje:");
+  console.log(JSON.stringify(q, null, 2));
 
-  if (!stickerMsg && !docMsg) {
+  await conn.sendMessage(chatId, {
+    text:
+"📊 LOG detectado:\n\n" +
+JSON.stringify(q, null, 2).slice(0, 3500)
+  }, { quoted: msg });
+
+  const stickerMsg = q?.stickerMessage;
+  const docMsg = q?.documentMessage;
+  const imageMsg = q?.imageMessage;
+
+  let node = null;
+  let dlType = "document";
+
+  if (stickerMsg) {
+
+    node = stickerMsg;
+    dlType = "sticker";
+
+  }
+  else if (docMsg) {
+
+    node = docMsg;
+    dlType = "document";
+
+  }
+  else if (imageMsg) {
+
+    node = imageMsg;
+    dlType = "image";
+
+  }
+  else {
+
     return conn.sendMessage(chatId, {
-      text: "Eso no es un sticker"
+
+      text:
+"No detecto stickerMessage ni documentMessage\n" +
+"revisa el LOG enviado arriba"
+
     }, { quoted: msg });
+
   }
 
   await conn.sendMessage(chatId, {
     react: { text: "🔍", key: msg.key }
-  }).catch(() => {});
+  }).catch(()=>{});
 
-  const tmpDir = path.join(__dirname, "../tmp");
-  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpDir =
+    path.join(__dirname, "../tmp");
+
+  if (!fs.existsSync(tmpDir))
+    fs.mkdirSync(tmpDir, { recursive: true });
 
   const base = Date.now();
 
-  const inputPath = path.join(tmpDir, `${base}.bin`);
-  const extractDir = path.join(tmpDir, `${base}_extract`);
+  const inputFile =
+    path.join(tmpDir, base + ".bin");
+
+  const extractDir =
+    path.join(tmpDir, base + "_extract");
 
   try {
 
-    const WA = ensureWA(wa, conn);
+    const WA =
+      ensureWA(wa, conn);
 
-    const node = stickerMsg ? stickerMsg : docMsg;
+    const stream =
+      await WA.downloadContentFromMessage(
+        node,
+        dlType
+      );
 
-    const stream = await WA.downloadContentFromMessage(node, "sticker");
-
-    let buffer = Buffer.alloc(0);
+    let buffer =
+      Buffer.alloc(0);
 
     for await (const chunk of stream)
-      buffer = Buffer.concat([buffer, chunk]);
+      buffer = Buffer.concat([
+        buffer,
+        chunk
+      ]);
 
-    fs.writeFileSync(inputPath, buffer);
+    fs.writeFileSync(
+      inputFile,
+      buffer
+    );
 
-    // detectar tipo real
-    let fileType = "unknown";
+    let type = "unknown";
 
-    if (buffer.slice(0, 4).toString() === "PK\u0003\u0004") {
-      fileType = "was";
-    }
-    else if (buffer.slice(8, 12).toString() === "WEBP") {
-      fileType = "webp";
-    }
+    if (
+      buffer.slice(0, 4)
+      .toString()
+      === "PK\u0003\u0004"
+    ) type = "ZIP / WAS";
 
-    let report = {
-      size: buffer.length,
-      detectedType: fileType,
-      files: []
-    };
+    if (
+      buffer.slice(8, 12)
+      .toString()
+      === "WEBP"
+    ) type = "WEBP";
 
-    if (fileType === "was") {
+    let info =
+`RESULTADO
 
-      fs.mkdirSync(extractDir, { recursive: true });
+tipo detectado:
+${type}
 
-      execSync(`unzip "${inputPath}" -d "${extractDir}"`);
+peso:
+${buffer.length}
 
-      const files = fs.readdirSync(extractDir, { recursive: true });
+mime:
+${node.mimetype || "unknown"}
+`;
 
-      report.files = files;
+    await conn.sendMessage(
+      chatId,
+      { text: info },
+      { quoted: msg }
+    );
 
-      // buscar json
-      let jsonData = [];
+    if (type.includes("ZIP")) {
 
-      for (const file of files) {
+      fs.mkdirSync(
+        extractDir,
+        { recursive: true }
+      );
 
-        if (file.endsWith(".json")) {
+      execSync(
+`unzip "${inputFile}" -d "${extractDir}"`
+      );
 
-          const full = path.join(extractDir, file);
+      const files =
+        fs.readdirSync(
+          extractDir,
+          { recursive: true }
+        );
 
-          const json = JSON.parse(
-            fs.readFileSync(full, "utf8")
+      await conn.sendMessage(
+        chatId,
+        {
+
+          text:
+"archivos internos:\n\n" +
+files.join("\n")
+
+        },
+        { quoted: msg }
+      );
+
+      for (const f of files) {
+
+        if (!f.endsWith(".json"))
+          continue;
+
+        const full =
+          path.join(
+            extractDir,
+            f
           );
 
-          jsonData.push({
-            file,
-            keys: Object.keys(json),
-            assets: json.assets?.length || 0,
-            layers: json.layers?.length || 0,
-            fr: json.fr,
-            ip: json.ip,
-            op: json.op,
-            w: json.w,
-            h: json.h
-          });
+        const json =
+          fs.readFileSync(
+            full,
+            "utf8"
+          );
 
-        }
+        await conn.sendMessage(
+          chatId,
+          {
 
-      }
+            document:
+              Buffer.from(json),
 
-      report.jsonInfo = jsonData;
+            fileName: f,
 
-    }
+            mimetype:
+              "application/json"
 
-    // enviar info
-    await conn.sendMessage(chatId, {
-      text:
-`DATA STICKER
-
-Tipo: ${report.detectedType}
-
-Peso: ${report.size}
-
-Archivos:
-${JSON.stringify(report.files, null, 2)}
-
-JSON:
-${JSON.stringify(report.jsonInfo, null, 2)}
-`
-    }, { quoted: msg });
-
-    // enviar json completo si existe
-    if (report.detectedType === "was") {
-
-      const jsonFile = fs.readdirSync(extractDir)
-        .find(f => f.endsWith(".json"));
-
-      if (jsonFile) {
-
-        await conn.sendMessage(chatId, {
-          document: fs.readFileSync(
-            path.join(extractDir, jsonFile)
-          ),
-          fileName: jsonFile,
-          mimetype: "application/json"
-        }, { quoted: msg });
+          },
+          { quoted: msg }
+        );
 
       }
 
     }
 
-    await conn.sendMessage(chatId, {
-      react: { text: "✅", key: msg.key }
-    });
+    await conn.sendMessage(
+      chatId,
+      {
+        react:
+        { text: "✅", key: msg.key }
+      }
+    );
 
   }
-  catch (err) {
+  catch (e) {
 
-    console.error(err);
+    console.log(e);
 
-    await conn.sendMessage(chatId, {
-      text: err.message
-    }, { quoted: msg });
+    await conn.sendMessage(
+      chatId,
+      {
 
-    await conn.sendMessage(chatId, {
-      react: { text: "❌", key: msg.key }
-    });
+        text:
+"error:\n" +
+e.message
 
-  }
-  finally {
+      },
+      { quoted: msg }
+    );
 
-    try {
-
-      fs.rmSync(tmpDir, {
-        recursive: true,
-        force: true
-      });
-
-    }
-    catch {}
+    await conn.sendMessage(
+      chatId,
+      {
+        react:
+        { text: "❌", key: msg.key }
+      }
+    );
 
   }
 
