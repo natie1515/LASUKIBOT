@@ -1,7 +1,8 @@
 // plugins/menugrupo.js — Menú de Grupo con Botones
 // Si botones están ON: envía el video/gif + caption + menú desplegable con todos los comandos
 // Si botones están OFF: envía el video/gif con el menú clásico en texto
-// Al tocar un comando: WhatsApp envía el texto del comando con prefijo y el bot lo ejecuta.
+// Al tocar un comando: WhatsApp envía SOLO el texto del comando con prefijo (sin description)
+//   así el bot lo reconoce y lo ejecuta.
 // Los on/off están duplicados (welcome on, welcome off) para activar/desactivar rápido.
 
 "use strict";
@@ -138,9 +139,15 @@ const handler = async (msg, { conn }) => {
 `.trim();
 
   // ====== BOTONES NATIVOS ======
-  // IMPORTANTE: el "title" de cada row es lo que WhatsApp envía como texto
-  // cuando el usuario toca esa opción. Por eso el title debe ser EXACTAMENTE
-  // el comando con prefijo, SIN emojis ni decoración.
+  // 🔑 CRÍTICO: NO usar "description" porque WhatsApp la envía junto con el title
+  //    cuando el usuario toca una opción. Solo dejamos "title" con el comando puro.
+  // 🔑 El header también vacío para evitar cualquier texto extra.
+  const mk = (cmd) => ({
+    header: "",
+    title: `${pref}${cmd}`,
+    id: `${pref}${cmd}`,
+  });
+
   const nativeFlowButtons = [
     {
       text: "📋 Menú de grupo",
@@ -149,85 +156,85 @@ const handler = async (msg, { conn }) => {
           title: "🛠️ CONFIGURACIONES",
           highlight_label: "SETUP",
           rows: [
-            { header: "", title: `${pref}infogrupo`, id: `${pref}infogrupo` },
-            { header: "", title: `${pref}setinfo`, id: `${pref}setinfo` },
-            { header: "", title: `${pref}setname`, id: `${pref}setname` },
-            { header: "", title: `${pref}setfoto`, id: `${pref}setfoto` },
-            { header: "", title: `${pref}setwelcome`, id: `${pref}setwelcome` },
-            { header: "", title: `${pref}setdespedidas`, id: `${pref}setdespedidas` },
-            { header: "", title: `${pref}setreglas`, id: `${pref}setreglas` },
-            { header: "", title: `${pref}reglas`, id: `${pref}reglas` },
-            { header: "", title: `${pref}configrupo`, id: `${pref}configrupo` },
-            { header: "", title: `${pref}addco`, id: `${pref}addco` },
-            { header: "", title: `${pref}delco`, id: `${pref}delco` },
+            mk("infogrupo"),
+            mk("setinfo"),
+            mk("setname"),
+            mk("setfoto"),
+            mk("setwelcome"),
+            mk("setdespedidas"),
+            mk("setreglas"),
+            mk("reglas"),
+            mk("configrupo"),
+            mk("addco"),
+            mk("delco"),
           ],
         },
         {
           title: "✅ ACTIVAR FUNCIONES",
           highlight_label: "ON",
           rows: [
-            { header: "", title: `${pref}welcome on`, id: `${pref}welcome on` },
-            { header: "", title: `${pref}despedidas on`, id: `${pref}despedidas on` },
-            { header: "", title: `${pref}modoadmins on`, id: `${pref}modoadmins on` },
-            { header: "", title: `${pref}antilink on`, id: `${pref}antilink on` },
-            { header: "", title: `${pref}linkall on`, id: `${pref}linkall on` },
-            { header: "", title: `${pref}antis on`, id: `${pref}antis on` },
-            { header: "", title: `${pref}antidelete on`, id: `${pref}antidelete on` },
-            { header: "", title: `${pref}antiarabe on`, id: `${pref}antiarabe on` },
+            mk("welcome on"),
+            mk("despedidas on"),
+            mk("modoadmins on"),
+            mk("antilink on"),
+            mk("linkall on"),
+            mk("antis on"),
+            mk("antidelete on"),
+            mk("antiarabe on"),
           ],
         },
         {
           title: "❌ DESACTIVAR FUNCIONES",
           highlight_label: "OFF",
           rows: [
-            { header: "", title: `${pref}welcome off`, id: `${pref}welcome off` },
-            { header: "", title: `${pref}despedidas off`, id: `${pref}despedidas off` },
-            { header: "", title: `${pref}modoadmins off`, id: `${pref}modoadmins off` },
-            { header: "", title: `${pref}antilink off`, id: `${pref}antilink off` },
-            { header: "", title: `${pref}linkall off`, id: `${pref}linkall off` },
-            { header: "", title: `${pref}antis off`, id: `${pref}antis off` },
-            { header: "", title: `${pref}antidelete off`, id: `${pref}antidelete off` },
-            { header: "", title: `${pref}antiarabe off`, id: `${pref}antiarabe off` },
+            mk("welcome off"),
+            mk("despedidas off"),
+            mk("modoadmins off"),
+            mk("antilink off"),
+            mk("linkall off"),
+            mk("antis off"),
+            mk("antidelete off"),
+            mk("antiarabe off"),
           ],
         },
         {
           title: "🛡️ ADMINISTRACIÓN",
           highlight_label: "ADMIN",
           rows: [
-            { header: "", title: `${pref}daradmins`, id: `${pref}daradmins` },
-            { header: "", title: `${pref}quitaradmins`, id: `${pref}quitaradmins` },
-            { header: "", title: `${pref}kick`, id: `${pref}kick` },
-            { header: "", title: `${pref}ban`, id: `${pref}ban` },
-            { header: "", title: `${pref}unban`, id: `${pref}unban` },
-            { header: "", title: `${pref}mute`, id: `${pref}mute` },
-            { header: "", title: `${pref}unmute`, id: `${pref}unmute` },
-            { header: "", title: `${pref}delete`, id: `${pref}delete` },
+            mk("daradmins"),
+            mk("quitaradmins"),
+            mk("kick"),
+            mk("ban"),
+            mk("unban"),
+            mk("mute"),
+            mk("unmute"),
+            mk("delete"),
           ],
         },
         {
           title: "👥 ETIQUETAR",
           highlight_label: "TAG",
           rows: [
-            { header: "", title: `${pref}tag`, id: `${pref}tag` },
-            { header: "", title: `${pref}tagall`, id: `${pref}tagall` },
-            { header: "", title: `${pref}todos`, id: `${pref}todos` },
-            { header: "", title: `${pref}invocar`, id: `${pref}invocar` },
-            { header: "", title: `${pref}totalchat`, id: `${pref}totalchat` },
-            { header: "", title: `${pref}restchat`, id: `${pref}restchat` },
-            { header: "", title: `${pref}fantasmas`, id: `${pref}fantasmas` },
-            { header: "", title: `${pref}fankick`, id: `${pref}fankick` },
-            { header: "", title: `${pref}linkgrupo`, id: `${pref}linkgrupo` },
-            { header: "", title: `${pref}restpro`, id: `${pref}restpro` },
+            mk("tag"),
+            mk("tagall"),
+            mk("todos"),
+            mk("invocar"),
+            mk("totalchat"),
+            mk("restchat"),
+            mk("fantasmas"),
+            mk("fankick"),
+            mk("linkgrupo"),
+            mk("restpro"),
           ],
         },
         {
           title: "🔓 ABRIR / CERRAR GRUPO",
           highlight_label: "LOCK",
           rows: [
-            { header: "", title: `${pref}abrir`, id: `${pref}abrir` },
-            { header: "", title: `${pref}cerrar`, id: `${pref}cerrar` },
-            { header: "", title: `${pref}abrirgrupo`, id: `${pref}abrirgrupo` },
-            { header: "", title: `${pref}cerrargrupo`, id: `${pref}cerrargrupo` },
+            mk("abrir"),
+            mk("cerrar"),
+            mk("abrirgrupo"),
+            mk("cerrargrupo"),
           ],
         },
       ],
@@ -237,6 +244,7 @@ const handler = async (msg, { conn }) => {
   // ====== ENVIAR ======
   if (usarBotones) {
     try {
+      // Video/GIF + caption completo + botón del menú
       await conn.sendMessage2(
         chatId,
         {
@@ -252,9 +260,11 @@ const handler = async (msg, { conn }) => {
       return;
     } catch (e) {
       console.log("[menugrupo] menú nativo falló, fallback a video sin botones:", e.message);
+      // Si falla, cae al modo manual
     }
   }
 
+  // ====== MODO MANUAL (botones OFF o fallback) ======
   await conn.sendMessage2(
     chatId,
     {
