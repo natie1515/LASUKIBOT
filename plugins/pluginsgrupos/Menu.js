@@ -119,6 +119,7 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}s / qc / qc2 / texto
 │๛ ${pref}mixemoji / aniemoji
 │๛ ${pref}addco / delco
+│๛ ${pref}sks
 ╰─────◆
 
 𖠁𝙃𝙀𝙍𝙍𝘼𝙈𝙄𝙀𝙉𝙏𝘼𝙎𖠁
