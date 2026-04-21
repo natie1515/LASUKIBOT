@@ -1,26 +1,31 @@
-// plugins/datask.js
-
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
 function unwrapMessage(m) {
+
   let node = m;
 
   while (
+
     node?.viewOnceMessage?.message ||
     node?.viewOnceMessageV2?.message ||
     node?.viewOnceMessageV2Extension?.message ||
     node?.ephemeralMessage?.message
+
   ) {
+
     node =
+
       node.viewOnceMessage?.message ||
       node.viewOnceMessageV2?.message ||
       node.viewOnceMessageV2Extension?.message ||
       node.ephemeralMessage?.message;
+
   }
 
   return node;
+
 }
 
 function ensureWA(wa, conn) {
@@ -40,91 +45,85 @@ function ensureWA(wa, conn) {
 
 const handler = async (msg, { conn, wa }) => {
 
-  const chatId = msg.key.remoteJid;
+  const chatId =
+    msg.key.remoteJid;
 
   const quotedRaw =
-    msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    msg.message?.extendedTextMessage
+    ?.contextInfo?.quotedMessage;
 
   if (!quotedRaw) {
 
     return conn.sendMessage(chatId, {
 
-      text: "Responde al sticker animado"
+      text:
+"Responde a un sticker animado (.was)"
 
     }, { quoted: msg });
 
   }
 
-  const q = unwrapMessage(quotedRaw);
+  const q =
+    unwrapMessage(quotedRaw);
 
-  console.log("LOG estructura mensaje:");
-  console.log(JSON.stringify(q, null, 2));
+  // detectar TODOS los tipos posibles
+  const stickerMsg =
+    q?.stickerMessage
+    || q?.lottieStickerMessage?.message?.stickerMessage
+    || q?.message?.stickerMessage;
 
-  await conn.sendMessage(chatId, {
-    text:
-"📊 LOG detectado:\n\n" +
-JSON.stringify(q, null, 2).slice(0, 3500)
-  }, { quoted: msg });
+  const docMsg =
+    q?.documentMessage;
 
-  const stickerMsg = q?.stickerMessage;
-  const docMsg = q?.documentMessage;
-  const imageMsg = q?.imageMessage;
+  if (!stickerMsg && !docMsg) {
 
-  let node = null;
-  let dlType = "document";
-
-  if (stickerMsg) {
-
-    node = stickerMsg;
-    dlType = "sticker";
-
-  }
-  else if (docMsg) {
-
-    node = docMsg;
-    dlType = "document";
-
-  }
-  else if (imageMsg) {
-
-    node = imageMsg;
-    dlType = "image";
-
-  }
-  else {
-
-    return conn.sendMessage(chatId, {
+    await conn.sendMessage(chatId, {
 
       text:
-"No detecto stickerMessage ni documentMessage\n" +
-"revisa el LOG enviado arriba"
+"No detecto sticker\n\nLOG:\n" +
+JSON.stringify(q,null,2)
 
     }, { quoted: msg });
 
+    return;
+
   }
 
+  const node =
+    stickerMsg || docMsg;
+
+  const dlType =
+    stickerMsg ? "sticker" : "document";
+
   await conn.sendMessage(chatId, {
-    react: { text: "🔍", key: msg.key }
+
+    react:
+    { text:"🧠", key:msg.key }
+
   }).catch(()=>{});
 
   const tmpDir =
-    path.join(__dirname, "../tmp");
+    path.join(
+      __dirname,
+      "../tmp"
+    );
 
   if (!fs.existsSync(tmpDir))
-    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.mkdirSync(tmpDir,{recursive:true});
 
-  const base = Date.now();
+  const base =
+    Date.now();
 
   const inputFile =
     path.join(tmpDir, base + ".bin");
 
   const extractDir =
-    path.join(tmpDir, base + "_extract");
+    path.join(tmpDir, base + "_files");
 
   try {
 
     const WA =
-      ensureWA(wa, conn);
+      ensureWA(wa,conn);
 
     const stream =
       await WA.downloadContentFromMessage(
@@ -136,54 +135,79 @@ JSON.stringify(q, null, 2).slice(0, 3500)
       Buffer.alloc(0);
 
     for await (const chunk of stream)
-      buffer = Buffer.concat([
-        buffer,
-        chunk
-      ]);
+
+      buffer =
+        Buffer.concat([buffer,chunk]);
 
     fs.writeFileSync(
       inputFile,
       buffer
     );
 
-    let type = "unknown";
+    // detectar tipo real
+    let realType =
+      "unknown";
 
     if (
-      buffer.slice(0, 4)
+      buffer.slice(0,4)
       .toString()
       === "PK\u0003\u0004"
-    ) type = "ZIP / WAS";
+    )
+      realType = "WAS (ZIP)";
 
     if (
-      buffer.slice(8, 12)
+      buffer.slice(8,12)
       .toString()
       === "WEBP"
-    ) type = "WEBP";
+    )
+      realType = "WEBP";
 
-    let info =
-`RESULTADO
+    // metadata del mensaje
+    const metaInfo = {
 
-tipo detectado:
-${type}
+      mimetype:
+        node.mimetype,
 
-peso:
-${buffer.length}
+      fileLength:
+        node.fileLength,
 
-mime:
-${node.mimetype || "unknown"}
-`;
+      isAnimated:
+        node.isAnimated,
 
-    await conn.sendMessage(
-      chatId,
-      { text: info },
-      { quoted: msg }
-    );
+      isLottie:
+        node.isLottie,
 
-    if (type.includes("ZIP")) {
+      mediaKey:
+        node.mediaKey,
+
+      fileEncSha256:
+        node.fileEncSha256,
+
+      fileSha256:
+        node.fileSha256,
+
+      directPath:
+        node.directPath,
+
+      timestamp:
+        node.mediaKeyTimestamp
+
+    };
+
+    await conn.sendMessage(chatId, {
+
+      text:
+"METADATA\n\n" +
+JSON.stringify(metaInfo,null,2)
+
+    }, { quoted: msg });
+
+    // si es .was lo abrimos
+    if (realType.includes("WAS")) {
 
       fs.mkdirSync(
         extractDir,
-        { recursive: true }
+        {recursive:true}
       );
 
       execSync(
@@ -193,30 +217,27 @@ ${node.mimetype || "unknown"}
       const files =
         fs.readdirSync(
           extractDir,
-          { recursive: true }
+          {recursive:true}
         );
 
-      await conn.sendMessage(
-        chatId,
-        {
+      await conn.sendMessage(chatId, {
 
-          text:
-"archivos internos:\n\n" +
+        text:
+"ARCHIVOS INTERNOS:\n\n" +
 files.join("\n")
 
-        },
-        { quoted: msg }
-      );
+      }, { quoted: msg });
 
-      for (const f of files) {
+      // enviar TODOS los json
+      for (const file of files) {
 
-        if (!f.endsWith(".json"))
+        if (!file.endsWith(".json"))
           continue;
 
         const full =
           path.join(
             extractDir,
-            f
+            file
           );
 
         const json =
@@ -225,66 +246,100 @@ files.join("\n")
             "utf8"
           );
 
-        await conn.sendMessage(
-          chatId,
-          {
+        const parsed =
+          JSON.parse(json);
 
-            document:
-              Buffer.from(json),
+        const resumen = {
 
-            fileName: f,
+          file,
 
-            mimetype:
-              "application/json"
+          fr:
+            parsed.fr,
 
-          },
-          { quoted: msg }
-        );
+          w:
+            parsed.w,
+
+          h:
+            parsed.h,
+
+          layers:
+            parsed.layers?.length,
+
+          assets:
+            parsed.assets?.length,
+
+          markers:
+            parsed.markers?.length
+
+        };
+
+        await conn.sendMessage(chatId, {
+
+          text:
+"INFO JSON:\n\n" +
+JSON.stringify(resumen,null,2)
+
+        }, { quoted: msg });
+
+        await conn.sendMessage(chatId, {
+
+          document:
+            Buffer.from(json),
+
+          fileName:
+            file,
+
+          mimetype:
+            "application/json"
+
+        }, { quoted: msg });
 
       }
 
     }
 
-    await conn.sendMessage(
-      chatId,
-      {
-        react:
-        { text: "✅", key: msg.key }
-      }
-    );
+    await conn.sendMessage(chatId, {
+
+      react:
+      { text:"✅", key:msg.key }
+
+    });
 
   }
   catch (e) {
 
     console.log(e);
 
-    await conn.sendMessage(
-      chatId,
-      {
+    await conn.sendMessage(chatId, {
 
-        text:
-"error:\n" +
+      text:
+"ERROR:\n" +
 e.message
 
-      },
-      { quoted: msg }
-    );
+    }, { quoted: msg });
 
-    await conn.sendMessage(
-      chatId,
-      {
-        react:
-        { text: "❌", key: msg.key }
-      }
-    );
+    await conn.sendMessage(chatId, {
+
+      react:
+      { text:"❌", key:msg.key }
+
+    });
 
   }
 
 };
 
-handler.command = ["datask"];
-handler.help = ["datask"];
-handler.tags = ["tools"];
-handler.register = true;
+handler.command =
+["datask"];
 
-module.exports = handler;
+handler.help =
+["datask"];
+
+handler.tags =
+["tools"];
+
+handler.register =
+true;
+
+module.exports =
+handler;
