@@ -707,7 +707,7 @@ try {
             const chatRes = await axios.post(
               "https://devmatrixs.lat/api/chat",
               {
-                model: "openai",
+                model: "minimax",
                 messages: mensajesParaAPI
               },
               {
