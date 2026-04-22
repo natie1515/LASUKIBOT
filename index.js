@@ -388,6 +388,181 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   console.log(chalk.cyan(`💬 Texto: ${chalk.bold(messageContent || "📂 (Multimedia)")}`));
 
 
+  
+// === Normalizar CITADO y MENCIONES → JID REAL + @numero (LID / NO-LID) ===
+await (async () => {
+  const DIGITS = (s = "") => String(s || "").replace(/\D/g, "");
+
+  // Helpers
+  function lidParser(participants = []) {
+    try {
+      return participants.map(v => ({
+        id: (typeof v?.id === "string" && v.id.endsWith("@lid") && v.jid) ? v.jid : v.id,
+        admin: v?.admin ?? null,
+        raw: v
+      }));
+    } catch (e) {
+      console.error("[normalize] lidParser error:", e);
+      return participants || [];
+    }
+  }
+  function getQuotedKey(msg) {
+    const q = msg.quoted;
+    const ctx = msg.message?.extendedTextMessage?.contextInfo;
+    return (
+      q?.key?.participant ||
+      q?.key?.jid ||
+      (typeof ctx?.participant === "string" ? ctx.participant : null) ||
+      null
+    );
+  }
+  function collectContextInfos(msg) {
+    const mm = msg.message || {};
+    const ctxs = [];
+    if (mm.extendedTextMessage?.contextInfo) ctxs.push(mm.extendedTextMessage.contextInfo);
+    if (mm.imageMessage?.contextInfo) ctxs.push(mm.imageMessage.contextInfo);
+    if (mm.videoMessage?.contextInfo) ctxs.push(mm.videoMessage.contextInfo);
+    if (mm.buttonsMessage?.contextInfo) ctxs.push(mm.buttonsMessage.contextInfo);
+    if (mm.templateMessage?.contextInfo) ctxs.push(mm.templateMessage.contextInfo);
+    if (mm.viewOnceMessageV2?.message?.imageMessage?.contextInfo)
+      ctxs.push(mm.viewOnceMessageV2.message.imageMessage.contextInfo);
+    if (mm.viewOnceMessageV2?.message?.videoMessage?.contextInfo)
+      ctxs.push(mm.viewOnceMessageV2.message.videoMessage.contextInfo);
+    return ctxs;
+  }
+
+  // Defaults (sirven también fuera de grupos)
+  m.quotedRealJid    = null;
+  m.quotedRealNumber = null;
+  m.targetRealJid    = m.realJid || null;
+  m.targetRealNumber = DIGITS(m.targetRealJid || "");
+
+  m.mentionsOriginal    = [];
+  m.mentionsReal        = [];
+  m.mentionsNumbers     = [];
+  m.mentionsAt          = [];
+  m.firstMentionRealJid = null;
+  m.firstMentionNumber  = null;
+
+  if (!isGroup) return;
+
+  // ---------- Resolver CITADO a real ----------
+  const quotedKey = getQuotedKey(m);
+  if (quotedKey) {
+    if (quotedKey.endsWith("@s.whatsapp.net")) {
+      m.quotedRealJid    = quotedKey;
+      m.quotedRealNumber = DIGITS(quotedKey);
+      m.targetRealJid    = m.quotedRealJid;
+      m.targetRealNumber = m.quotedRealNumber;
+
+      if (m.message?.extendedTextMessage?.contextInfo) {
+        m.message.extendedTextMessage.contextInfo.participant = m.quotedRealJid;
+      }
+      if (m.quoted?.key) {
+        m.quoted.key.participant = m.quotedRealJid;
+        m.quoted.sender = m.quotedRealJid;
+      }
+    } else if (quotedKey.endsWith("@lid")) {
+      try {
+        const meta  = await sock.groupMetadata(chatId);
+        const raw   = Array.isArray(meta?.participants) ? meta.participants : [];
+        const norm  = lidParser(raw);
+
+        let real = null;
+        const idx = raw.findIndex(p => p?.id === quotedKey);
+        if (idx >= 0) {
+          const r = raw[idx];
+          if (typeof r?.jid === "string" && r.jid.endsWith("@s.whatsapp.net")) real = r.jid;
+          else if (typeof norm[idx]?.id === "string" && norm[idx].id.endsWith("@s.whatsapp.net")) real = norm[idx].id;
+        }
+        if (!real) {
+          const hit = norm.find(n => n?.raw?.id === quotedKey && typeof n?.id === "string" && n.id.endsWith("@s.whatsapp.net"));
+          if (hit) real = hit.id;
+        }
+        if (real) {
+          m.quotedRealJid    = real;
+          m.quotedRealNumber = DIGITS(real);
+          m.targetRealJid    = real;
+          m.targetRealNumber = m.quotedRealNumber;
+
+          if (m.message?.extendedTextMessage?.contextInfo) {
+            m.message.extendedTextMessage.contextInfo.participant = m.quotedRealJid;
+          }
+          if (m.quoted?.key) {
+            m.quoted.key.participant = m.quotedRealJid;
+            m.quoted.sender = m.quotedRealJid;
+          }
+        }
+      } catch (e) {
+        console.error("[normalize] quoted metadata error:", e);
+      }
+    }
+  }
+
+  // ---------- Resolver MENCIONES a real + @numero ----------
+  let meta, partsRaw, partsNorm;
+  try {
+    meta     = await sock.groupMetadata(chatId);
+    partsRaw = Array.isArray(meta?.participants) ? meta.participants : [];
+    partsNorm = lidParser(partsRaw);
+  } catch (e) {
+    console.error("[normalize] mentions metadata error:", e);
+    return;
+  }
+
+  function resolveRealFromId(id) {
+    if (typeof id !== "string") return null;
+    if (id.endsWith("@s.whatsapp.net")) return id;
+    if (!id.endsWith("@lid")) return null;
+
+    const idx = partsRaw.findIndex(p => p?.id === id);
+    if (idx >= 0) {
+      const r = partsRaw[idx];
+      if (typeof r?.jid === "string" && r.jid.endsWith("@s.whatsapp.net")) return r.jid;
+      const maybe = partsNorm[idx]?.id;
+      if (typeof maybe === "string" && maybe.endsWith("@s.whatsapp.net")) return maybe;
+    }
+    const hit = partsNorm.find(n => n?.raw?.id === id && typeof n?.id === "string" && n.id.endsWith("@s.whatsapp.net"));
+    return hit ? hit.id : null;
+  }
+
+  const ctxs = collectContextInfos(m);
+  const mentionedRaw = Array.from(new Set(
+    ctxs.flatMap(c => Array.isArray(c.mentionedJid) ? c.mentionedJid : [])
+  ));
+
+  if (mentionedRaw.length) {
+    const realList = [];
+    for (const jid of mentionedRaw) {
+      const real = jid.endsWith("@s.whatsapp.net") ? jid : resolveRealFromId(jid);
+      if (real) realList.push(real);
+    }
+    const uniqueReal = Array.from(new Set(realList));
+    const nums  = uniqueReal.map(j => DIGITS(j)).filter(Boolean);
+    const tags  = nums.map(n => `@${n}`);
+
+    m.mentionsOriginal     = mentionedRaw;
+    m.mentionsReal         = uniqueReal;
+    m.mentionsNumbers      = nums;
+    m.mentionsAt           = tags;
+    m.firstMentionRealJid  = uniqueReal[0] || null;
+    m.firstMentionNumber   = nums[0] || null;
+
+    // Si no hubo citado, toma primera mención como "target"
+    if (!m.quotedRealJid && m.firstMentionRealJid) {
+      m.targetRealJid    = m.firstMentionRealJid;
+      m.targetRealNumber = m.firstMentionNumber;
+    }
+
+    // Sobrescribe mentionedJid con reales para compat antigua
+    for (const c of ctxs) {
+      if (Array.isArray(c.mentionedJid) && c.mentionedJid.length) {
+        c.mentionedJid = uniqueReal.slice();
+      }
+    }
+  }
+})();
+
 /* === STICKER → COMANDO (GLOBAL) usando ./comandos.json — para Suki === */
 try {
   const st =
