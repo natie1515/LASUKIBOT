@@ -634,18 +634,18 @@ try {
 }
 /* === FIN STICKER → COMANDO === */
 
-// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) ===
+// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO ===
 // Se activa cuando alguien menciona "suki" o "bot" en cualquier parte del mensaje
 // (como palabra separada, no dentro de otras palabras como "sukiyaki" o "robot").
 // Ignora mensajes con prefijo de comando (.suki, #bot, etc).
-// El historial lo maneja la API automáticamente por usuario (x-api-key + endpoint /api/chat).
-// Responde citando el mensaje del usuario para que sepa a quién le habla.
+// Mantiene el historial de conversación por chat (últimos 10 mensajes).
+// La respuesta se envía como NOTA DE VOZ usando el endpoint /api/audio.
+// Si el audio falla, cae en fallback y envía texto normal.
 try {
   const chatId = m.key.remoteJid;
   const senderId = m.key.participant || m.key.remoteJid;
   const fromMe = m.key.fromMe;
 
-  // Extraer texto del mensaje (conversation, extendedText, captions)
   const textoIA = (
     m.message?.conversation ||
     m.message?.extendedTextMessage?.text ||
@@ -654,97 +654,162 @@ try {
     ""
   ).trim();
 
-  // No seguir si: está vacío, viene del propio bot, empieza con prefijo de comando
   const tienePrefijo = textoIA && global.prefixes.some(p => textoIA.startsWith(p));
 
   if (!fromMe && textoIA && !tienePrefijo) {
-    // 🎯 Regex: detecta "suki" o "bot" como palabra separada
-    // \b = límite de palabra (evita matchear "sukiyaki" o "robot")
-    // i = case insensitive
+    // 🎯 Detecta "suki" o "bot" como palabra separada (no dentro de otras)
     const regexSuki = /\b(suki|bot)\b/i;
 
     if (regexSuki.test(textoIA)) {
       // 🚦 Anti-spam: mínimo 3 segundos entre respuestas al mismo usuario
       global._sukiIACooldown = global._sukiIACooldown || {};
-      const key = `${chatId}:${senderId}`;
-      const lastTime = global._sukiIACooldown[key] || 0;
+      const cdKey = `${chatId}:${senderId}`;
+      const lastTime = global._sukiIACooldown[cdKey] || 0;
       const now = Date.now();
 
       if (now - lastTime >= 3000) {
-        global._sukiIACooldown[key] = now;
+        global._sukiIACooldown[cdKey] = now;
+
+        // 💾 Historial de conversación por chat (no por usuario; así el grupo conversa con Suki)
+        // Mantenemos hasta 10 mensajes (5 intercambios) para no saturar la API
+        global._sukiIAHist = global._sukiIAHist || {};
+        if (!Array.isArray(global._sukiIAHist[chatId])) {
+          global._sukiIAHist[chatId] = [];
+        }
 
         (async () => {
           try {
-            // Indicar que el bot está "escribiendo..."
-            try {
-              await sock.sendPresenceUpdate("composing", chatId);
-            } catch {}
+            // Indicar "escribiendo..."
+            try { await sock.sendPresenceUpdate("composing", chatId); } catch {}
 
             const axios = require("axios");
+            const API_KEY = "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f";
 
-            // 🔑 Llamada a la API de DevMatrixs
-            // La API maneja el historial automáticamente por x-api-key + usuario
-            const response = await axios.post(
+            // 📚 Armar array de mensajes con historial + mensaje actual
+            const historialPrev = global._sukiIAHist[chatId].slice(-10);
+            const mensajesParaAPI = [
+              ...historialPrev,
+              { role: "user", content: textoIA }
+            ];
+
+            // 🧠 Llamada a /api/chat con historial completo
+            const chatRes = await axios.post(
               "https://devmatrixs.lat/api/chat",
               {
                 model: "openai",
-                messages: [
-                  {
-                    role: "user",
-                    content: textoIA
-                  }
-                ]
+                messages: mensajesParaAPI
               },
               {
                 headers: {
                   "Content-Type": "application/json",
-                  "x-api-key": "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f"
+                  "x-api-key": API_KEY
                 },
                 timeout: 30000,
                 validateStatus: () => true
               }
             );
 
-            // Parar "escribiendo..."
-            try {
-              await sock.sendPresenceUpdate("paused", chatId);
-            } catch {}
+            // Extraer respuesta (formatos comunes)
+            const cd = chatRes.data || {};
+            const respuestaTexto = (
+              cd?.reply ||
+              cd?.response ||
+              cd?.message ||
+              cd?.content ||
+              cd?.result ||
+              cd?.data?.reply ||
+              cd?.data?.response ||
+              cd?.data?.message ||
+              cd?.data?.content ||
+              cd?.choices?.[0]?.message?.content ||
+              ""
+            ).toString().trim();
 
-            // Extraer la respuesta (soporta varios formatos comunes)
-            const data = response.data || {};
-            const respuesta =
-              data?.reply ||
-              data?.response ||
-              data?.message ||
-              data?.content ||
-              data?.result ||
-              data?.data?.reply ||
-              data?.data?.response ||
-              data?.data?.message ||
-              data?.data?.content ||
-              data?.choices?.[0]?.message?.content ||
-              "";
-
-            if (respuesta && typeof respuesta === "string" && respuesta.trim().length) {
-              // Reaccionar con un emoji bonito para que se vea natural
-              try {
-                await sock.sendMessage(chatId, { react: { text: "💬", key: m.key } });
-              } catch {}
-
-              // Enviar la respuesta citando el mensaje original
-              await sock.sendMessage(
-                chatId,
-                { text: respuesta.trim() },
-                { quoted: m }
-              );
-            } else {
-              console.log("[SukiIA] ⚠️ Respuesta vacía de la API:", JSON.stringify(data).slice(0, 300));
+            if (!respuestaTexto) {
+              try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
+              console.log("[SukiIA] ⚠️ Respuesta vacía:", JSON.stringify(cd).slice(0, 300));
+              return;
             }
-          } catch (err) {
-            console.error("[SukiIA] ❌ Error al llamar a la API:", err.message);
+
+            // 💾 Guardar en historial (user + assistant)
+            global._sukiIAHist[chatId].push({ role: "user", content: textoIA });
+            global._sukiIAHist[chatId].push({ role: "assistant", content: respuestaTexto });
+            // Mantener solo los últimos 10
+            if (global._sukiIAHist[chatId].length > 10) {
+              global._sukiIAHist[chatId] = global._sukiIAHist[chatId].slice(-10);
+            }
+
+            // Reaccionar al mensaje original
             try {
-              await sock.sendPresenceUpdate("paused", chatId);
+              await sock.sendMessage(chatId, { react: { text: "💬", key: m.key } });
             } catch {}
+
+            // Cambiar presencia a "grabando audio"
+            try { await sock.sendPresenceUpdate("recording", chatId); } catch {}
+
+            // 🎤 Convertir texto a audio usando /api/audio
+            // Limitar el texto a 500 chars para el TTS (evita audios muy largos)
+            const textoParaAudio = respuestaTexto.slice(0, 500);
+            let audioUrl = "";
+
+            try {
+              const audioRes = await axios.get(
+                "https://devmatrixs.lat/api/audio",
+                {
+                  params: {
+                    text: textoParaAudio,
+                    voice: "nova"
+                  },
+                  headers: {
+                    "x-api-key": API_KEY
+                  },
+                  timeout: 30000,
+                  validateStatus: () => true
+                }
+              );
+
+              const ad = audioRes.data || {};
+              audioUrl = ad?.url || ad?.data?.url || ad?.audio || ad?.data?.audio || "";
+            } catch (audioErr) {
+              console.log("[SukiIA] ⚠️ Error obteniendo audio:", audioErr.message);
+            }
+
+            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
+
+            if (audioUrl) {
+              // 🔊 Descargar el audio y enviarlo como nota de voz (PTT)
+              try {
+                const audioFile = await axios.get(audioUrl, {
+                  responseType: "arraybuffer",
+                  timeout: 30000
+                });
+                const audioBuffer = Buffer.from(audioFile.data);
+
+                await sock.sendMessage(
+                  chatId,
+                  {
+                    audio: audioBuffer,
+                    mimetype: "audio/mp4",
+                    ptt: true
+                  },
+                  { quoted: m }
+                );
+                return; // ✅ Audio enviado, terminamos aquí
+              } catch (dlErr) {
+                console.log("[SukiIA] ⚠️ Error descargando audio, envío texto:", dlErr.message);
+              }
+            }
+
+            // 📝 Fallback: si el audio falla, enviar texto
+            await sock.sendMessage(
+              chatId,
+              { text: respuestaTexto },
+              { quoted: m }
+            );
+
+          } catch (err) {
+            console.error("[SukiIA] ❌ Error general:", err.message);
+            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
           }
         })();
       }
@@ -754,6 +819,7 @@ try {
   console.error("❌ Error en lógica IA natural (SukiIA):", e);
 }
 // === 🤖 FIN LÓGICA IA NATURAL ===
+
 
   
   //fin de la logica modo admins         
