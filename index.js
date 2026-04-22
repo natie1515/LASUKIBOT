@@ -633,6 +633,128 @@ try {
   console.error("❌ Sticker→cmd error:", e);
 }
 /* === FIN STICKER → COMANDO === */
+
+// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) ===
+// Se activa cuando alguien menciona "suki" o "bot" en cualquier parte del mensaje
+// (como palabra separada, no dentro de otras palabras como "sukiyaki" o "robot").
+// Ignora mensajes con prefijo de comando (.suki, #bot, etc).
+// El historial lo maneja la API automáticamente por usuario (x-api-key + endpoint /api/chat).
+// Responde citando el mensaje del usuario para que sepa a quién le habla.
+try {
+  const chatId = m.key.remoteJid;
+  const senderId = m.key.participant || m.key.remoteJid;
+  const fromMe = m.key.fromMe;
+
+  // Extraer texto del mensaje (conversation, extendedText, captions)
+  const textoIA = (
+    m.message?.conversation ||
+    m.message?.extendedTextMessage?.text ||
+    m.message?.imageMessage?.caption ||
+    m.message?.videoMessage?.caption ||
+    ""
+  ).trim();
+
+  // No seguir si: está vacío, viene del propio bot, empieza con prefijo de comando
+  const tienePrefijo = textoIA && global.prefixes.some(p => textoIA.startsWith(p));
+
+  if (!fromMe && textoIA && !tienePrefijo) {
+    // 🎯 Regex: detecta "suki" o "bot" como palabra separada
+    // \b = límite de palabra (evita matchear "sukiyaki" o "robot")
+    // i = case insensitive
+    const regexSuki = /\b(suki|bot)\b/i;
+
+    if (regexSuki.test(textoIA)) {
+      // 🚦 Anti-spam: mínimo 3 segundos entre respuestas al mismo usuario
+      global._sukiIACooldown = global._sukiIACooldown || {};
+      const key = `${chatId}:${senderId}`;
+      const lastTime = global._sukiIACooldown[key] || 0;
+      const now = Date.now();
+
+      if (now - lastTime >= 3000) {
+        global._sukiIACooldown[key] = now;
+
+        (async () => {
+          try {
+            // Indicar que el bot está "escribiendo..."
+            try {
+              await sock.sendPresenceUpdate("composing", chatId);
+            } catch {}
+
+            const axios = require("axios");
+
+            // 🔑 Llamada a la API de DevMatrixs
+            // La API maneja el historial automáticamente por x-api-key + usuario
+            const response = await axios.post(
+              "https://devmatrixs.lat/api/chat",
+              {
+                model: "openai",
+                messages: [
+                  {
+                    role: "user",
+                    content: textoIA
+                  }
+                ]
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-api-key": "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f"
+                },
+                timeout: 30000,
+                validateStatus: () => true
+              }
+            );
+
+            // Parar "escribiendo..."
+            try {
+              await sock.sendPresenceUpdate("paused", chatId);
+            } catch {}
+
+            // Extraer la respuesta (soporta varios formatos comunes)
+            const data = response.data || {};
+            const respuesta =
+              data?.reply ||
+              data?.response ||
+              data?.message ||
+              data?.content ||
+              data?.result ||
+              data?.data?.reply ||
+              data?.data?.response ||
+              data?.data?.message ||
+              data?.data?.content ||
+              data?.choices?.[0]?.message?.content ||
+              "";
+
+            if (respuesta && typeof respuesta === "string" && respuesta.trim().length) {
+              // Reaccionar con un emoji bonito para que se vea natural
+              try {
+                await sock.sendMessage(chatId, { react: { text: "💬", key: m.key } });
+              } catch {}
+
+              // Enviar la respuesta citando el mensaje original
+              await sock.sendMessage(
+                chatId,
+                { text: respuesta.trim() },
+                { quoted: m }
+              );
+            } else {
+              console.log("[SukiIA] ⚠️ Respuesta vacía de la API:", JSON.stringify(data).slice(0, 300));
+            }
+          } catch (err) {
+            console.error("[SukiIA] ❌ Error al llamar a la API:", err.message);
+            try {
+              await sock.sendPresenceUpdate("paused", chatId);
+            } catch {}
+          }
+        })();
+      }
+    }
+  }
+} catch (e) {
+  console.error("❌ Error en lógica IA natural (SukiIA):", e);
+}
+// === 🤖 FIN LÓGICA IA NATURAL ===
+
   
   //fin de la logica modo admins         
 // ——— Presentación automática (solo una vez por grupo) ———
