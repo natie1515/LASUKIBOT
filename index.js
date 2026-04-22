@@ -634,12 +634,12 @@ try {
 }
 /* === FIN STICKER → COMANDO === */
 
-// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO ===
+  // === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO PTT ===
 // Se activa cuando alguien menciona "suki" o "bot" en cualquier parte del mensaje
 // (como palabra separada, no dentro de otras palabras como "sukiyaki" o "robot").
 // Ignora mensajes con prefijo de comando (.suki, #bot, etc).
-// Mantiene el historial de conversación por chat (últimos 10 mensajes).
-// La respuesta se envía como NOTA DE VOZ usando el endpoint /api/audio.
+// Mantiene historial de conversación por chat (últimos 10 mensajes).
+// Descarga el MP3 de la API y lo convierte a OGG/Opus con ffmpeg para que WhatsApp lo reproduzca como nota de voz.
 // Si el audio falla, cae en fallback y envía texto normal.
 try {
   const chatId = m.key.remoteJid;
@@ -670,29 +670,40 @@ try {
       if (now - lastTime >= 3000) {
         global._sukiIACooldown[cdKey] = now;
 
-        // 💾 Historial de conversación por chat (no por usuario; así el grupo conversa con Suki)
-        // Mantenemos hasta 10 mensajes (5 intercambios) para no saturar la API
+        // 💾 Historial por chat (último 10 mensajes)
         global._sukiIAHist = global._sukiIAHist || {};
         if (!Array.isArray(global._sukiIAHist[chatId])) {
           global._sukiIAHist[chatId] = [];
         }
 
         (async () => {
+          const fsLocal = require("fs");
+          const pathLocal = require("path");
+          const CryptoLocal = require("crypto");
+          const ffmpegLocal = require("fluent-ffmpeg");
+
+          // Carpeta tmp para el audio
+          const tmpDir = pathLocal.resolve("./tmp");
+          if (!fsLocal.existsSync(tmpDir)) fsLocal.mkdirSync(tmpDir, { recursive: true });
+
+          const rid = CryptoLocal.randomBytes(6).toString("hex");
+          const mp3Path = pathLocal.join(tmpDir, `suki_${rid}.mp3`);
+          const oggPath = pathLocal.join(tmpDir, `suki_${rid}.ogg`);
+
           try {
-            // Indicar "escribiendo..."
             try { await sock.sendPresenceUpdate("composing", chatId); } catch {}
 
             const axios = require("axios");
             const API_KEY = "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f";
 
-            // 📚 Armar array de mensajes con historial + mensaje actual
+            // 📚 Armar array de mensajes con historial
             const historialPrev = global._sukiIAHist[chatId].slice(-10);
             const mensajesParaAPI = [
               ...historialPrev,
               { role: "user", content: textoIA }
             ];
 
-            // 🧠 Llamada a /api/chat con historial completo
+            // 🧠 Llamada a /api/chat
             const chatRes = await axios.post(
               "https://devmatrixs.lat/api/chat",
               {
@@ -709,7 +720,6 @@ try {
               }
             );
 
-            // Extraer respuesta (formatos comunes)
             const cd = chatRes.data || {};
             const respuestaTexto = (
               cd?.reply ||
@@ -731,15 +741,14 @@ try {
               return;
             }
 
-            // 💾 Guardar en historial (user + assistant)
+            // 💾 Guardar historial
             global._sukiIAHist[chatId].push({ role: "user", content: textoIA });
             global._sukiIAHist[chatId].push({ role: "assistant", content: respuestaTexto });
-            // Mantener solo los últimos 10
             if (global._sukiIAHist[chatId].length > 10) {
               global._sukiIAHist[chatId] = global._sukiIAHist[chatId].slice(-10);
             }
 
-            // Reaccionar al mensaje original
+            // Reaccionar
             try {
               await sock.sendMessage(chatId, { react: { text: "💬", key: m.key } });
             } catch {}
@@ -747,8 +756,7 @@ try {
             // Cambiar presencia a "grabando audio"
             try { await sock.sendPresenceUpdate("recording", chatId); } catch {}
 
-            // 🎤 Convertir texto a audio usando /api/audio
-            // Limitar el texto a 500 chars para el TTS (evita audios muy largos)
+            // 🎤 Pedir URL del audio a /api/audio
             const textoParaAudio = respuestaTexto.slice(0, 500);
             let audioUrl = "";
 
@@ -771,34 +779,65 @@ try {
               const ad = audioRes.data || {};
               audioUrl = ad?.url || ad?.data?.url || ad?.audio || ad?.data?.audio || "";
             } catch (audioErr) {
-              console.log("[SukiIA] ⚠️ Error obteniendo audio:", audioErr.message);
+              console.log("[SukiIA] ⚠️ Error obteniendo URL del audio:", audioErr.message);
             }
 
-            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-
             if (audioUrl) {
-              // 🔊 Descargar el audio y enviarlo como nota de voz (PTT)
               try {
+                // 1) Descargar el MP3
                 const audioFile = await axios.get(audioUrl, {
                   responseType: "arraybuffer",
                   timeout: 30000
                 });
-                const audioBuffer = Buffer.from(audioFile.data);
+                const mp3Buffer = Buffer.from(audioFile.data);
+                fsLocal.writeFileSync(mp3Path, mp3Buffer);
+
+                // 2) Convertir MP3 → OGG/Opus (formato correcto para PTT de WhatsApp)
+                await new Promise((resolve, reject) => {
+                  ffmpegLocal(mp3Path)
+                    .audioCodec("libopus")
+                    .audioChannels(1)
+                    .audioFrequency(48000)
+                    .audioBitrate("64k")
+                    .outputOptions([
+                      "-avoid_negative_ts", "make_zero",
+                      "-application", "voip"
+                    ])
+                    .format("ogg")
+                    .on("end", resolve)
+                    .on("error", reject)
+                    .save(oggPath);
+                });
+
+                // 3) Leer el OGG y enviarlo como nota de voz
+                const oggBuffer = fsLocal.readFileSync(oggPath);
+
+                try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
 
                 await sock.sendMessage(
                   chatId,
                   {
-                    audio: audioBuffer,
-                    mimetype: "audio/mp4",
+                    audio: oggBuffer,
+                    mimetype: "audio/ogg; codecs=opus",
                     ptt: true
                   },
                   { quoted: m }
                 );
-                return; // ✅ Audio enviado, terminamos aquí
-              } catch (dlErr) {
-                console.log("[SukiIA] ⚠️ Error descargando audio, envío texto:", dlErr.message);
+
+                // Limpiar archivos temporales
+                try { fsLocal.unlinkSync(mp3Path); } catch {}
+                try { fsLocal.unlinkSync(oggPath); } catch {}
+                return; // ✅ Audio enviado correctamente
+
+              } catch (convErr) {
+                console.log("[SukiIA] ⚠️ Error convirtiendo audio, envío texto:", convErr.message);
+                // Limpiar si quedó algo
+                try { fsLocal.unlinkSync(mp3Path); } catch {}
+                try { fsLocal.unlinkSync(oggPath); } catch {}
               }
             }
+
+            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
 
             // 📝 Fallback: si el audio falla, enviar texto
             await sock.sendMessage(
@@ -810,6 +849,9 @@ try {
           } catch (err) {
             console.error("[SukiIA] ❌ Error general:", err.message);
             try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
+            // Limpiar si quedó algo
+            try { fsLocal.unlinkSync(mp3Path); } catch {}
+            try { fsLocal.unlinkSync(oggPath); } catch {}
           }
         })();
       }
@@ -819,7 +861,7 @@ try {
   console.error("❌ Error en lógica IA natural (SukiIA):", e);
 }
 // === 🤖 FIN LÓGICA IA NATURAL ===
-
+            
 
   
   //fin de la logica modo admins         
