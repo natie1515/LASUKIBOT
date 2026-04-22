@@ -634,11 +634,12 @@ try {
 }
 /* === FIN STICKER → COMANDO === */
 
-  // === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO PTT ===
+  
+// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO PTT ===
 // Se activa cuando alguien menciona "suki" o "bot" en cualquier parte del mensaje
 // (como palabra separada, no dentro de otras palabras como "sukiyaki" o "robot").
 // Ignora mensajes con prefijo de comando (.suki, #bot, etc).
-// Mantiene historial de conversación por chat (últimos 10 mensajes).
+// Mantiene historial de conversación por chat (últimos 10 mensajes) inyectándolo en el prompt.
 // Descarga el MP3 de la API y lo convierte a OGG/Opus con ffmpeg para que WhatsApp lo reproduzca como nota de voz.
 // Si el audio falla, cae en fallback y envía texto normal.
 try {
@@ -670,7 +671,7 @@ try {
       if (now - lastTime >= 3000) {
         global._sukiIACooldown[cdKey] = now;
 
-        // 💾 Historial por chat (último 10 mensajes)
+        // 💾 Historial por chat (últimos 10 mensajes)
         global._sukiIAHist = global._sukiIAHist || {};
         if (!Array.isArray(global._sukiIAHist[chatId])) {
           global._sukiIAHist[chatId] = [];
@@ -682,7 +683,6 @@ try {
           const CryptoLocal = require("crypto");
           const ffmpegLocal = require("fluent-ffmpeg");
 
-          // Carpeta tmp para el audio
           const tmpDir = pathLocal.resolve("./tmp");
           if (!fsLocal.existsSync(tmpDir)) fsLocal.mkdirSync(tmpDir, { recursive: true });
 
@@ -696,19 +696,30 @@ try {
             const axios = require("axios");
             const API_KEY = "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f";
 
-            // 📚 Armar array de mensajes con historial
+            // 📚 Armar el "prompt" con el historial reciente para mantener contexto
+            // (el endpoint /api/ia es de consulta rápida con prompt único)
             const historialPrev = global._sukiIAHist[chatId].slice(-10);
-            const mensajesParaAPI = [
-              ...historialPrev,
-              { role: "user", content: textoIA }
-            ];
+            let promptCompleto = "";
+            if (historialPrev.length > 0) {
+              promptCompleto += "Conversación previa:\n";
+              for (const msg of historialPrev) {
+                const rol = msg.role === "user" ? "Usuario" : "Suki";
+                promptCompleto += `${rol}: ${msg.content}\n`;
+              }
+              promptCompleto += `\nUsuario: ${textoIA}`;
+            } else {
+              promptCompleto = textoIA;
+            }
 
-            // 🧠 Llamada a /api/chat
+            const systemPrompt = "Eres Suki, una asistente de WhatsApp amigable, divertida y natural. Respondes en español, con mensajes cortos y claros (máximo 2-3 oraciones). Nunca digas que eres una IA ni menciones tu modelo. Actúa como una amiga cercana.";
+
+            // 🧠 Llamada a /api/ia con prompt + system
             const chatRes = await axios.post(
-              "https://devmatrixs.lat/api/chat",
+              "https://devmatrixs.lat/api/ia",
               {
-                model: "gemini",
-                messages: mensajesParaAPI
+                model: "minimax",
+                prompt: promptCompleto,
+                system: systemPrompt
               },
               {
                 headers: {
@@ -722,11 +733,14 @@ try {
 
             const cd = chatRes.data || {};
             const respuestaTexto = (
+              cd?.respuesta ||
               cd?.reply ||
               cd?.response ||
               cd?.message ||
               cd?.content ||
               cd?.result ||
+              cd?.text ||
+              cd?.data?.respuesta ||
               cd?.data?.reply ||
               cd?.data?.response ||
               cd?.data?.message ||
@@ -741,7 +755,7 @@ try {
               return;
             }
 
-            // 💾 Guardar historial
+            // 💾 Guardar en historial
             global._sukiIAHist[chatId].push({ role: "user", content: textoIA });
             global._sukiIAHist[chatId].push({ role: "assistant", content: respuestaTexto });
             if (global._sukiIAHist[chatId].length > 10) {
@@ -756,7 +770,7 @@ try {
             // Cambiar presencia a "grabando audio"
             try { await sock.sendPresenceUpdate("recording", chatId); } catch {}
 
-            // 🎤 Pedir URL del audio a /api/audio
+            // 🎤 Pedir URL del audio a /api/audio con voz nova
             const textoParaAudio = respuestaTexto.slice(0, 500);
             let audioUrl = "";
 
@@ -831,7 +845,6 @@ try {
 
               } catch (convErr) {
                 console.log("[SukiIA] ⚠️ Error convirtiendo audio, envío texto:", convErr.message);
-                // Limpiar si quedó algo
                 try { fsLocal.unlinkSync(mp3Path); } catch {}
                 try { fsLocal.unlinkSync(oggPath); } catch {}
               }
@@ -849,7 +862,6 @@ try {
           } catch (err) {
             console.error("[SukiIA] ❌ Error general:", err.message);
             try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-            // Limpiar si quedó algo
             try { fsLocal.unlinkSync(mp3Path); } catch {}
             try { fsLocal.unlinkSync(oggPath); } catch {}
           }
@@ -861,6 +873,7 @@ try {
   console.error("❌ Error en lógica IA natural (SukiIA):", e);
 }
 // === 🤖 FIN LÓGICA IA NATURAL ===
+              
             
 
   
