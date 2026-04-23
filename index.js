@@ -1448,7 +1448,65 @@ try {
 // === FIN BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
 
 
+// === ⛔ INICIO FILTRO DE MENSAJES EN PRIVADO POR LISTA (con detección real de bot y owner) ===
+try {
+  const chatId = m.key.remoteJid;
+  const isGroup = chatId.endsWith("@g.us");
 
+  if (!isGroup) {
+    const fs = require("fs");
+    const path = require("path");
+
+    // ✅ Número limpio del bot (solo dígitos, sin :10 ni @s.whatsapp.net)
+    const botRaw = sock.user?.id || sock.user?.jid || "";
+    const botNumber = botRaw.split(":")[0].split("@")[0].replace(/[^0-9]/g, "");
+    const botJid = botNumber + "@s.whatsapp.net";
+
+    // ✅ fromMe robusto: verifica tanto la flag como si el remoteJid es el propio bot
+    const fromMe = m.key.fromMe === true;
+
+    // ✅ En privado el sender real es el remoteJid cuando fromMe es false,
+    //    y el propio bot cuando fromMe es true
+    const senderId = fromMe
+      ? botJid
+      : (m.key.participant || m.key.remoteJid || "");
+
+    const senderNum = senderId.replace(/[^0-9]/g, "");
+
+    // ✅ isBot: es el bot si fromMe=true O si su número coincide exactamente
+    const isBot = fromMe || senderNum === botNumber;
+
+    // ✅ isOwner: verifica contra global.owner con número limpio
+    const isOwner = typeof global.isOwner === "function"
+      ? global.isOwner(senderNum)
+      : global.owner.some(function(entry) {
+          var n = Array.isArray(entry) ? entry[0] : entry;
+          return String(n).replace(/[^0-9]/g, "") === senderNum;
+        });
+
+    if (!isBot && !isOwner) {
+      const welcomePath = path.resolve("setwelcome.json");
+      const welcomeData = fs.existsSync(welcomePath)
+        ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
+        : {};
+
+      const lista = welcomeData.lista || [];
+
+      // ✅ Comparar por dígitos para cubrir variantes (@lid, con 0, sin 0)
+      const estaEnLista = lista.some(function(jid) {
+        return String(jid).replace(/[^0-9]/g, "") === senderNum;
+      });
+
+      if (!estaEnLista) {
+        console.log("⛔ PRIVADO BLOQUEADO —", senderNum, "no está en la lista");
+        return;
+      }
+    }
+  }
+} catch (e) {
+  console.error("❌ Error en lógica de control privado:", e);
+}
+// === ✅ FIN FILTRO DE MENSAJES EN PRIVADO POR LISTA ===
 
 
   
