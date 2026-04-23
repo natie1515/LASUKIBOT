@@ -1446,41 +1446,12 @@ try {
   console.error("❌ Error procesando bloqueo de usuarios baneados:", e);
 }
 // === FIN BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
-// === ⛔ INICIO FILTRO DE MENSAJES EN PRIVADO POR LISTA (con detección real de bot y owner) ===
-try {
-  const chatId = m.key.remoteJid;
-  const isGroup = chatId.endsWith("@g.us");
 
-  // Solo se restringe en privado
-  if (!isGroup) {
-    const fs = require("fs");
-    const path = require("path");
 
-    const senderId = m.key.participant || m.key.remoteJid;
-    const senderNum = senderId.replace(/[^0-9]/g, "");
-    const fromMe = m.key.fromMe;
-    const botNumber = sock.user.id.split(":")[0]; // Solo número
-    const isOwner = global.owner.some(([id]) => id === senderNum);
-    const isBot = fromMe || senderNum === botNumber;
 
-    if (!isOwner && !isBot) {
-      const welcomePath = path.resolve("setwelcome.json");
-      const welcomeData = fs.existsSync(welcomePath)
-        ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
-        : {};
 
-      const lista = welcomeData.lista || [];
 
-      if (!lista.includes(senderId)) {
-        console.log(`⛔ PRIVADO BLOQUEADO — ${senderNum} no está en la lista`);
-        return; // ← Bloquear respuesta del bot
-      }
-    }
-  }
-} catch (e) {
-  console.error("❌ Error en lógica de control privado:", e);
-}
-// === ✅ FIN FILTRO DE MENSAJES EN PRIVADO POR LISTA ===
+  
 // === 🔐 INICIO MODO PRIVADO GLOBAL ===
 try {
   const chatId = m.key.remoteJid;
