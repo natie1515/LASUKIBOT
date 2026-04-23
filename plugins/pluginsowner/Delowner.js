@@ -194,13 +194,9 @@ const handler = async (msg, { conn, args }) => {
   if (eliminados.length === 0) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: "⚠️ Ninguno de esos numeros estaba guardado como owner.
-
-" +
-        "📌 Buscados:
-" +
-        candidatos.map(function(v) { return "• " + v; }).join("
-")
+      text: "⚠️ Ninguno de esos numeros estaba guardado como owner.\n\n" +
+        "📌 Buscados:\n" +
+        candidatos.map(function(v) { return "• " + v; }).join("\n")
     }, { quoted: msg });
   }
 
@@ -210,22 +206,14 @@ const handler = async (msg, { conn, args }) => {
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
   return conn.sendMessage(chatId, {
-    text: "✅ Owner eliminado correctamente.
-
-" +
-      "🗑️ Eliminados:
-" +
-      eliminados.map(function(v) { return "• " + v; }).join("
-") +
+    text: "✅ Owner eliminado correctamente.\n\n" +
+      "🗑️ Eliminados:\n" +
+      eliminados.map(function(v) { return "• " + v; }).join("\n") +
       (candidatos.length > eliminados.length ?
-        "
-
-ℹ️ No encontrados:
-" +
+        "\n\nℹ️ No encontrados:\n" +
         candidatos.filter(function(v) {
           return eliminados.indexOf(v) === -1;
-        }).map(function(v) { return "• " + v; }).join("
-")
+        }).map(function(v) { return "• " + v; }).join("\n")
         : "")
   }, { quoted: msg });
 };
