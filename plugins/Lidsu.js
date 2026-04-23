@@ -1,25 +1,10 @@
 // plugins/lidsu.js
-// Muestra LID y REAL del citado (o del autor si no hay cita)
+// Muestra PN real y LID del citado, mencionado o autor
 
-const DIGITS = (s = "") => String(s || "").replace(/\D/g, "");
+const DIGITS = (s = "") => String(s || "").replace(/D/g, "");
+const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+const isLid = (j) => typeof j === "string" && j.endsWith("@lid");
 
-/** Normaliza: si id es @lid y en el wrapper viene .jid (real), usa ese real para 'id' */
-function lidParser(participants = []) {
-  try {
-    return participants.map(v => ({
-      id: (typeof v?.id === "string" && v.id.endsWith("@lid") && v.jid)
-        ? v.jid
-        : v.id,
-      admin: v?.admin ?? null,
-      raw: v
-    }));
-  } catch (e) {
-    console.error("[lidsu] lidParser error:", e);
-    return participants || [];
-  }
-}
-
-/** Obtiene el posible JID citado desde varias rutas */
 function getQuotedKey(msg) {
   const ctx = msg.message?.extendedTextMessage?.contextInfo;
   const q = msg.quoted;
@@ -31,51 +16,76 @@ function getQuotedKey(msg) {
   );
 }
 
-/** Resuelve el par {realJid, lidJid} a partir de cualquier JID (real o lid) */
 async function resolvePair(conn, chatId, anyJid) {
-  let realJid = null, lidJid = null;
+  let realJid = null;
+  let lidJid = null;
 
-  const meta = await conn.groupMetadata(chatId);
-  const raw  = Array.isArray(meta?.participants) ? meta.participants : [];
-  const norm = lidParser(raw);
-
-  // Caso 1: vino como real
-  if (typeof anyJid === "string" && anyJid.endsWith("@s.whatsapp.net")) {
-    realJid = anyJid;
-    // Buscar su contraparte LID (si existe)
-    for (let i = 0; i < raw.length; i++) {
-      const n = norm[i]?.id;
-      const r = raw[i]?.id;
-      if (n === realJid && typeof r === "string" && r.endsWith("@lid")) {
-        lidJid = r;
-        break;
-      }
-    }
+  if (!anyJid || typeof anyJid !== "string") {
+    return { realJid, lidJid };
   }
 
-  // Caso 2: vino como LID
-  if (!realJid && typeof anyJid === "string" && anyJid.endsWith("@lid")) {
-    lidJid = anyJid;
-    // 2.a) Si el wrapper trae .jid, úsalo
-    const idx = raw.findIndex(p => p?.id === anyJid);
-    if (idx >= 0) {
-      const wrapper = raw[idx];
-      if (typeof wrapper?.jid === "string" && wrapper.jid.endsWith("@s.whatsapp.net")) {
-        realJid = wrapper.jid;
-      } else if (typeof norm[idx]?.id === "string" && norm[idx].id.endsWith("@s.whatsapp.net")) {
-        realJid = norm[idx].id;
+  if (isUser(anyJid)) realJid = anyJid;
+  if (isLid(anyJid)) lidJid = anyJid;
+
+  // 1) Intentar con signalRepository (Baileys v7)
+  try {
+    if (conn.signalRepository?.lidMapping) {
+      if (!realJid && lidJid && conn.signalRepository.lidMapping.getPNForLID) {
+        const pn = await conn.signalRepository.lidMapping.getPNForLID(lidJid);
+        if (isUser(pn)) realJid = pn;
+      }
+
+      if (!lidJid && realJid && conn.signalRepository.lidMapping.getLIDForPN) {
+        const lid = await conn.signalRepository.lidMapping.getLIDForPN(realJid);
+        if (isLid(lid)) lidJid = lid;
       }
     }
-    // 2.b) Fallback: busca por coincidencia entre raw/norm
-    if (!realJid) {
-      const hit = norm.find((n, i) =>
-        raw[i]?.id === anyJid &&
-        typeof n?.id === "string" &&
-        n.id.endsWith("@s.whatsapp.net")
-      );
-      if (hit) realJid = hit.id;
-    }
+  } catch {}
+
+  // 2) Intentar con metadata del grupo
+  if (String(chatId).endsWith("@g.us")) {
+    try {
+      const meta = await conn.groupMetadata(chatId);
+      const raw = Array.isArray(meta?.participants) ? meta.participants : [];
+
+      for (const p of raw) {
+        const pid = typeof p?.id === "string" ? p.id : null;
+        const pjid = typeof p?.jid === "string" ? p.jid : null;
+
+        const candidateReal = isUser(pjid) ? pjid : (isUser(pid) ? pid : null);
+        const candidateLid = isLid(pid) ? pid : (isLid(pjid) ? pjid : null);
+
+        const matches =
+          anyJid === pid ||
+          anyJid === pjid ||
+          (realJid && (realJid === candidateReal || realJid === pid || realJid === pjid)) ||
+          (lidJid && (lidJid === candidateLid || lidJid === pid || lidJid === pjid));
+
+        if (matches) {
+          if (!realJid && candidateReal) realJid = candidateReal;
+          if (!lidJid && candidateLid) lidJid = candidateLid;
+          if (realJid && lidJid) break;
+        }
+      }
+    } catch {}
   }
+
+  // 3) Respaldo con tus helpers globales
+  if (!realJid && lidJid && global.resolveRealJidAsync) {
+    try {
+      const pn = await global.resolveRealJidAsync(lidJid);
+      if (isUser(pn)) realJid = pn;
+    } catch {}
+  }
+
+  if (!lidJid && realJid && global.lidMap instanceof Map && global.lidMap.has(realJid)) {
+    const maybeLid = global.lidMap.get(realJid);
+    if (isLid(maybeLid)) lidJid = maybeLid;
+  }
+
+  // 4) Fallback final
+  if (!realJid && isUser(anyJid)) realJid = anyJid;
+  if (!lidJid && isLid(anyJid)) lidJid = anyJid;
 
   return { realJid, lidJid };
 }
@@ -83,46 +93,71 @@ async function resolvePair(conn, chatId, anyJid) {
 const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
 
-  if (!chatId.endsWith("@g.us")) {
-    return conn.sendMessage(chatId, { text: "❌ Usa este comando en un *grupo*." }, { quoted: msg });
-  }
+  try {
+    await conn.sendMessage(chatId, { react: { text: "🔎", key: msg.key } });
+  } catch {}
 
-  try { await conn.sendMessage(chatId, { react: { text: "🔎", key: msg.key } }); } catch {}
+  const ctx =
+    msg.message?.extendedTextMessage?.contextInfo ||
+    msg.message?.imageMessage?.contextInfo ||
+    msg.message?.videoMessage?.contextInfo ||
+    msg.message?.documentMessage?.contextInfo ||
+    null;
 
-  // Objetivo: citado → mención → autor
-  const ctx = msg.message?.extendedTextMessage?.contextInfo;
   const mentioned = Array.isArray(ctx?.mentionedJid) ? ctx.mentionedJid : [];
   const quotedKey = getQuotedKey(msg);
-  const targetKey = quotedKey || mentioned[0] || msg.key.participant || msg.key.jid || msg.key.remoteJid;
+
+  const targetKey =
+    quotedKey ||
+    mentioned[0] ||
+    msg.realJid ||
+    msg.realLid ||
+    msg.key.participant ||
+    msg.key.remoteJid;
 
   if (!targetKey) {
-    return conn.sendMessage(chatId, { text: "❌ No pude identificar al usuario objetivo." }, { quoted: msg });
+    return conn.sendMessage(chatId, {
+      text: "❌ No pude identificar al usuario objetivo."
+    }, { quoted: msg });
   }
 
   try {
     const { realJid, lidJid } = await resolvePair(conn, chatId, targetKey);
 
-    // Si no hay real, no podemos mostrar número real
-    if (!realJid) {
-      return conn.sendMessage(chatId, { text: "❌ No pude resolver el *JID real* del usuario." }, { quoted: msg });
+    if (!realJid && !lidJid) {
+      return conn.sendMessage(chatId, {
+        text: "❌ No pude resolver ni el número real ni el LID del usuario."
+      }, { quoted: msg });
     }
 
-    const numeroReal = DIGITS(realJid);
-    const estado = lidJid ? "Con LID (número oculto)" : "Sin LID (número visible)";
+    const numeroReal = realJid ? `+${DIGITS(realJid)}` : "—";
+    const numeroLid = lidJid ? DIGITS(lidJid) : "—";
+
+    const estado = realJid && lidJid
+      ? "PN y LID detectados"
+      : realJid
+        ? "Solo PN detectado"
+        : "Solo LID detectado";
 
     const texto =
 `📡 *Datos del usuario*
 • Estado: ${estado}
-• Número real: +${numeroReal}
-• JID real: \`${realJid}\`
-• JID LID: \`${lidJid || "—"}\``;
+• Número real: ${numeroReal}
+• Número LID: ${numeroLid}
+• JID real: `${realJid || "—"}`
+• JID LID: `${lidJid || "—"}``;
 
-    const mentionId = realJid; // menciona al real
-    await conn.sendMessage(chatId, { text: texto, mentions: [mentionId] }, { quoted: msg });
-    try { await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } }); } catch {}
+    const mentions = realJid ? [realJid] : [];
+    await conn.sendMessage(chatId, { text: texto, mentions }, { quoted: msg });
+
+    try {
+      await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch {}
   } catch (e) {
     console.error("[lidsu] error:", e);
-    await conn.sendMessage(chatId, { text: "❌ Ocurrió un error al resolver los datos." }, { quoted: msg });
+    await conn.sendMessage(chatId, {
+      text: "❌ Ocurrió un error al resolver los datos."
+    }, { quoted: msg });
   }
 };
 
