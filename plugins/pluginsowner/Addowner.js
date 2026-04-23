@@ -142,10 +142,7 @@ const handler = async (msg, { conn, args }) => {
   if (!baseNumber && !zeroNumber && !lidNumber) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: "⚠️ Usa:
-.addowner 507xxxxxxx o cita un mensaje.
-
-ℹ️ Guardara el numero base, la version con 0 y el LID si esta disponible."
+      text: "⚠️ Usa:\n.addowner 507xxxxxxx o cita un mensaje.\n\nℹ️ Guardara el numero base, la version con 0 y el LID si esta disponible."
     }, { quoted: msg });
   }
 
@@ -194,12 +191,9 @@ const handler = async (msg, { conn, args }) => {
   if (!agregados.length) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: "⚠️ Todos los numeros ya estaban guardados como owner.
-" +
-        "➤ Base: " + (baseNumber || "—") + "
-" +
-        "➤ Con 0: " + (zeroNumber || "—") + "
-" +
+      text: "⚠️ Todos los numeros ya estaban guardados como owner.\n" +
+        "➤ Base: " + (baseNumber || "—") + "\n" +
+        "➤ Con 0: " + (zeroNumber || "—") + "\n" +
         "➤ LID: " + (lidNumber || "No disponible")
     }, { quoted: msg });
   }
@@ -209,21 +203,14 @@ const handler = async (msg, { conn, args }) => {
 
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-  var textoFinal = "✅ Owner agregado correctamente.
-" +
-    "➤ Base: " + (baseNumber || "—") + "
-" +
-    "➤ Con 0: " + (zeroNumber || "—") + "
-" +
-    "➤ LID: " + (lidNumber || "No disponible") + "
-
-" +
-    "📌 Guardados nuevos:
-";
+  var textoFinal = "✅ Owner agregado correctamente.\n" +
+    "➤ Base: " + (baseNumber || "—") + "\n" +
+    "➤ Con 0: " + (zeroNumber || "—") + "\n" +
+    "➤ LID: " + (lidNumber || "No disponible") + "\n\n" +
+    "📌 Guardados nuevos:\n";
 
   for (var ag = 0; ag < agregados.length; ag++) {
-    textoFinal += "• " + agregados[ag] + "
-";
+    textoFinal += "• " + agregados[ag] + "\n";
   }
 
   return conn.sendMessage(chatId, { text: textoFinal.trim() }, { quoted: msg });
