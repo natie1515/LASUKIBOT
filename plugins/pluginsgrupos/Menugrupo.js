@@ -54,6 +54,7 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}setinfo
 │๛ ${pref}setname
 │๛ ${pref}setwelcome
+│๛ ${pref}delwelcome ELIMINA DESPEDIDAS TAMBIEN.
 │๛ ${pref}setdespedidas
 │๛ ${pref}setfoto
 │๛ ${pref}setreglas
