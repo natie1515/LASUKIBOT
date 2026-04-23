@@ -156,20 +156,12 @@ const handler = async (msg, { conn, args }) => {
     estadoTexto = "🔵 Solo LID (numero real no disponible)";
   }
 
-  var respuesta = "📡 Datos del usuario
-
-" +
-    "• Estado: " + estadoTexto + "
-" +
-    "• Numero base: " + (baseNumber || "—") + "
-" +
-    "• Numero con 0: " + (zeroNumber || "—") + "
-" +
-    "• Numero LID: " + (lidNumber || "No disponible") + "
-
-" +
-    "🔗 JID real: " + (baseNumber ? baseNumber + "@s.whatsapp.net" : "—") + "
-" +
+  var respuesta = "📡 Datos del usuario\n\n" +
+    "• Estado: " + estadoTexto + "\n" +
+    "• Numero base: " + (baseNumber || "—") + "\n" +
+    "• Numero con 0: " + (zeroNumber || "—") + "\n" +
+    "• Numero LID: " + (lidNumber || "No disponible") + "\n\n" +
+    "🔗 JID real: " + (baseNumber ? baseNumber + "@s.whatsapp.net" : "—") + "\n" +
     "🧬 JID LID: " + (lidNumber ? lidNumber + "@lid" : "—");
 
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
