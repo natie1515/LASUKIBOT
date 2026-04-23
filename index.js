@@ -1637,57 +1637,96 @@ try {
   console.error("❌ Error en lógica de comandos restringidos:", e);
 }
 // === FIN BLOQUEO DE COMANDOS RESTRINGIDOS POR GRUPO ===
+
+
 // 🔐 VERIFICACIÓN MODOADMINS (compatible LID y NO-LID)
 if (isGroup) {
   try {
-    const estadoModoAdmins = await getConfig(chatId, "modoadmins"); // 👈 usa await
+    const estadoModoAdmins = await getConfig(chatId, "modoadmins");
     if (parseInt(estadoModoAdmins) === 1) {
 
-      // Preferimos el real que ya calculaste antes en el handler
-      const senderNum = (m?.realNumber && String(m.realNumber)) ||
-                        String(sender).replace(/[^0-9]/g, "");
+      // Número real del sender (prioriza realNumber del normalizador del index)
+      const senderNum = String(
+        m.realNumber ||
+        (m.realJid ? m.realJid.split(":")[0].replace(/D/g, "") : "") ||
+        sender.replace(/D/g, "")
+      );
 
-      // Owner por número (estable)
-      const isOwner = Array.isArray(global.owner) && global.owner.some(([id]) => id === senderNum);
+      const isOwner = Array.isArray(global.owner) &&
+        global.owner.some(function(entry) {
+          var n = Array.isArray(entry) ? entry[0] : entry;
+          return String(n).replace(/D/g, "") === senderNum;
+        });
 
-      // ¿Es admin? -> por NÚMERO real, resolviendo LID con metadata
       let isAdmin = false;
       try {
         const meta = await sock.groupMetadata(chatId);
-        const rawParts = Array.isArray(meta?.participants) ? meta.participants : [];
+        const rawParts = Array.isArray(meta && meta.participants) ? meta.participants : [];
 
-        // Normaliza ids: si algún participante viene @lid y trae .jid real, úsalo.
-        const normParts = typeof sock.lidParser === "function" ? sock.lidParser(rawParts) : rawParts;
-
-        // Construimos el conjunto de NÚMEROS de todos los admins (considerando id, jid y normalizado)
         const adminNums = new Set();
-        for (let i = 0; i < rawParts.length; i++) {
-          const r = rawParts[i];
-          const n = normParts[i];
-          const flagAdmin =
-            (r?.admin === "admin" || r?.admin === "superadmin" ||
-             n?.admin === "admin" || n?.admin === "superadmin");
 
-          if (flagAdmin) {
-            [r?.id, r?.jid, n?.id].forEach(x => {
-              const d = String(x || "").replace(/\D/g, "");
-              if (d) adminNums.add(d);
-            });
+        for (var i = 0; i < rawParts.length; i++) {
+          var p = rawParts[i];
+          var flagAdmin = p.admin === "admin" || p.admin === "superadmin";
+          if (!flagAdmin) continue;
+
+          var pid  = String(p.id  || "");
+          var pjid = String(p.jid || "");
+
+          // 1) Si es @s.whatsapp.net — extraer dígitos directamente
+          if (pid.endsWith("@s.whatsapp.net")) {
+            adminNums.add(pid.split(":")[0].replace(/D/g, ""));
+          }
+          if (pjid.endsWith("@s.whatsapp.net")) {
+            adminNums.add(pjid.split(":")[0].replace(/D/g, ""));
+          }
+
+          // 2) Si es @lid — resolver con lidMap global
+          if (pid.endsWith("@lid") && global.lidMap instanceof Map) {
+            var resolved = global.lidMap.get(pid);
+            if (resolved && resolved.endsWith("@s.whatsapp.net")) {
+              adminNums.add(resolved.split(":")[0].replace(/D/g, ""));
+            }
+          }
+          if (pjid.endsWith("@lid") && global.lidMap instanceof Map) {
+            var resolved2 = global.lidMap.get(pjid);
+            if (resolved2 && resolved2.endsWith("@s.whatsapp.net")) {
+              adminNums.add(resolved2.split(":")[0].replace(/D/g, ""));
+            }
+          }
+
+          // 3) lidParser como fallback adicional
+          if (typeof sock.lidParser === "function") {
+            var normed = sock.lidParser([p]);
+            if (normed && normed[0]) {
+              var nid = String(normed[0].id || "");
+              if (nid.endsWith("@s.whatsapp.net")) {
+                adminNums.add(nid.split(":")[0].replace(/D/g, ""));
+              }
+            }
           }
         }
+
         isAdmin = adminNums.has(senderNum);
+
+        // Debug (quitar cuando funcione)
+        console.log("[modoAdmins] senderNum:", senderNum);
+        console.log("[modoAdmins] adminNums:", Array.from(adminNums));
+        console.log("[modoAdmins] isAdmin:", isAdmin, "| isOwner:", isOwner);
+
       } catch (e) {
         console.error("[modoAdmins] error leyendo metadata:", e);
       }
 
-      // Si NO es admin, ni owner, ni el bot -> ignorar mensaje
       if (!isAdmin && !isOwner && !fromMe) return;
     }
   } catch (e) {
     console.error("❌ Error verificando modoAdmins:", e);
     return;
   }
-}  
+}
+
+  
 
   
   // 🧩 Detectar prefijo
