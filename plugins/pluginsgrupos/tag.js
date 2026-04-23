@@ -2,7 +2,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const DIGITS = (s = "") => String(s || "").replace(/\D/g, "");
+// ✅ Usamos el patrón seguro para extraer solo números
+const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
 // —— Unwrap helpers (view-once / efímeros) ——
 function unwrapMessage(m) {
@@ -71,8 +72,11 @@ const handler = async (msg, { conn, args, text, wa }) => {
   try {
     const chatId   = msg.key.remoteJid;
     const isGroup  = chatId.endsWith("@g.us");
-    const senderId = msg.key.participant || msg.key.remoteJid;
-    const senderNum = DIGITS(senderId);
+    
+    // ✅ Obtener senderNum de forma robusta
+    const senderId = msg.realJid || msg.key.participant || msg.key.remoteJid;
+    const senderNum = String(msg.realNumber || DIGITS(senderId.split(":")[0]));
+    
     const isFromMe = !!msg.key.fromMe;
 
     if (!isGroup) {
@@ -82,7 +86,12 @@ const handler = async (msg, { conn, args, text, wa }) => {
     const rawID   = conn.user?.id || "";
     const botNum  = DIGITS(rawID.split(":")[0]);
     const isBot   = botNum === senderNum;
-    const isOwner = Array.isArray(global.owner) && global.owner.some(([id]) => id === senderNum);
+    
+    // ✅ Validación robusta de owner
+    const isOwner = Array.isArray(global.owner) && global.owner.some(function(entry) {
+        let n = Array.isArray(entry) ? entry[0] : entry;
+        return String(n).replace(/[^0-9]/g, "") === senderNum;
+    });
 
     // Metadata del grupo
     let meta;
@@ -93,13 +102,43 @@ const handler = async (msg, { conn, args, text, wa }) => {
     }
     const participantes = Array.isArray(meta?.participants) ? meta.participants : [];
 
-    // ¿Es admin? (compat. LID)
-    const isAdmin = participantes.some(p => {
-      const ids = [p?.id, p?.jid].filter(Boolean);
-      const matchByDigits = ids.some(id => DIGITS(id) === senderNum);
-      const roleOK = p?.admin === "admin" || p?.admin === "superadmin";
-      return matchByDigits && roleOK;
-    });
+    // ✅ Validación robusta de Admin (La misma de modoadmins)
+    let isAdmin = false;
+    const adminNums = new Set();
+
+    for (let i = 0; i < participantes.length; i++) {
+      let p = participantes[i];
+      let flagAdmin = p.admin === "admin" || p.admin === "superadmin";
+      if (!flagAdmin) continue;
+
+      let pid  = String(p.id  || "");
+      let pjid = String(p.jid || "");
+
+      // 1) Extracción directa de @s.whatsapp.net
+      if (pid.endsWith("@s.whatsapp.net")) adminNums.add(pid.split(":")[0].replace(/[^0-9]/g, ""));
+      if (pjid.endsWith("@s.whatsapp.net")) adminNums.add(pjid.split(":")[0].replace(/[^0-9]/g, ""));
+
+      // 2) Resolución a través del lidMap
+      if (pid.endsWith("@lid") && global.lidMap instanceof Map) {
+        let resolved = global.lidMap.get(pid);
+        if (resolved && resolved.endsWith("@s.whatsapp.net")) adminNums.add(resolved.split(":")[0].replace(/[^0-9]/g, ""));
+      }
+      if (pjid.endsWith("@lid") && global.lidMap instanceof Map) {
+        let resolved2 = global.lidMap.get(pjid);
+        if (resolved2 && resolved2.endsWith("@s.whatsapp.net")) adminNums.add(resolved2.split(":")[0].replace(/[^0-9]/g, ""));
+      }
+
+      // 3) Fallback usando conn.lidParser (si existe)
+      if (typeof conn.lidParser === "function") {
+        let normed = conn.lidParser([p]);
+        if (normed && normed[0]) {
+          let nid = String(normed[0].id || "");
+          if (nid.endsWith("@s.whatsapp.net")) adminNums.add(nid.split(":")[0].replace(/[^0-9]/g, ""));
+        }
+      }
+    }
+    
+    isAdmin = adminNums.has(senderNum);
 
     if (!isAdmin && !isOwner && !isBot && !isFromMe) {
       return conn.sendMessage(chatId, {
