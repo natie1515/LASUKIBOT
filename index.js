@@ -1648,14 +1648,14 @@ if (isGroup) {
       // Número real del sender (prioriza realNumber del normalizador del index)
       const senderNum = String(
         m.realNumber ||
-        (m.realJid ? m.realJid.split(":")[0].replace(/D/g, "") : "") ||
-        sender.replace(/D/g, "")
+        (m.realJid ? m.realJid.split(":")[0].replace(/[^0-9]/g, "") : "") ||
+        sender.replace(/[^0-9]/g, "")
       );
 
       const isOwner = Array.isArray(global.owner) &&
         global.owner.some(function(entry) {
           var n = Array.isArray(entry) ? entry[0] : entry;
-          return String(n).replace(/D/g, "") === senderNum;
+          return String(n).replace(/[^0-9]/g, "") === senderNum;
         });
 
       let isAdmin = false;
@@ -1675,23 +1675,23 @@ if (isGroup) {
 
           // 1) Si es @s.whatsapp.net — extraer dígitos directamente
           if (pid.endsWith("@s.whatsapp.net")) {
-            adminNums.add(pid.split(":")[0].replace(/D/g, ""));
+            adminNums.add(pid.split(":")[0].replace(/[^0-9]/g, ""));
           }
           if (pjid.endsWith("@s.whatsapp.net")) {
-            adminNums.add(pjid.split(":")[0].replace(/D/g, ""));
+            adminNums.add(pjid.split(":")[0].replace(/[^0-9]/g, ""));
           }
 
           // 2) Si es @lid — resolver con lidMap global
           if (pid.endsWith("@lid") && global.lidMap instanceof Map) {
             var resolved = global.lidMap.get(pid);
             if (resolved && resolved.endsWith("@s.whatsapp.net")) {
-              adminNums.add(resolved.split(":")[0].replace(/D/g, ""));
+              adminNums.add(resolved.split(":")[0].replace(/[^0-9]/g, ""));
             }
           }
           if (pjid.endsWith("@lid") && global.lidMap instanceof Map) {
             var resolved2 = global.lidMap.get(pjid);
             if (resolved2 && resolved2.endsWith("@s.whatsapp.net")) {
-              adminNums.add(resolved2.split(":")[0].replace(/D/g, ""));
+              adminNums.add(resolved2.split(":")[0].replace(/[^0-9]/g, ""));
             }
           }
 
@@ -1701,7 +1701,7 @@ if (isGroup) {
             if (normed && normed[0]) {
               var nid = String(normed[0].id || "");
               if (nid.endsWith("@s.whatsapp.net")) {
-                adminNums.add(nid.split(":")[0].replace(/D/g, ""));
+                adminNums.add(nid.split(":")[0].replace(/[^0-9]/g, ""));
               }
             }
           }
@@ -1725,6 +1725,7 @@ if (isGroup) {
     return;
   }
 }
+
 
   
 
