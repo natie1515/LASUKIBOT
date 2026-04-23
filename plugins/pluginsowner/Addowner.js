@@ -99,7 +99,6 @@ const handler = async (msg, { conn, args }) => {
     }, { quoted: msg });
   }
 
-  // ➕ Obtener número por texto o cita
   let baseNumber = args[0] ? onlyDigits(args[0]) : "";
   let zeroNumber = baseNumber ? addZero(baseNumber) : "";
   let lidNumber = "";
@@ -140,10 +139,10 @@ const handler = async (msg, { conn, args }) => {
       react: { text: "❌", key: msg.key }
     });
     return conn.sendMessage(chatId, {
-      text: "⚠️ Usa:
+      text: `⚠️ Usa:
 .addowner 507xxxxxxx o cita un mensaje.
 
-ℹ️ Guardará el número base, la versión con 0 y el LID si está disponible."
+ℹ️ Guardará el número base, la versión con 0 y el LID si está disponible.`
     }, { quoted: msg });
   }
 
