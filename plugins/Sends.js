@@ -18,14 +18,14 @@ const handler = async (msg, { conn, args }) => {
   if (!packName) {
     try { await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
-      text: `❗ Uso: *${pref}sends <nombre_del_paquete>*\nEjemplo: *${pref}sends memes*`,
+      text: `❗ Uso: *${pref}sends <nombre_del_paquete>*\nEjemplo: *${pref}sendsk memes*`,
     }, { quoted: msg });
   }
 
   if (!fs.existsSync(PACKS_DB)) {
     try { await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
-      text: `⚠️ No hay paquetes guardados aún. Usa *${pref}guars <nombre>* primero.`,
+      text: `⚠️ No hay paquetes guardados aún. Usa *${pref}guarsk <nombre>* primero.`,
     }, { quoted: msg });
   }
 
@@ -116,5 +116,5 @@ const handler = async (msg, { conn, args }) => {
   }
 };
 
-handler.command = ["sends"];
+handler.command = ["sendsk"];
 module.exports = handler;
