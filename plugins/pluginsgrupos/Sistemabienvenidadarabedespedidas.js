@@ -247,7 +247,7 @@ const handler = async (conn) => {
             try {
               perfilURL = await conn.profilePictureUrl(chatId, "image");
             } catch {
-              perfilURL = "https://cdn.russellxz.click/e72cc417.jpeg";
+              perfilURL = "https://cdn.russellxz.click/7177383b.jpg";
             }
           }
 
