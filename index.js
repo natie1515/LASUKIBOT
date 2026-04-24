@@ -769,93 +769,116 @@ try {
   console.error("❌ Error en lógica ChatGPT por grupo:", e);
 }
 // === FIN LÓGICA CHATGPT POR GRUPO CON activos.db ===
+
 // === LÓGICA DE RESPUESTA AUTOMÁTICA CON PALABRA CLAVE (híbrida: carpeta + base64) ===
 try {
-  const guarPath = path.resolve('./guar.json');        // viejo (base64)
-  const guarFilesPath = path.resolve('./guar_files.json'); // nuevo (rutas)
+  const fs = require("fs");
+  const path = require("path");
 
-  // Cargar base de datos COMBINADA (viejo + nuevo)
-  let guarData = {};
+  const activossPath = path.resolve("./activoss.json");
 
-  // 1) Cargar el viejo (base64). Si el archivo es enorme y falla el parseo, lo ignoramos.
-  if (fs.existsSync(guarPath)) {
-    try {
-      guarData = JSON.parse(fs.readFileSync(guarPath, 'utf-8'));
-    } catch {
-      guarData = {};
+  let activossData = {};
+  try {
+    if (fs.existsSync(activossPath)) {
+      activossData = JSON.parse(fs.readFileSync(activossPath, "utf-8"));
     }
+  } catch {
+    activossData = {};
   }
 
-  // 2) Cargar el nuevo (rutas) y combinar con el viejo
-  if (fs.existsSync(guarFilesPath)) {
-    try {
-      const filesDb = JSON.parse(fs.readFileSync(guarFilesPath, 'utf-8'));
-      for (const k of Object.keys(filesDb)) {
-        if (!Array.isArray(guarData[k])) guarData[k] = [];
-        guarData[k] = guarData[k].concat(filesDb[k]);
+  const estadoReacion = String(activossData?.[chatId]?.reacion || "on").toLowerCase();
+
+  // Si el grupo NO existe en activoss.json => activa por defecto.
+  // Si existe y está off => no responde nada.
+  // Si existe y está on => responde normal.
+  if (estadoReacion !== "off") {
+    const guarPath = path.resolve("./guar.json");
+    const guarFilesPath = path.resolve("./guar_files.json");
+
+    let guarData = {};
+
+    // 1) Cargar viejo base64
+    if (fs.existsSync(guarPath)) {
+      try {
+        guarData = JSON.parse(fs.readFileSync(guarPath, "utf-8"));
+      } catch {
+        guarData = {};
       }
-    } catch {}
-  }
+    }
 
-  if (Object.keys(guarData).length > 0) {
-    const cleanText = messageContent
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w]/g, '');
+    // 2) Cargar nuevo por rutas y combinar
+    if (fs.existsSync(guarFilesPath)) {
+      try {
+        const filesDb = JSON.parse(fs.readFileSync(guarFilesPath, "utf-8"));
 
-    for (const key of Object.keys(guarData)) {
-      const cleanKey = key
+        for (const k of Object.keys(filesDb)) {
+          if (!Array.isArray(guarData[k])) guarData[k] = [];
+          guarData[k] = guarData[k].concat(filesDb[k]);
+        }
+      } catch {}
+    }
+
+    if (Object.keys(guarData).length > 0) {
+      const cleanText = String(messageContent || "")
         .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\w]/g, '');
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w]/g, "");
 
-      if (cleanText === cleanKey && guarData[key]?.length) {
-        const item = guarData[key][Math.floor(Math.random() * guarData[key].length)];
+      for (const key of Object.keys(guarData)) {
+        const cleanKey = String(key || "")
+          .toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w]/g, "");
 
-        // Obtener el buffer: primero archivo físico, si no existe usa base64
-        let buffer = null;
+        if (cleanText === cleanKey && guarData[key]?.length) {
+          const item = guarData[key][Math.floor(Math.random() * guarData[key].length)];
 
-        if (item.path) {
-          try {
-            const filePath = path.resolve(item.path);
-            if (fs.existsSync(filePath)) {
-              buffer = fs.readFileSync(filePath);
-            }
-          } catch {}
+          let buffer = null;
+
+          // Primero archivo físico
+          if (item.path) {
+            try {
+              const filePath = path.resolve(item.path);
+              if (fs.existsSync(filePath)) {
+                buffer = fs.readFileSync(filePath);
+              }
+            } catch {}
+          }
+
+          // Fallback base64 viejo
+          if (!buffer && item.media) {
+            try {
+              buffer = Buffer.from(item.media, "base64");
+            } catch {}
+          }
+
+          if (!buffer || !buffer.length) return;
+
+          const extension = String(item.ext || item.mime?.split("/")?.[1] || "bin").toLowerCase();
+          const mime = item.mime || "";
+
+          const options = { quoted: m };
+          const payload = {};
+
+          if (["jpg", "jpeg", "png"].includes(extension)) {
+            payload.image = buffer;
+          } else if (["mp4", "mkv", "webm"].includes(extension)) {
+            payload.video = buffer;
+          } else if (["mp3", "ogg", "opus"].includes(extension)) {
+            payload.audio = buffer;
+            payload.mimetype = mime || "audio/mpeg";
+            payload.ptt = false;
+          } else if (["webp"].includes(extension)) {
+            payload.sticker = buffer;
+          } else {
+            payload.document = buffer;
+            payload.mimetype = mime || "application/octet-stream";
+            payload.fileName = item.fileName || `archivo.${extension}`;
+          }
+
+          await sock.sendMessage(chatId, payload, options);
+          return;
         }
-
-        if (!buffer && item.media) {
-          try {
-            buffer = Buffer.from(item.media, "base64");
-          } catch {}
-        }
-
-        if (!buffer || !buffer.length) return;
-
-        const extension = item.ext || item.mime?.split("/")[1] || "bin";
-        const mime = item.mime || "";
-
-        const options = { quoted: m };
-        let payload = {};
-
-        if (["jpg", "jpeg", "png"].includes(extension)) {
-          payload.image = buffer;
-        } else if (["mp4", "mkv", "webm"].includes(extension)) {
-          payload.video = buffer;
-        } else if (["mp3", "ogg", "opus"].includes(extension)) {
-          payload.audio = buffer;
-          payload.mimetype = mime || "audio/mpeg";
-          payload.ptt = false;
-        } else if (["webp"].includes(extension)) {
-          payload.sticker = buffer;
-        } else {
-          payload.document = buffer;
-          payload.mimetype = mime || "application/octet-stream";
-          payload.fileName = item.fileName || `archivo.${extension}`;
-        }
-
-        await sock.sendMessage(chatId, payload, options);
-        return;
       }
     }
   }
@@ -863,7 +886,6 @@ try {
   console.error("❌ Error en lógica de palabra clave:", e);
 }
 // === FIN DE LÓGICA ===
-
   
 // === ⛔ INICIO LÓGICA ANTIS STICKERS (bloqueo tras 3 strikes en 15s) ===
 try {
