@@ -1134,92 +1134,392 @@ if (m.message?.protocolMessage?.type === 0) {
 }
 // === FIN DETECCIÓN DE MENSAJE ELIMINADO ===
 
-  
-// 🔗 LÓGICA ANTILINK desde activos.db (compatible LID y NO-LID)
+// 🔗 LÓGICA ANTILINK desde activos.db compatible PN / LID
 try {
-  const antilinkState = await getConfig(chatId, "antilink");
-  if (isGroup && parseInt(antilinkState) === 1) {
-    const texto = (messageContent || "").toLowerCase();
-    const invitaWA = /https?:\/\/chat\.whatsapp\.com\//i.test(texto);
+  const fs = require("fs");
+  const path = require("path");
 
-    if (invitaWA) {
-      const DIGITS = (s = "") => String(s).replace(/\D/g, "");
+  const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+  const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
 
-      // Autor (preferimos el REAL normalizado arriba en tu handler)
-      const senderRealJid = m.realJid || (sender?.endsWith?.("@s.whatsapp.net") ? sender : null);
-      const senderNum     = m.realNumber || DIGITS(senderRealJid || sender);
-      const mentionId     = senderRealJid || `${senderNum}@s.whatsapp.net`;
+  const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+  const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
 
-      // Owner por número real
-      const isOwnerHere = (typeof isOwner === "function")
-        ? isOwner(senderNum)
-        : (Array.isArray(global.owner) && global.owner.some(([id]) => id === senderNum));
+  const addZero = (n) => {
+    const clean = DIGITS(n);
+    if (!clean) return "";
+    return clean.endsWith("0") ? clean : clean + "0";
+  };
 
-      // Admin por número (resolviendo LID -> real con lidParser)
-      let isAdmin = false;
-      try {
-        const meta  = await sock.groupMetadata(chatId);
-        const raw   = Array.isArray(meta?.participants) ? meta.participants : [];
-        const parts = typeof sock.lidParser === "function" ? sock.lidParser(raw) : raw;
+  const cleanUserJid = (jid) => {
+    const n = JID_NUM(jid);
+    return n ? `${n}@s.whatsapp.net` : null;
+  };
 
-        const adminNums = new Set();
-        for (let i = 0; i < raw.length; i++) {
-          const r = raw[i], n = parts[i];
-          const flag = (r?.admin === "admin" || r?.admin === "superadmin" ||
-                        n?.admin === "admin" || n?.admin === "superadmin");
-          if (flag) {
-            [r?.id, r?.jid, n?.id].forEach(x => {
-              const d = DIGITS(x);
-              if (d) adminNums.add(d);
+  const cleanLidJid = (jid) => {
+    const n = JID_NUM(jid);
+    return n ? `${n}@lid` : null;
+  };
+
+  const safeIsOwner = (value) => {
+    try {
+      const raw = String(value || "");
+      const num = JID_NUM(raw) || DIGITS(raw);
+
+      if (typeof global.isOwner === "function") {
+        if (raw && global.isOwner(raw)) return true;
+        if (num && global.isOwner(num)) return true;
+      }
+
+      if (Array.isArray(global.owner)) {
+        return global.owner.some((entry) => {
+          if (Array.isArray(entry)) {
+            return entry.some((x) => {
+              const d = JID_NUM(x) || DIGITS(x);
+              return d && d === num;
             });
           }
-        }
-        isAdmin = adminNums.has(senderNum);
-      } catch (e) {
-        console.error("[ANTILINK] ❌ metadata:", e);
-      }
 
-      // Permisos: bot / owner / admin → no actuar
-      if (fromMe || isOwnerHere || isAdmin) {
-        console.log("[ANTILINK] ⚠️ Usuario con permisos; se omite.");
-        return;
-      }
-
-      // Eliminar el mensaje con invitación
-      await sock.sendMessage(chatId, { delete: m.key });
-      console.log("[ANTILINK] 🧹 Mensaje eliminado por invitación de WhatsApp.");
-
-      // Advertencias por número real
-      const fs = require("fs");
-      const advPath = "./advertencias.json";
-      if (!fs.existsSync(advPath)) fs.writeFileSync(advPath, JSON.stringify({}));
-
-      const advertencias = JSON.parse(fs.readFileSync(advPath, "utf-8"));
-      advertencias[chatId] = advertencias[chatId] || {};
-      advertencias[chatId][senderNum] = (advertencias[chatId][senderNum] || 0) + 1;
-
-      const total = advertencias[chatId][senderNum];
-      fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
-
-      if (total >= 3) {
-        // Expulsión al 3/3 — usar realJid si existe; si no, el id original (puede ser @lid)
-        await sock.sendMessage(chatId, {
-          text: `❌ @${senderNum} fue eliminado por enviar enlaces prohibidos (3/3).`,
-          mentions: [mentionId]
+          const d = JID_NUM(entry) || DIGITS(entry);
+          return d && d === num;
         });
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  async function getSenderIdentity() {
+    const raw = String(m.key.participant || m.key.remoteJid || "");
+
+    let realJid = null;
+    let lidJid = null;
+
+    const pnFields = [
+      m.realJid,
+      m.key?.senderPn,
+      m.key?.participantPn,
+      m.key?.senderAlt,
+      m.key?.participantAlt,
+      m.key?.participant,
+      raw
+    ].filter(Boolean);
+
+    for (const jid of pnFields) {
+      if (isUser(jid)) {
+        realJid = cleanUserJid(jid);
+        break;
+      }
+    }
+
+    const lidFields = [
+      m.realLid,
+      m.realJid,
+      m.key?.senderLid,
+      m.key?.participantLid,
+      m.key?.participant,
+      raw
+    ].filter(Boolean);
+
+    for (const jid of lidFields) {
+      if (isLid(jid)) {
+        lidJid = cleanLidJid(jid);
+        break;
+      }
+    }
+
+    try {
+      if (global.lidMap instanceof Map) {
+        if (lidJid && !realJid) {
+          const pn = global.lidMap.get(lidJid);
+          if (isUser(pn)) realJid = cleanUserJid(pn);
+        }
+
+        if (realJid && !lidJid) {
+          const lid = global.lidMap.get(realJid);
+          if (isLid(lid)) lidJid = cleanLidJid(lid);
+        }
+      }
+    } catch {}
+
+    try {
+      if (lidJid && !realJid) {
+        const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
+        if (isUser(pn)) {
+          realJid = cleanUserJid(pn);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(lidJid, realJid);
+            global.lidMap.set(realJid, lidJid);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      if (realJid && !lidJid) {
+        const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(realJid);
+        if (isLid(lid)) {
+          lidJid = cleanLidJid(lid);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(realJid, lidJid);
+            global.lidMap.set(lidJid, realJid);
+          }
+        }
+      }
+    } catch {}
+
+    const pnNumber = realJid ? JID_NUM(realJid) : "";
+    const zeroNumber = pnNumber ? addZero(pnNumber) : "";
+    const lidNumber = lidJid ? JID_NUM(lidJid) : "";
+    const realNumber = m.realNumber ? DIGITS(m.realNumber) : "";
+    const rawNumber = JID_NUM(raw);
+
+    const numbers = new Set();
+
+    if (pnNumber) numbers.add(pnNumber);
+    if (zeroNumber && zeroNumber !== pnNumber) numbers.add(zeroNumber);
+    if (lidNumber && lidNumber !== pnNumber && lidNumber !== zeroNumber) numbers.add(lidNumber);
+    if (realNumber) numbers.add(realNumber);
+    if (rawNumber) numbers.add(rawNumber);
+
+    if (realNumber && (isUser(m.realJid) || isUser(raw))) {
+      const rz = addZero(realNumber);
+      if (rz && rz !== realNumber) numbers.add(rz);
+    }
+
+    return {
+      raw,
+      realJid,
+      lidJid,
+      pnNumber,
+      lidNumber,
+      realNumber,
+      rawNumber,
+      numbers,
+      mentionJid: realJid || lidJid || raw,
+      mentionNum: pnNumber || realNumber || lidNumber || rawNumber || "usuario"
+    };
+  }
+
+  async function isAdminByIdentity(chatId, identity) {
+    try {
+      const meta = await sock.groupMetadata(chatId);
+      const rawParts = Array.isArray(meta?.participants) ? meta.participants : [];
+
+      const adminNums = new Set();
+
+      for (const p of rawParts) {
+        const flagAdmin = p?.admin === "admin" || p?.admin === "superadmin";
+        if (!flagAdmin) continue;
+
+        const ids = [
+          p?.id,
+          p?.jid,
+          p?.lid,
+          p?.pn,
+          p?.phoneNumber,
+          p?.jidAlt
+        ].filter(x => typeof x === "string");
+
         try {
-          await sock.groupParticipantsUpdate(chatId, [senderRealJid || sender], "remove");
-        } catch (e) {
-          console.error("[ANTILINK] ❌ Error al expulsar:", e);
+          if (typeof sock.lidParser === "function") {
+            const parsed = sock.lidParser([p]);
+            if (parsed?.[0]?.id) ids.push(parsed[0].id);
+            if (parsed?.[0]?.jid) ids.push(parsed[0].jid);
+          }
+        } catch {}
+
+        for (const id of ids) {
+          const d = JID_NUM(id);
+          if (d) {
+            adminNums.add(d);
+
+            const dz = addZero(d);
+            if (dz && dz !== d) adminNums.add(dz);
+          }
+
+          if (isLid(id)) {
+            try {
+              if (global.lidMap instanceof Map) {
+                const mapped = global.lidMap.get(cleanLidJid(id));
+                const md = JID_NUM(mapped);
+                if (md) {
+                  adminNums.add(md);
+
+                  const md0 = addZero(md);
+                  if (md0 && md0 !== md) adminNums.add(md0);
+                }
+              }
+            } catch {}
+
+            try {
+              const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(cleanLidJid(id));
+              if (isUser(pn)) {
+                const pd = JID_NUM(pn);
+                if (pd) {
+                  adminNums.add(pd);
+
+                  const pd0 = addZero(pd);
+                  if (pd0 && pd0 !== pd) adminNums.add(pd0);
+                }
+
+                if (global.lidMap instanceof Map) {
+                  const lidClean = cleanLidJid(id);
+                  const pnClean = cleanUserJid(pn);
+                  global.lidMap.set(lidClean, pnClean);
+                  global.lidMap.set(pnClean, lidClean);
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+
+      return [...identity.numbers].some(n => adminNums.has(n));
+    } catch {
+      return false;
+    }
+  }
+
+  async function deleteMessage(chatId, identity) {
+    const deleteKeys = [];
+
+    deleteKeys.push(m.key);
+
+    const possibleParticipants = [
+      m.key?.participant,
+      identity.raw,
+      identity.lidJid,
+      identity.realJid
+    ].filter(Boolean);
+
+    for (const participant of [...new Set(possibleParticipants)]) {
+      deleteKeys.push({
+        remoteJid: chatId,
+        fromMe: false,
+        id: m.key.id,
+        participant
+      });
+    }
+
+    for (const key of deleteKeys) {
+      try {
+        await sock.sendMessage(chatId, { delete: key });
+        return true;
+      } catch {}
+    }
+
+    return false;
+  }
+
+  async function removeUser(chatId, identity) {
+    const ids = [
+      identity.raw,
+      identity.realJid,
+      identity.lidJid
+    ].filter(Boolean);
+
+    for (const jid of [...new Set(ids)]) {
+      try {
+        await sock.groupParticipantsUpdate(chatId, [jid], "remove");
+        return true;
+      } catch {}
+    }
+
+    return false;
+  }
+
+  const chatId = m.key.remoteJid;
+  const isGroupHere = typeof chatId === "string" && chatId.endsWith("@g.us");
+
+  const antilinkState = await getConfig(chatId, "antilink");
+
+  if (isGroupHere && parseInt(antilinkState) === 1) {
+    const texto =
+      String(
+        (typeof messageContent !== "undefined" && messageContent) ||
+        m.message?.conversation ||
+        m.message?.extendedTextMessage?.text ||
+        m.message?.imageMessage?.caption ||
+        m.message?.videoMessage?.caption ||
+        ""
+      );
+
+    const invitaWA = /(?:https?:\/\/)?chat\.whatsapp\.com\/[A-Za-z0-9]+/i.test(texto);
+
+    if (invitaWA) {
+      const identity = await getSenderIdentity();
+
+      const isOwnerHere =
+        safeIsOwner(identity.raw) ||
+        safeIsOwner(identity.realJid) ||
+        safeIsOwner(identity.lidJid) ||
+        [...identity.numbers].some(n => safeIsOwner(n));
+
+      const isAdminHere = await isAdminByIdentity(chatId, identity);
+      const fromMeHere = !!m.key.fromMe;
+
+      if (!fromMeHere && !isOwnerHere && !isAdminHere) {
+        await deleteMessage(chatId, identity);
+
+        const advPath = path.resolve("./advertencias.json");
+
+        if (!fs.existsSync(advPath)) {
+          fs.writeFileSync(advPath, JSON.stringify({}, null, 2));
         }
 
-        advertencias[chatId][senderNum] = 0;
+        let advertencias = {};
+        try {
+          advertencias = JSON.parse(fs.readFileSync(advPath, "utf-8"));
+        } catch {
+          advertencias = {};
+        }
+
+        advertencias[chatId] = advertencias[chatId] || {};
+
+        const keys = [...identity.numbers].filter(Boolean);
+        let current = 0;
+
+        for (const k of keys) {
+          const n = Number(advertencias[chatId][k] || 0);
+          if (n > current) current = n;
+        }
+
+        const total = current + 1;
+
+        for (const k of keys) {
+          advertencias[chatId][k] = total;
+        }
+
         fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
-      } else {
-        await sock.sendMessage(chatId, {
-          text: `⚠️ @${senderNum}, enviar invitaciones de WhatsApp no está permitido aquí.\nAdvertencia: ${total}/3.`,
-          mentions: [mentionId]
-        });
+
+        if (total >= 3) {
+          await sock.sendMessage(chatId, {
+            text: `❌ @${identity.mentionNum} fue eliminado por enviar invitaciones prohibidas (3/3).`,
+            mentions: [identity.mentionJid]
+          }).catch(() => {});
+
+          const removed = await removeUser(chatId, identity);
+
+          if (removed) {
+            for (const k of keys) {
+              advertencias[chatId][k] = 0;
+            }
+
+            fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
+          }
+        } else {
+          await sock.sendMessage(chatId, {
+            text: `⚠️ @${identity.mentionNum}, enviar invitaciones de WhatsApp no está permitido aquí.\nAdvertencia: ${total}/3.`,
+            mentions: [identity.mentionJid]
+          }).catch(() => {});
+        }
+
+        return;
       }
     }
   }
@@ -1228,93 +1528,393 @@ try {
 }
 // === FIN LÓGICA ANTILINK ===
 
-// === LÓGICA LINKALL DESDE activos.db (compatible LID y NO-LID) ===
+  // === LÓGICA LINKALL DESDE activos.db compatible PN / LID ===
 try {
-  const estadoLinkAll = await getConfig(chatId, "linkall");
-  if (isGroup && parseInt(estadoLinkAll) === 1) {
-    const texto = (messageContent || "").toLowerCase();
+  const fs = require("fs");
+  const path = require("path");
 
-    // Detecta cualquier link que NO sea invitación de grupo de WhatsApp
-    const contieneLink    = /(https?:\/\/[^\s]+)/i.test(texto);
-    const esWhatsAppGroup = /https?:\/\/chat\.whatsapp\.com\//i.test(texto);
+  const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+  const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
 
-    if (contieneLink && !esWhatsAppGroup) {
-      const DIGITS = (s="") => String(s).replace(/\D/g,"");
+  const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+  const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
 
-      // Autor (preferimos real si ya lo normalizaste arriba)
-      const senderRealJid = m.realJid || (sender?.endsWith?.("@s.whatsapp.net") ? sender : null);
-      const senderNum     = m.realNumber || DIGITS(senderRealJid || sender);
-      const mentionId     = senderRealJid || `${senderNum}@s.whatsapp.net`;
+  const addZero = (n) => {
+    const clean = DIGITS(n);
+    if (!clean) return "";
+    return clean.endsWith("0") ? clean : clean + "0";
+  };
 
-      // ¿Es owner?
-      const isOwnerHere = (typeof isOwner === "function")
-        ? isOwner(senderNum)
-        : (Array.isArray(global.owner) && global.owner.some(([id]) => id === senderNum));
+  const cleanUserJid = (jid) => {
+    const n = JID_NUM(jid);
+    return n ? `${n}@s.whatsapp.net` : null;
+  };
 
-      // ¿Es admin? (resolviendo LID -> número real)
-      let isAdmin = false;
-      try {
-        const meta  = await sock.groupMetadata(chatId);
-        const raw   = Array.isArray(meta?.participants) ? meta.participants : [];
-        const parts = typeof sock.lidParser === "function" ? sock.lidParser(raw) : raw;
+  const cleanLidJid = (jid) => {
+    const n = JID_NUM(jid);
+    return n ? `${n}@lid` : null;
+  };
 
-        const adminNums = new Set();
-        for (let i = 0; i < raw.length; i++) {
-          const r = raw[i], n = parts[i];
-          const flag = (r?.admin === "admin" || r?.admin === "superadmin" ||
-                        n?.admin === "admin" || n?.admin === "superadmin");
-          if (flag) {
-            [r?.id, r?.jid, n?.id].forEach(x => {
-              const d = DIGITS(x);
-              if (d) adminNums.add(d);
+  const safeIsOwner = (value) => {
+    try {
+      const raw = String(value || "");
+      const num = JID_NUM(raw) || DIGITS(raw);
+
+      if (typeof global.isOwner === "function") {
+        if (raw && global.isOwner(raw)) return true;
+        if (num && global.isOwner(num)) return true;
+      }
+
+      if (Array.isArray(global.owner)) {
+        return global.owner.some((entry) => {
+          if (Array.isArray(entry)) {
+            return entry.some((x) => {
+              const d = JID_NUM(x) || DIGITS(x);
+              return d && d === num;
             });
           }
-        }
-        isAdmin = adminNums.has(senderNum);
-      } catch (e) {
-        console.error("[LINKALL] ❌ Error leyendo metadata:", e);
-      }
 
-      // Permisos: bot / owner / admin -> no actuar
-      if (fromMe || isOwnerHere || isAdmin) {
-        console.log("[LINKALL] ⚠️ Usuario con permisos; se omite.");
-        return;
-      }
-
-      // Eliminar mensaje
-      await sock.sendMessage(chatId, { delete: m.key });
-      console.log("[LINKALL] 🔥 Mensaje eliminado por link no permitido.");
-
-      // Advertencias por usuario (key por número real)
-      const fs = require("fs");
-      const advPath = "./advertencias.json";
-      if (!fs.existsSync(advPath)) fs.writeFileSync(advPath, JSON.stringify({}));
-
-      const advertencias = JSON.parse(fs.readFileSync(advPath, "utf-8"));
-      advertencias[chatId] = advertencias[chatId] || {};
-      advertencias[chatId][senderNum] = (advertencias[chatId][senderNum] || 0) + 1;
-
-      const advertenciasTotales = advertencias[chatId][senderNum];
-      fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
-
-      if (advertenciasTotales >= 10) {
-        await sock.sendMessage(chatId, {
-          text: `❌ @${senderNum} fue eliminado por enviar enlaces prohibidos (10/10).`,
-          mentions: [mentionId]
+          const d = JID_NUM(entry) || DIGITS(entry);
+          return d && d === num;
         });
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  async function getSenderIdentity() {
+    const raw = String(m.key.participant || m.key.remoteJid || "");
+
+    let realJid = null;
+    let lidJid = null;
+
+    const pnFields = [
+      m.realJid,
+      m.key?.senderPn,
+      m.key?.participantPn,
+      m.key?.senderAlt,
+      m.key?.participantAlt,
+      m.key?.participant,
+      raw
+    ].filter(Boolean);
+
+    for (const jid of pnFields) {
+      if (isUser(jid)) {
+        realJid = cleanUserJid(jid);
+        break;
+      }
+    }
+
+    const lidFields = [
+      m.realLid,
+      m.realJid,
+      m.key?.senderLid,
+      m.key?.participantLid,
+      m.key?.participant,
+      raw
+    ].filter(Boolean);
+
+    for (const jid of lidFields) {
+      if (isLid(jid)) {
+        lidJid = cleanLidJid(jid);
+        break;
+      }
+    }
+
+    try {
+      if (global.lidMap instanceof Map) {
+        if (lidJid && !realJid) {
+          const pn = global.lidMap.get(lidJid);
+          if (isUser(pn)) realJid = cleanUserJid(pn);
+        }
+
+        if (realJid && !lidJid) {
+          const lid = global.lidMap.get(realJid);
+          if (isLid(lid)) lidJid = cleanLidJid(lid);
+        }
+      }
+    } catch {}
+
+    try {
+      if (lidJid && !realJid) {
+        const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
+        if (isUser(pn)) {
+          realJid = cleanUserJid(pn);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(lidJid, realJid);
+            global.lidMap.set(realJid, lidJid);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      if (realJid && !lidJid) {
+        const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(realJid);
+        if (isLid(lid)) {
+          lidJid = cleanLidJid(lid);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(realJid, lidJid);
+            global.lidMap.set(lidJid, realJid);
+          }
+        }
+      }
+    } catch {}
+
+    const pnNumber = realJid ? JID_NUM(realJid) : "";
+    const zeroNumber = pnNumber ? addZero(pnNumber) : "";
+    const lidNumber = lidJid ? JID_NUM(lidJid) : "";
+    const realNumber = m.realNumber ? DIGITS(m.realNumber) : "";
+    const rawNumber = JID_NUM(raw);
+
+    const numbers = new Set();
+
+    if (pnNumber) numbers.add(pnNumber);
+    if (zeroNumber && zeroNumber !== pnNumber) numbers.add(zeroNumber);
+    if (lidNumber && lidNumber !== pnNumber && lidNumber !== zeroNumber) numbers.add(lidNumber);
+    if (realNumber) numbers.add(realNumber);
+    if (rawNumber) numbers.add(rawNumber);
+
+    if (realNumber && (isUser(m.realJid) || isUser(raw))) {
+      const rz = addZero(realNumber);
+      if (rz && rz !== realNumber) numbers.add(rz);
+    }
+
+    return {
+      raw,
+      realJid,
+      lidJid,
+      pnNumber,
+      lidNumber,
+      realNumber,
+      rawNumber,
+      numbers,
+      mentionJid: realJid || lidJid || raw,
+      mentionNum: pnNumber || realNumber || lidNumber || rawNumber || "usuario"
+    };
+  }
+
+  async function isAdminByIdentity(chatId, identity) {
+    try {
+      const meta = await sock.groupMetadata(chatId);
+      const rawParts = Array.isArray(meta?.participants) ? meta.participants : [];
+
+      const adminNums = new Set();
+
+      for (const p of rawParts) {
+        const flagAdmin = p?.admin === "admin" || p?.admin === "superadmin";
+        if (!flagAdmin) continue;
+
+        const ids = [
+          p?.id,
+          p?.jid,
+          p?.lid,
+          p?.pn,
+          p?.phoneNumber,
+          p?.jidAlt
+        ].filter(x => typeof x === "string");
+
         try {
-          // Expulsar: usar REAL si lo tenemos; si no, el id original (puede ser @lid)
-          await sock.groupParticipantsUpdate(chatId, [senderRealJid || sender], "remove");
-        } catch (e) {
-          console.error("[LINKALL] ❌ Error al expulsar:", e);
+          if (typeof sock.lidParser === "function") {
+            const parsed = sock.lidParser([p]);
+            if (parsed?.[0]?.id) ids.push(parsed[0].id);
+            if (parsed?.[0]?.jid) ids.push(parsed[0].jid);
+          }
+        } catch {}
+
+        for (const id of ids) {
+          const d = JID_NUM(id);
+          if (d) {
+            adminNums.add(d);
+
+            const dz = addZero(d);
+            if (dz && dz !== d) adminNums.add(dz);
+          }
+
+          if (isLid(id)) {
+            try {
+              if (global.lidMap instanceof Map) {
+                const mapped = global.lidMap.get(cleanLidJid(id));
+                const md = JID_NUM(mapped);
+                if (md) {
+                  adminNums.add(md);
+
+                  const md0 = addZero(md);
+                  if (md0 && md0 !== md) adminNums.add(md0);
+                }
+              }
+            } catch {}
+
+            try {
+              const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(cleanLidJid(id));
+              if (isUser(pn)) {
+                const pd = JID_NUM(pn);
+                if (pd) {
+                  adminNums.add(pd);
+
+                  const pd0 = addZero(pd);
+                  if (pd0 && pd0 !== pd) adminNums.add(pd0);
+                }
+
+                if (global.lidMap instanceof Map) {
+                  const lidClean = cleanLidJid(id);
+                  const pnClean = cleanUserJid(pn);
+                  global.lidMap.set(lidClean, pnClean);
+                  global.lidMap.set(pnClean, lidClean);
+                }
+              }
+            } catch {}
+          }
         }
-        advertencias[chatId][senderNum] = 0;
+      }
+
+      return [...identity.numbers].some(n => adminNums.has(n));
+    } catch {
+      return false;
+    }
+  }
+
+  async function deleteMessage(chatId, identity) {
+    const deleteKeys = [];
+
+    deleteKeys.push(m.key);
+
+    const possibleParticipants = [
+      m.key?.participant,
+      identity.raw,
+      identity.lidJid,
+      identity.realJid
+    ].filter(Boolean);
+
+    for (const participant of [...new Set(possibleParticipants)]) {
+      deleteKeys.push({
+        remoteJid: chatId,
+        fromMe: false,
+        id: m.key.id,
+        participant
+      });
+    }
+
+    for (const key of deleteKeys) {
+      try {
+        await sock.sendMessage(chatId, { delete: key });
+        return true;
+      } catch {}
+    }
+
+    return false;
+  }
+
+  async function removeUser(chatId, identity) {
+    const ids = [
+      identity.raw,
+      identity.realJid,
+      identity.lidJid
+    ].filter(Boolean);
+
+    for (const jid of [...new Set(ids)]) {
+      try {
+        await sock.groupParticipantsUpdate(chatId, [jid], "remove");
+        return true;
+      } catch {}
+    }
+
+    return false;
+  }
+
+  const chatId = m.key.remoteJid;
+  const isGroupHere = typeof chatId === "string" && chatId.endsWith("@g.us");
+
+  const estadoLinkAll = await getConfig(chatId, "linkall");
+
+  if (isGroupHere && parseInt(estadoLinkAll) === 1) {
+    const texto =
+      String(
+        (typeof messageContent !== "undefined" && messageContent) ||
+        m.message?.conversation ||
+        m.message?.extendedTextMessage?.text ||
+        m.message?.imageMessage?.caption ||
+        m.message?.videoMessage?.caption ||
+        ""
+      );
+
+    const contieneLink = /https?:\/\/[^\s]+/i.test(texto);
+    const esWhatsAppGroup = /(?:https?:\/\/)?chat\.whatsapp\.com\/[A-Za-z0-9]+/i.test(texto);
+
+    if (contieneLink && !esWhatsAppGroup) {
+      const identity = await getSenderIdentity();
+
+      const isOwnerHere =
+        safeIsOwner(identity.raw) ||
+        safeIsOwner(identity.realJid) ||
+        safeIsOwner(identity.lidJid) ||
+        [...identity.numbers].some(n => safeIsOwner(n));
+
+      const isAdminHere = await isAdminByIdentity(chatId, identity);
+      const fromMeHere = !!m.key.fromMe;
+
+      if (!fromMeHere && !isOwnerHere && !isAdminHere) {
+        await deleteMessage(chatId, identity);
+
+        const advPath = path.resolve("./advertencias.json");
+
+        if (!fs.existsSync(advPath)) {
+          fs.writeFileSync(advPath, JSON.stringify({}, null, 2));
+        }
+
+        let advertencias = {};
+        try {
+          advertencias = JSON.parse(fs.readFileSync(advPath, "utf-8"));
+        } catch {
+          advertencias = {};
+        }
+
+        advertencias[chatId] = advertencias[chatId] || {};
+
+        const keys = [...identity.numbers].filter(Boolean);
+        let current = 0;
+
+        for (const k of keys) {
+          const n = Number(advertencias[chatId][k] || 0);
+          if (n > current) current = n;
+        }
+
+        const total = current + 1;
+
+        for (const k of keys) {
+          advertencias[chatId][k] = total;
+        }
+
         fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
-      } else {
-        await sock.sendMessage(chatId, {
-          text: `⚠️ @${senderNum}, no se permiten enlaces externos.\nAdvertencia: ${advertenciasTotales}/10.`,
-          mentions: [mentionId]
-        });
+
+        if (total >= 10) {
+          await sock.sendMessage(chatId, {
+            text: `❌ @${identity.mentionNum} fue eliminado por enviar enlaces prohibidos (10/10).`,
+            mentions: [identity.mentionJid]
+          }).catch(() => {});
+
+          const removed = await removeUser(chatId, identity);
+
+          if (removed) {
+            for (const k of keys) {
+              advertencias[chatId][k] = 0;
+            }
+
+            fs.writeFileSync(advPath, JSON.stringify(advertencias, null, 2));
+          }
+        } else {
+          await sock.sendMessage(chatId, {
+            text: `⚠️ @${identity.mentionNum}, no se permiten enlaces externos.\nAdvertencia: ${total}/10.`,
+            mentions: [identity.mentionJid]
+          }).catch(() => {});
+        }
+
+        return;
       }
     }
   }
@@ -1322,6 +1922,9 @@ try {
   console.error("❌ Error final en lógica LINKALL:", e);
 }
 // === FIN DE LINKALL ===
+
+
+
 // === INICIO BLOQUEO DE MENSAJES DE USUARIOS MUTEADOS ===
 try {
   const fs = require("fs");
