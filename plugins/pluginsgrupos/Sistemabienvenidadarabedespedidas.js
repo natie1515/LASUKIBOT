@@ -216,7 +216,7 @@ const handler = async (conn) => {
               });
             } else {
               const avatar = await loadImage(perfilURL);
-              const fondo = await loadImage("https://cdn.russellxz.click/e72cc417.jpeg");
+              const fondo = await loadImage("https://cdn.russellxz.click/7177383b.jpg");
               const canvas = createCanvas(1080, 720);
               const ctx = canvas.getContext("2d");
               ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
@@ -269,7 +269,7 @@ const handler = async (conn) => {
               });
             } else {
               const avatar = await loadImage(perfilURL);
-              const fondo = await loadImage("https://cdn.russellxz.click/86913470.jpeg");
+              const fondo = await loadImage("https://cdn.russellxz.click/bc842c44.jpg");
               const canvas = createCanvas(1080, 720);
               const ctx = canvas.getContext("2d");
               ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
