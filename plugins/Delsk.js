@@ -26,7 +26,7 @@ const handler = async (msg, { conn, args }) => {
   if (!packName || isNaN(index) || argsArr.length < 2) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: `❗ Uso correcto:\n*${pref}dels <paquete> <número>*\n\nEjemplos:\n• ${pref}dels memes 2\n• ${pref}dels hola fino 1\n• ${pref}dels mis stickers 3`,
+      text: `❗ Uso correcto:\n*${pref}delsk <paquete> <número>*\n\nEjemplos:\n• ${pref}delsk memes 2\n• ${pref}dels hola fino 1\n• ${pref}dels mis stickers 3`,
     }, { quoted: msg });
   }
 
@@ -132,5 +132,5 @@ const handler = async (msg, { conn, args }) => {
   return conn.sendMessage(chatId, { text: texto }, { quoted: msg });
 };
 
-handler.command = ["dels"];
+handler.command = ["delsk"];
 module.exports = handler;
