@@ -1630,19 +1630,52 @@ try {
   console.error("❌ Error en lógica de muteo:", err);
 }
 // === FIN BLOQUEO DE MENSAJES DE USUARIOS MUTEADOS ===
+
 // === INICIO BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
 try {
   const fs = require("fs");
   const path = require("path");
 
-  const welcomePath = path.resolve("./setwelcome.json");
-  const welcomeData = fs.existsSync(welcomePath) ? JSON.parse(fs.readFileSync(welcomePath)) : {};
+  const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+
+  const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+  const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
+
+  const addZero = (n) => {
+    const clean = DIGITS(n);
+    if (!clean) return "";
+    return clean.endsWith("0") ? clean : clean + "0";
+  };
+
+  const cleanUserJid = (jid) => {
+    const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+    return n ? `${n}@s.whatsapp.net` : null;
+  };
+
+  const cleanLidJid = (jid) => {
+    const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+    return n ? `${n}@lid` : null;
+  };
+
+  const safeIsOwner = (value) => {
+    try {
+      if (typeof global.isOwner !== "function") return false;
+
+      const raw = String(value || "");
+      const num = DIGITS(raw);
+
+      if (raw && global.isOwner(raw)) return true;
+      if (num && global.isOwner(num)) return true;
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
 
   const chatId = m.key.remoteJid;
-  const senderId = m.key.participant || m.key.remoteJid;
-  const senderNum = senderId.replace(/[^0-9]/g, "");
-  const isFromMe = m.key.fromMe;
-  const isOwner = global.isOwner(senderId);
+  const senderRaw = m.key.participant || m.key.remoteJid;
+  const isFromMe = !!m.key.fromMe;
 
   const messageText =
     m.message?.conversation ||
@@ -1651,35 +1684,152 @@ try {
     m.message?.videoMessage?.caption ||
     "";
 
-  // ✅ Verifica si el mensaje comienza con algún prefijo válido
-  const prefixUsed = global.prefixes.find((p) => messageText?.startsWith(p));
-  if (!prefixUsed) return;
+  const prefixes = Array.isArray(global.prefixes)
+    ? global.prefixes
+    : [global.prefix || "."];
 
-  const chatBanList = welcomeData[chatId]?.banned || [];
+  const prefixUsed = prefixes.find((p) => {
+    if (!p) return false;
+    return messageText?.startsWith(String(p));
+  });
 
-  if (chatBanList.includes(senderId) && !isOwner && !isFromMe) {
-    const frases = [
-      "🚫 @usuario estás baneado por pendejo. ¡Abusaste demasiado del bot!",
-      "❌ Lo siento @usuario, pero tú ya no puedes usarme. Aprende a comportarte.",
-      "🔒 No tienes permiso @usuario. Fuiste baneado por molestar mucho.",
-      "👎 ¡Bloqueado! @usuario abusaste del sistema y ahora no puedes usarme.",
-      "😤 Quisiste usarme pero estás baneado, @usuario. Vuelve en otra vida."
-    ];
+  // Si no es comando, no hacemos nada.
+  // OJO: aquí NO usamos return para no cortar otras lógicas del bot.
+  if (prefixUsed) {
+    let senderRealJid = null;
+    let senderLidJid = null;
 
-    const texto = frases[Math.floor(Math.random() * frases.length)].replace("@usuario", `@${senderNum}`);
+    // PN real desde la normalización principal
+    if (isUser(m.realJid)) senderRealJid = cleanUserJid(m.realJid);
+    if (isUser(senderRaw)) senderRealJid = cleanUserJid(senderRaw);
 
-    await sock.sendMessage(chatId, {
-      text: texto,
-      mentions: [senderId]
-    }, { quoted: m });
+    // LID desde la normalización principal
+    if (isLid(m.realJid)) senderLidJid = cleanLidJid(m.realJid);
+    if (isLid(m.realLid)) senderLidJid = cleanLidJid(m.realLid);
+    if (isLid(senderRaw)) senderLidJid = cleanLidJid(senderRaw);
 
-    return; // ❌ Evita que el comando continúe
+    // Completar PN/LID usando global.lidMap
+    try {
+      if (global.lidMap instanceof Map) {
+        if (senderLidJid && !senderRealJid) {
+          const mappedPn = global.lidMap.get(senderLidJid);
+          if (isUser(mappedPn)) senderRealJid = cleanUserJid(mappedPn);
+        }
+
+        if (senderRealJid && !senderLidJid) {
+          const mappedLid = global.lidMap.get(senderRealJid);
+          if (isLid(mappedLid)) senderLidJid = cleanLidJid(mappedLid);
+        }
+      }
+    } catch {}
+
+    // Completar PN desde signalRepository si solo tenemos LID
+    try {
+      if (senderLidJid && !senderRealJid) {
+        const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(senderLidJid);
+        if (isUser(pn)) {
+          senderRealJid = cleanUserJid(pn);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(senderLidJid, senderRealJid);
+            global.lidMap.set(senderRealJid, senderLidJid);
+          }
+        }
+      }
+    } catch {}
+
+    const pnNumber = senderRealJid ? DIGITS(senderRealJid) : "";
+    const zeroNumber = pnNumber ? addZero(pnNumber) : "";
+    const lidNumber = senderLidJid ? DIGITS(senderLidJid) : "";
+
+    const senderNumbers = new Set();
+
+    if (pnNumber) senderNumbers.add(pnNumber);
+    if (zeroNumber && zeroNumber !== pnNumber) senderNumbers.add(zeroNumber);
+    if (lidNumber && lidNumber !== pnNumber && lidNumber !== zeroNumber) senderNumbers.add(lidNumber);
+
+    // Fallback desde m.realNumber
+    if (m.realNumber) {
+      const rn = DIGITS(m.realNumber);
+      if (rn) senderNumbers.add(rn);
+
+      if (isUser(m.realJid) || isUser(senderRaw)) {
+        const rz = addZero(rn);
+        if (rz && rz !== rn) senderNumbers.add(rz);
+      }
+    }
+
+    // Último fallback
+    const rawNum = DIGITS(senderRaw);
+    if (rawNum) senderNumbers.add(rawNum);
+
+    const isOwner =
+      safeIsOwner(senderRaw) ||
+      safeIsOwner(senderRealJid) ||
+      safeIsOwner(senderLidJid) ||
+      [...senderNumbers].some(n => safeIsOwner(n));
+
+    const welcomePath = path.resolve("./setwelcome.json");
+
+    let welcomeData = {};
+    try {
+      welcomeData = fs.existsSync(welcomePath)
+        ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
+        : {};
+    } catch {
+      welcomeData = {};
+    }
+
+    const chatBanList = Array.isArray(welcomeData?.[chatId]?.banned)
+      ? welcomeData[chatId].banned
+      : [];
+
+    // Soporta formato nuevo y viejo:
+    // nuevo: "507xxx", "507xxx0", "lidnumber"
+    // viejo: "507xxx@s.whatsapp.net", "xxx@lid"
+    const bannedNums = new Set(
+      chatBanList
+        .map(x => DIGITS(x))
+        .filter(Boolean)
+    );
+
+    const isBanned = [...senderNumbers].some(n => bannedNums.has(n));
+
+    if (isBanned && !isOwner && !isFromMe) {
+      const mentionJid =
+        senderRealJid ||
+        senderLidJid ||
+        senderRaw;
+
+      const mentionNum =
+        pnNumber ||
+        lidNumber ||
+        DIGITS(senderRaw) ||
+        "usuario";
+
+      const frases = [
+        "🚫 @usuario estás baneado por pendejo. ¡Abusaste demasiado del bot!",
+        "❌ Lo siento @usuario, pero tú ya no puedes usarme. Aprende a comportarte.",
+        "🔒 No tienes permiso @usuario. Fuiste baneado por molestar mucho.",
+        "👎 ¡Bloqueado! @usuario abusaste del sistema y ahora no puedes usarme.",
+        "😤 Quisiste usarme pero estás baneado, @usuario. Vuelve en otra vida."
+      ];
+
+      const texto = frases[Math.floor(Math.random() * frases.length)]
+        .replace("@usuario", `@${mentionNum}`);
+
+      await sock.sendMessage(chatId, {
+        text: texto,
+        mentions: [mentionJid]
+      }, { quoted: m });
+
+      return; // evita que el comando continúe
+    }
   }
 } catch (e) {
   console.error("❌ Error procesando bloqueo de usuarios baneados:", e);
 }
 // === FIN BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
-
 
 // === ⛔ INICIO FILTRO DE MENSAJES EN PRIVADO POR LISTA (con detección real de bot y owner) ===
 try {
