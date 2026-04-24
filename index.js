@@ -1326,71 +1326,304 @@ try {
 try {
   const fs = require("fs");
   const path = require("path");
+
+  const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+
+  const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
+  const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
+
+  const addZero = (n) => {
+    const clean = DIGITS(n);
+    if (!clean) return "";
+    return clean.endsWith("0") ? clean : clean + "0";
+  };
+
+  const cleanUserJid = (jid) => {
+    const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+    return n ? `${n}@s.whatsapp.net` : null;
+  };
+
+  const cleanLidJid = (jid) => {
+    const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+    return n ? `${n}@lid` : null;
+  };
+
+  const safeIsOwner = (value) => {
+    try {
+      if (typeof global.isOwner !== "function") return false;
+
+      const raw = String(value || "");
+      const num = DIGITS(raw);
+
+      if (raw && global.isOwner(raw)) return true;
+      if (num && global.isOwner(num)) return true;
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   const chatId = m.key.remoteJid;
-  const senderId = m.key.participant || m.key.remoteJid;
-  const senderNum = senderId.replace(/[^0-9]/g, "");
-  const isGroup = chatId.endsWith("@g.us");
-  const isBot = senderId === sock.user.id;
-  const isOwner = global.isOwner(senderId);
+  const isGroup = typeof chatId === "string" && chatId.endsWith("@g.us");
 
-  if (isGroup && !isOwner) {
-    const welcomePath = path.resolve("setwelcome.json");
-    const welcomeData = fs.existsSync(welcomePath)
-      ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
-      : {};
+  if (isGroup && !m.key.fromMe) {
+    const senderRaw = m.key.participant || m.key.remoteJid;
 
-    const mutedList = welcomeData[chatId]?.muted || [];
+    let senderRealJid = null;
+    let senderLidJid = null;
 
-    if (mutedList.includes(senderId)) {
-      global._muteCounter = global._muteCounter || {};
-      const key = `${chatId}:${senderId}`;
-      global._muteCounter[key] = (global._muteCounter[key] || 0) + 1;
+    // PN real desde normalización principal
+    if (isUser(m.realJid)) senderRealJid = cleanUserJid(m.realJid);
+    if (isUser(senderRaw)) senderRealJid = cleanUserJid(senderRaw);
 
-      const count = global._muteCounter[key];
+    // LID desde normalización principal
+    if (isLid(m.realJid)) senderLidJid = cleanLidJid(m.realJid);
+    if (isLid(m.realLid)) senderLidJid = cleanLidJid(m.realLid);
+    if (isLid(senderRaw)) senderLidJid = cleanLidJid(senderRaw);
 
-      if (count === 8) {
-        await sock.sendMessage(chatId, {
-          text: `⚠️ @${senderNum}, estás *muteado*. Si sigues enviando mensajes podrías ser eliminado.`,
-          mentions: [senderId]
-        });
-      }
+    // Intentar completar PN/LID desde global.lidMap
+    try {
+      if (global.lidMap instanceof Map) {
+        if (senderLidJid && !senderRealJid) {
+          const mappedPn = global.lidMap.get(senderLidJid);
+          if (isUser(mappedPn)) senderRealJid = cleanUserJid(mappedPn);
+        }
 
-      if (count === 13) {
-        await sock.sendMessage(chatId, {
-          text: `⛔ @${senderNum}, estás al *límite*. Un mensaje más y serás eliminado.`,
-          mentions: [senderId]
-        });
-      }
-
-      if (count >= 15) {
-        const metadata = await sock.groupMetadata(chatId);
-        const isAdmin = metadata.participants.find(p => p.id === senderId)?.admin;
-
-        if (!isAdmin) {
-          await sock.groupParticipantsUpdate(chatId, [senderId], "remove");
-          await sock.sendMessage(chatId, {
-            text: `❌ @${senderNum} fue eliminado por ignorar el mute.`,
-            mentions: [senderId]
-          });
-          delete global._muteCounter[key];
-        } else {
-          await sock.sendMessage(chatId, {
-            text: `🔇 @${senderNum} está muteado pero no puede ser eliminado por ser admin.`,
-            mentions: [senderId]
-          });
+        if (senderRealJid && !senderLidJid) {
+          const mappedLid = global.lidMap.get(senderRealJid);
+          if (isLid(mappedLid)) senderLidJid = cleanLidJid(mappedLid);
         }
       }
+    } catch {}
 
-      await sock.sendMessage(chatId, {
-        delete: {
-          remoteJid: chatId,
-          fromMe: false,
-          id: m.key.id,
-          participant: senderId
+    // Intentar completar PN desde signalRepository si solo tenemos LID
+    try {
+      if (senderLidJid && !senderRealJid) {
+        const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(senderLidJid);
+        if (isUser(pn)) {
+          senderRealJid = cleanUserJid(pn);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(senderLidJid, senderRealJid);
+            global.lidMap.set(senderRealJid, senderLidJid);
+          }
         }
-      });
+      }
+    } catch {}
 
-      return;
+    // Números posibles del usuario
+    const pnNumber = senderRealJid ? DIGITS(senderRealJid) : "";
+    const zeroNumber = pnNumber ? addZero(pnNumber) : "";
+    const lidNumber = senderLidJid ? DIGITS(senderLidJid) : "";
+
+    const senderNumbers = new Set();
+
+    if (pnNumber) senderNumbers.add(pnNumber);
+    if (zeroNumber && zeroNumber !== pnNumber) senderNumbers.add(zeroNumber);
+    if (lidNumber && lidNumber !== pnNumber && lidNumber !== zeroNumber) senderNumbers.add(lidNumber);
+
+    // Fallback por si msg.realNumber ya trae algo útil
+    if (m.realNumber) {
+      const rn = DIGITS(m.realNumber);
+      if (rn) senderNumbers.add(rn);
+
+      // Si realNumber viene de PN, esto ayuda con la versión +0
+      if (isUser(m.realJid) || isUser(senderRaw)) {
+        const rz = addZero(rn);
+        if (rz && rz !== rn) senderNumbers.add(rz);
+      }
+    }
+
+    // Último fallback
+    const rawNum = DIGITS(senderRaw);
+    if (rawNum) senderNumbers.add(rawNum);
+
+    // Verificación owner robusta
+    const isOwner =
+      safeIsOwner(senderRaw) ||
+      safeIsOwner(senderRealJid) ||
+      safeIsOwner(senderLidJid) ||
+      [...senderNumbers].some(n => safeIsOwner(n));
+
+    if (!isOwner) {
+      const welcomePath = path.resolve("setwelcome.json");
+
+      let welcomeData = {};
+      try {
+        welcomeData = fs.existsSync(welcomePath)
+          ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
+          : {};
+      } catch {
+        welcomeData = {};
+      }
+
+      const mutedRaw = Array.isArray(welcomeData?.[chatId]?.muted)
+        ? welcomeData[chatId].muted
+        : [];
+
+      // Soporta formatos nuevos y viejos:
+      // nuevos: "507xxx", "507xxx0", "lidnumber"
+      // viejos: "507xxx@s.whatsapp.net", "lid@lid"
+      const mutedNums = new Set(
+        mutedRaw
+          .map(x => DIGITS(x))
+          .filter(Boolean)
+      );
+
+      const isMuted = [...senderNumbers].some(n => mutedNums.has(n));
+
+      if (isMuted) {
+        global._muteCounter = global._muteCounter || {};
+
+        const stableKey =
+          pnNumber ||
+          lidNumber ||
+          DIGITS(senderRaw) ||
+          String(senderRaw || "unknown");
+
+        const counterKey = `${chatId}:${stableKey}`;
+        global._muteCounter[counterKey] = (global._muteCounter[counterKey] || 0) + 1;
+
+        const count = global._muteCounter[counterKey];
+
+        const mentionJid =
+          senderRealJid ||
+          senderLidJid ||
+          senderRaw;
+
+        const mentionNum =
+          pnNumber ||
+          lidNumber ||
+          DIGITS(senderRaw) ||
+          "usuario";
+
+        if (count === 8) {
+          await sock.sendMessage(chatId, {
+            text: `⚠️ @${mentionNum}, estás *muteado*. Si sigues enviando mensajes podrías ser eliminado.`,
+            mentions: [mentionJid]
+          }).catch(() => {});
+        }
+
+        if (count === 13) {
+          await sock.sendMessage(chatId, {
+            text: `⛔ @${mentionNum}, estás al *límite*. Un mensaje más y serás eliminado.`,
+            mentions: [mentionJid]
+          }).catch(() => {});
+        }
+
+        if (count >= 15) {
+          let isAdmin = false;
+
+          try {
+            const metadata = await sock.groupMetadata(chatId);
+            const participants = Array.isArray(metadata?.participants)
+              ? metadata.participants
+              : [];
+
+            for (const p of participants) {
+              const adminFlag = p?.admin === "admin" || p?.admin === "superadmin";
+              if (!adminFlag) continue;
+
+              const ids = [
+                p?.id,
+                p?.jid,
+                p?.lid,
+                p?.pn,
+                p?.phoneNumber,
+                p?.jidAlt
+              ].filter(x => typeof x === "string");
+
+              const adminNums = new Set();
+
+              for (const id of ids) {
+                const d = DIGITS(id);
+                if (d) adminNums.add(d);
+
+                try {
+                  if (isLid(id) && global.lidMap instanceof Map) {
+                    const mapped = global.lidMap.get(id);
+                    const md = DIGITS(mapped);
+                    if (md) adminNums.add(md);
+
+                    const md0 = addZero(md);
+                    if (md0 && md0 !== md) adminNums.add(md0);
+                  }
+                } catch {}
+              }
+
+              if ([...senderNumbers].some(n => adminNums.has(n))) {
+                isAdmin = true;
+                break;
+              }
+            }
+          } catch {}
+
+          if (!isAdmin) {
+            const removeJids = [
+              senderRaw,
+              senderRealJid,
+              senderLidJid
+            ].filter(Boolean);
+
+            let removed = false;
+
+            for (const jid of [...new Set(removeJids)]) {
+              try {
+                await sock.groupParticipantsUpdate(chatId, [jid], "remove");
+                removed = true;
+                break;
+              } catch {}
+            }
+
+            if (removed) {
+              await sock.sendMessage(chatId, {
+                text: `❌ @${mentionNum} fue eliminado por ignorar el mute.`,
+                mentions: [mentionJid]
+              }).catch(() => {});
+
+              delete global._muteCounter[counterKey];
+            }
+          } else {
+            if (count === 15 || count % 10 === 0) {
+              await sock.sendMessage(chatId, {
+                text: `🔇 @${mentionNum} está muteado pero no puede ser eliminado por ser admin.`,
+                mentions: [mentionJid]
+              }).catch(() => {});
+            }
+          }
+        }
+
+        // Borrar mensaje. Prueba varias llaves por PN/LID porque Baileys v7 puede variar.
+        const deleteKeys = [];
+
+        deleteKeys.push(m.key);
+
+        const possibleParticipants = [
+          m.key.participant,
+          senderRaw,
+          senderLidJid,
+          senderRealJid
+        ].filter(Boolean);
+
+        for (const participant of [...new Set(possibleParticipants)]) {
+          deleteKeys.push({
+            remoteJid: chatId,
+            fromMe: false,
+            id: m.key.id,
+            participant
+          });
+        }
+
+        for (const dk of deleteKeys) {
+          try {
+            await sock.sendMessage(chatId, { delete: dk });
+            break;
+          } catch {}
+        }
+
+        return;
+      }
     }
   }
 } catch (err) {
