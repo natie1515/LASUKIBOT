@@ -2,101 +2,376 @@
 const fs = require("fs");
 const path = require("path");
 
-const DIGITS = (s = "") => String(s).replace(/\D/g, "");
+const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
-/** Normaliza: si un participante viene como @lid y tiene .jid (real), usa el real */
-function lidParser(participants = []) {
-  try {
-    return participants.map(v => ({
-      id: (typeof v?.id === "string" && v.id.endsWith("@lid") && v.jid) ? v.jid : v.id,
-      admin: v?.admin ?? null,
-      raw: v
-    }));
-  } catch {
-    return participants || [];
-  }
+function isUser(j) {
+  return typeof j === "string" && j.endsWith("@s.whatsapp.net");
 }
 
-/** Verifica admin por NÚMERO (sirve en grupos LID y no-LID) */
-async function isAdminByNumber(conn, chatId, number) {
-  try {
-    const meta = await conn.groupMetadata(chatId);
-    const raw  = Array.isArray(meta?.participants) ? meta.participants : [];
-    const norm = lidParser(raw);
+function isLid(j) {
+  return typeof j === "string" && j.endsWith("@lid");
+}
 
-    const adminNums = new Set();
-    for (let i = 0; i < raw.length; i++) {
-      const r = raw[i], n = norm[i];
-      const flag = (r?.admin === "admin" || r?.admin === "superadmin" ||
-                    n?.admin === "admin" || n?.admin === "superadmin");
-      if (flag) {
-        [r?.id, r?.jid, n?.id].forEach(x => {
-          const d = DIGITS(x || "");
-          if (d) adminNums.add(d);
-        });
-      }
-    }
-    return adminNums.has(number);
+function addZero(n) {
+  const clean = DIGITS(n);
+  if (!clean) return "";
+  return clean.endsWith("0") ? clean : clean + "0";
+}
+
+function cleanUserJid(jid) {
+  const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+  return n ? `${n}@s.whatsapp.net` : null;
+}
+
+function cleanLidJid(jid) {
+  const n = DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+  return n ? `${n}@lid` : null;
+}
+
+function safeIsOwner(value) {
+  try {
+    if (typeof global.isOwner !== "function") return false;
+
+    const raw = String(value || "");
+    const num = DIGITS(raw);
+
+    if (raw && global.isOwner(raw)) return true;
+    if (num && global.isOwner(num)) return true;
+
+    return false;
   } catch {
     return false;
   }
 }
 
-/** Dado un JID (real o @lid), resuelve { realJid, lidJid, number } */
-async function resolveTarget(conn, chatId, anyJid) {
-  const number = DIGITS(anyJid);
-  let realJid = null, lidJid = null;
+function getContextInfo(msg) {
+  const m = msg.message || {};
+  return (
+    m.extendedTextMessage?.contextInfo ||
+    m.imageMessage?.contextInfo ||
+    m.videoMessage?.contextInfo ||
+    m.documentMessage?.contextInfo ||
+    m.audioMessage?.contextInfo ||
+    m.stickerMessage?.contextInfo ||
+    null
+  );
+}
 
+function getQuotedParticipant(ctx) {
+  if (!ctx) return "";
+
+  return (
+    (isUser(ctx.participantPn) && ctx.participantPn) ||
+    (isUser(ctx.participantAlt) && ctx.participantAlt) ||
+    (isUser(ctx.senderPn) && ctx.senderPn) ||
+    (isUser(ctx.senderAlt) && ctx.senderAlt) ||
+    (typeof ctx.participant === "string" && ctx.participant) ||
+    ""
+  );
+}
+
+/** Verifica admin por número, PN o LID */
+async function isAdminByNumber(conn, chatId, number) {
   try {
-    const meta = await conn.groupMetadata(chatId);
-    const raw  = Array.isArray(meta?.participants) ? meta.participants : [];
-    const norm = lidParser(raw);
+    const target = DIGITS(number);
+    if (!target) return false;
 
-    // Si ya viene real
-    if (typeof anyJid === "string" && anyJid.endsWith("@s.whatsapp.net")) {
-      realJid = anyJid;
-      // buscar su lid "pareja" en la lista cruda
-      for (let i = 0; i < raw.length; i++) {
-        const n = norm[i]?.id || "";
-        if (n === realJid && typeof raw[i]?.id === "string" && raw[i].id.endsWith("@lid")) {
-          lidJid = raw[i].id;
-          break;
+    const meta = await conn.groupMetadata(chatId);
+    const rawParts = Array.isArray(meta?.participants) ? meta.participants : [];
+
+    const adminNums = new Set();
+
+    for (const p of rawParts) {
+      const isAdmin =
+        p?.admin === "admin" ||
+        p?.admin === "superadmin";
+
+      if (!isAdmin) continue;
+
+      const ids = [
+        p?.id,
+        p?.jid,
+        p?.lid,
+        p?.pn,
+        p?.phoneNumber,
+        p?.jidAlt
+      ].filter(x => typeof x === "string");
+
+      for (const jid of ids) {
+        const d = DIGITS(jid);
+        if (d) adminNums.add(d);
+
+        if (isLid(jid)) {
+          try {
+            if (global.lidMap instanceof Map) {
+              const mapped = global.lidMap.get(jid);
+              if (mapped) {
+                const md = DIGITS(mapped);
+                if (md) adminNums.add(md);
+              }
+            }
+          } catch {}
+
+          try {
+            const pn = await conn.signalRepository?.lidMapping?.getPNForLID?.(jid);
+            if (isUser(pn)) {
+              const pd = DIGITS(pn);
+              if (pd) adminNums.add(pd);
+
+              if (global.lidMap instanceof Map) {
+                global.lidMap.set(jid, pn);
+                global.lidMap.set(pn, jid);
+              }
+            }
+          } catch {}
         }
       }
-    } else if (typeof anyJid === "string" && anyJid.endsWith("@lid")) {
-      // Buscar por índice exacto
-      const idx = raw.findIndex(p => p?.id === anyJid);
-      if (idx >= 0) {
-        const r = raw[idx];
-        if (typeof r?.jid === "string" && r.jid.endsWith("@s.whatsapp.net")) realJid = r.jid;
-        else if (typeof norm[idx]?.id === "string" && norm[idx].id.endsWith("@s.whatsapp.net")) realJid = norm[idx].id;
-      }
-      lidJid = anyJid;
+
+      try {
+        if (typeof conn.lidParser === "function") {
+          const parsed = conn.lidParser([p]);
+          const nid = parsed?.[0]?.id;
+          const nd = DIGITS(nid);
+          if (nd) adminNums.add(nd);
+        }
+      } catch {}
     }
 
-    // Fallback por número si falta realJid
-    if (!realJid && number) realJid = `${number}@s.whatsapp.net`;
+    return adminNums.has(target);
   } catch {
-    if (number) realJid = `${number}@s.whatsapp.net`;
+    return false;
+  }
+}
+
+async function resolveLidFromPn(conn, chatId, pnJid) {
+  try {
+    pnJid = cleanUserJid(pnJid);
+    if (!pnJid) return null;
+
+    if (global.lidMap instanceof Map && global.lidMap.has(pnJid)) {
+      const lidCached = global.lidMap.get(pnJid);
+      if (isLid(lidCached)) return cleanLidJid(lidCached);
+    }
+
+    try {
+      const lid = await conn.signalRepository?.lidMapping?.getLIDForPN?.(pnJid);
+      if (isLid(lid)) {
+        const cleanLid = cleanLidJid(lid);
+
+        if (global.lidMap instanceof Map) {
+          global.lidMap.set(pnJid, cleanLid);
+          global.lidMap.set(cleanLid, pnJid);
+        }
+
+        return cleanLid;
+      }
+    } catch {}
+
+    if (chatId.endsWith("@g.us") && conn.groupMetadata) {
+      const meta = await conn.groupMetadata(chatId);
+      const participants = Array.isArray(meta?.participants) ? meta.participants : [];
+
+      for (const p of participants) {
+        const ids = [
+          p?.id,
+          p?.jid,
+          p?.lid,
+          p?.pn,
+          p?.phoneNumber,
+          p?.jidAlt
+        ].filter(x => typeof x === "string");
+
+        let real = null;
+        let lidc = null;
+
+        for (const id of ids) {
+          if (isUser(id)) real = cleanUserJid(id);
+          if (isLid(id)) lidc = cleanLidJid(id);
+        }
+
+        if (real === pnJid && lidc) {
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(pnJid, lidc);
+            global.lidMap.set(lidc, pnJid);
+          }
+
+          return lidc;
+        }
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+async function resolvePnFromLid(conn, chatId, lidJid) {
+  try {
+    lidJid = cleanLidJid(lidJid);
+    if (!lidJid) return null;
+
+    if (global.lidMap instanceof Map && global.lidMap.has(lidJid)) {
+      const pnCached = global.lidMap.get(lidJid);
+      if (isUser(pnCached)) return cleanUserJid(pnCached);
+    }
+
+    try {
+      const pn = await conn.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
+      if (isUser(pn)) {
+        const cleanPn = cleanUserJid(pn);
+
+        if (global.lidMap instanceof Map) {
+          global.lidMap.set(lidJid, cleanPn);
+          global.lidMap.set(cleanPn, lidJid);
+        }
+
+        return cleanPn;
+      }
+    } catch {}
+
+    try {
+      if (global.resolveRealJidAsync) {
+        const pn2 = await global.resolveRealJidAsync(lidJid);
+        if (isUser(pn2)) {
+          const cleanPn2 = cleanUserJid(pn2);
+
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(lidJid, cleanPn2);
+            global.lidMap.set(cleanPn2, lidJid);
+          }
+
+          return cleanPn2;
+        }
+      }
+    } catch {}
+
+    if (chatId.endsWith("@g.us") && conn.groupMetadata) {
+      const meta = await conn.groupMetadata(chatId);
+      const participants = Array.isArray(meta?.participants) ? meta.participants : [];
+
+      for (const p of participants) {
+        const ids = [
+          p?.id,
+          p?.jid,
+          p?.lid,
+          p?.pn,
+          p?.phoneNumber,
+          p?.jidAlt
+        ].filter(x => typeof x === "string");
+
+        let foundLid = null;
+        let foundPn = null;
+
+        for (const id of ids) {
+          if (isLid(id)) foundLid = cleanLidJid(id);
+          if (isUser(id)) foundPn = cleanUserJid(id);
+        }
+
+        if (foundLid === lidJid && foundPn) {
+          if (global.lidMap instanceof Map) {
+            global.lidMap.set(lidJid, foundPn);
+            global.lidMap.set(foundPn, lidJid);
+          }
+
+          return foundPn;
+        }
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+/** Resuelve objetivo igual que addowner: base, con 0 y LID */
+async function resolveTarget(conn, chatId, anyJid) {
+  const raw = String(anyJid || "");
+
+  let realJid = null;
+  let lidJid = null;
+
+  let baseNumber = "";
+  let zeroNumber = "";
+  let lidNumber = "";
+
+  if (isUser(raw)) {
+    realJid = cleanUserJid(raw);
+    baseNumber = DIGITS(realJid);
+    zeroNumber = addZero(baseNumber);
+  } else if (isLid(raw)) {
+    lidJid = cleanLidJid(raw);
+    lidNumber = DIGITS(lidJid);
+
+    const pn = await resolvePnFromLid(conn, chatId, lidJid);
+    if (pn) {
+      realJid = cleanUserJid(pn);
+      baseNumber = DIGITS(realJid);
+      zeroNumber = addZero(baseNumber);
+    }
+  } else {
+    baseNumber = DIGITS(raw);
+    zeroNumber = addZero(baseNumber);
+    if (baseNumber) realJid = `${baseNumber}@s.whatsapp.net`;
   }
 
-  return { realJid, lidJid, number };
+  if (!lidJid && baseNumber) {
+    const tryNumbers = [];
+    tryNumbers.push(baseNumber);
+    if (zeroNumber && zeroNumber !== baseNumber) tryNumbers.push(zeroNumber);
+
+    for (const n of tryNumbers) {
+      const found = await resolveLidFromPn(conn, chatId, `${n}@s.whatsapp.net`);
+      if (found) {
+        lidJid = found;
+        lidNumber = DIGITS(found);
+        break;
+      }
+    }
+  }
+
+  const numbersToSave = [];
+  if (baseNumber) numbersToSave.push(baseNumber);
+  if (zeroNumber && zeroNumber !== baseNumber) numbersToSave.push(zeroNumber);
+  if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) numbersToSave.push(lidNumber);
+
+  return {
+    raw,
+    realJid,
+    lidJid,
+    baseNumber,
+    zeroNumber,
+    lidNumber,
+    numbersToSave
+  };
+}
+
+function isOwnerTarget(target) {
+  const values = [
+    target.raw,
+    target.realJid,
+    target.lidJid,
+    target.baseNumber,
+    target.zeroNumber,
+    target.lidNumber
+  ];
+
+  return values.some(v => safeIsOwner(v));
 }
 
 const handler = async (msg, { conn }) => {
-  const chatId   = msg.key.remoteJid;
-  const isGroup  = chatId.endsWith("@g.us");
-  const senderId = msg.key.participant || msg.key.remoteJid;
-  const senderNo = DIGITS(senderId);
-  const fromMe   = !!msg.key.fromMe;
+  const chatId = msg.key.remoteJid;
+  const isGroup = chatId.endsWith("@g.us");
+
+  const senderId = msg.realJid || msg.key.participant || msg.key.remoteJid;
+  const senderNo = String(msg.realNumber || DIGITS(senderId));
+  const fromMe = !!msg.key.fromMe;
 
   if (!isGroup) {
-    return conn.sendMessage(chatId, { text: "❌ *Este comando solo puede usarse en grupos.*" }, { quoted: msg });
+    return conn.sendMessage(chatId, {
+      text: "❌ *Este comando solo puede usarse en grupos.*"
+    }, { quoted: msg });
   }
 
-  // Permisos (admin por número, owner, o el propio bot)
   const isAdmin = await isAdminByNumber(conn, chatId, senderNo);
-  const isOwner = (typeof global.isOwner === "function") ? global.isOwner(senderId) : false;
+  const isOwner = safeIsOwner(senderId) || safeIsOwner(senderNo);
 
   if (!isAdmin && !isOwner && !fromMe) {
     return conn.sendMessage(chatId, {
@@ -104,10 +379,9 @@ const handler = async (msg, { conn }) => {
     }, { quoted: msg });
   }
 
-  // Objetivos: respuesta o menciones
-  const ctx = msg.message?.extendedTextMessage?.contextInfo;
+  const ctx = getContextInfo(msg);
   const mentionedJids = Array.isArray(ctx?.mentionedJid) ? ctx.mentionedJid : [];
-  const replyJid = ctx?.participant;
+  const replyJid = getQuotedParticipant(ctx);
 
   const rawTargets = new Set();
   if (replyJid) rawTargets.add(replyJid);
@@ -119,57 +393,74 @@ const handler = async (msg, { conn }) => {
     }, { quoted: msg });
   }
 
-  // Cargar DB
   const welcomePath = path.resolve("setwelcome.json");
   const welcomeData = fs.existsSync(welcomePath)
     ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
     : {};
-  welcomeData[chatId] = welcomeData[chatId] || {};
-  welcomeData[chatId].muted = Array.isArray(welcomeData[chatId].muted) ? welcomeData[chatId].muted : [];
 
-  const mutedList = new Set(welcomeData[chatId].muted);
+  welcomeData[chatId] = welcomeData[chatId] || {};
+  welcomeData[chatId].muted = Array.isArray(welcomeData[chatId].muted)
+    ? welcomeData[chatId].muted
+    : [];
+
+  // Convierte formatos viejos JID a solo números
+  const mutedList = welcomeData[chatId].muted
+    .map(x => DIGITS(x))
+    .filter(Boolean);
+
+  const mutedSet = new Set(mutedList);
+
   const nuevosLines = [];
-  const yaLines     = [];
-  const mentionSet  = new Set(); // menciones reales
+  const yaLines = [];
+  const protectedLines = [];
+  const mentionSet = new Set();
 
   for (const anyJid of rawTargets) {
-    const { realJid, lidJid, number } = await resolveTarget(conn, chatId, anyJid);
+    const target = await resolveTarget(conn, chatId, anyJid);
 
-    // No mutear owners
-    if ((typeof global.isOwner === "function") && global.isOwner(realJid || anyJid)) continue;
+    if (!target.numbersToSave.length) continue;
 
-    // Guardamos las 3 formas para robustez: realJid, lidJid y solo número
-    const forms = new Set([realJid, lidJid, number].filter(Boolean));
+    const showNumber = target.baseNumber || target.lidNumber || DIGITS(anyJid);
 
-    // ¿Alguna de las formas ya está en la lista?
-    const yaEsta = [...forms].some(f => mutedList.has(f));
-
-    if (yaEsta) {
-      yaLines.push(`@${number}`);
-    } else {
-      forms.forEach(f => mutedList.add(f));
-      nuevosLines.push(`@${number}`);
+    if (isOwnerTarget(target)) {
+      protectedLines.push(`@${showNumber}`);
+      continue;
     }
 
-    if (realJid) mentionSet.add(realJid);
-    else if (number) mentionSet.add(`${number}@s.whatsapp.net`);
+    const yaEsta = target.numbersToSave.some(n => mutedSet.has(n));
+
+    if (yaEsta) {
+      yaLines.push(`@${showNumber}`);
+    } else {
+      target.numbersToSave.forEach(n => mutedSet.add(n));
+      nuevosLines.push(`@${showNumber}`);
+    }
+
+    if (target.realJid) mentionSet.add(target.realJid);
+    else if (target.lidJid) mentionSet.add(target.lidJid);
+    else if (target.baseNumber) mentionSet.add(`${target.baseNumber}@s.whatsapp.net`);
   }
 
-  // Persistir
-  welcomeData[chatId].muted = [...mutedList];
+  welcomeData[chatId].muted = [...mutedSet];
   fs.writeFileSync(welcomePath, JSON.stringify(welcomeData, null, 2));
 
-  // Respuesta
   let texto = "";
+
   if (nuevosLines.length) {
     texto += `🔇 *Usuarios muteados correctamente:*\n${nuevosLines.map((u, i) => `${i + 1}. ${u}`).join("\n")}\n\n`;
   }
-  if (yaLines.length) {
-    texto += `⚠️ *Ya estaban muteados:*\n${yaLines.map((u, i) => `${i + 1}. ${u}`).join("\n")}`;
-  }
-  if (!texto) texto = "ℹ️ *No se realizaron cambios.*";
 
-  await conn.sendMessage(chatId, {
+  if (yaLines.length) {
+    texto += `⚠️ *Ya estaban muteados:*\n${yaLines.map((u, i) => `${i + 1}. ${u}`).join("\n")}\n\n`;
+  }
+
+  if (protectedLines.length) {
+    texto += `🛡️ *No se pueden mutear owners:*\n${protectedLines.map((u, i) => `${i + 1}. ${u}`).join("\n")}\n\n`;
+  }
+
+  if (!texto.trim()) texto = "ℹ️ *No se realizaron cambios.*";
+
+  return conn.sendMessage(chatId, {
     text: texto.trim(),
     mentions: [...mentionSet]
   }, { quoted: msg });
