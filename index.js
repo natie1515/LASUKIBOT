@@ -1158,716 +1158,146 @@ try {
 }
 // === ✅ FIN CONTEO DE MENSAJES EN setwelcome.json PN / LID ===
   
-// === ⛔ INICIO GUARDADO ANTIDELETE (carpeta + activos.db + antidelete.db) ===
+// === ⛔ INICIO GUARDADO ANTIDELETE (con activos.db y antidelete.db) ===
 try {
-  const fs = require("fs");
-  const path = require("path");
-  const crypto = require("crypto");
-
-  const { getConfig, getAntideleteDB, saveAntideleteDB } = requireFromRoot("db");
-
-  const chatId = m?.key?.remoteJid || "";
   const isGroup = chatId.endsWith("@g.us");
 
-  const antideleteGroupActive = isGroup ? String(await getConfig(chatId, "antidelete")) === "1" : false;
-  const antideletePrivActive = !isGroup ? String(await getConfig("global", "antideletepri")) === "1" : false;
+  const { getConfig, getAntideleteDB, saveAntideleteDB } = requireFromRoot("db");
+  const antideleteGroupActive = isGroup ? await getConfig(chatId, "antidelete") == 1 : false;
+  const antideletePrivActive = !isGroup ? await getConfig("global", "antideletepri") == 1 : false;
 
   if (antideleteGroupActive || antideletePrivActive) {
-    const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
-    const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
+    const idMsg = m.key.id;
+    const botNumber = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    const senderId = m.key.participant || (m.key.fromMe ? botNumber : m.key.remoteJid);
+    const type = Object.keys(m.message || {})[0];
+    const content = m.message[type];
 
-    const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
-    const isLid = (j) => typeof j === "string" && j.endsWith("@lid");
+    // ❌ No guardar si es view once
+    if (type === "viewOnceMessageV2") return;
 
-    const addZero = (n) => {
-      const clean = DIGITS(n);
-      if (!clean) return "";
-      return clean.endsWith("0") ? clean : clean + "0";
+    // ❌ No guardar si supera 10MB
+    if (
+      ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"].includes(type) &&
+      content.fileLength > 10 * 1024 * 1024
+    ) return;
+
+    // Objeto base
+    const guardado = {
+      chatId,
+      sender: senderId,
+      type,
+      timestamp: Date.now()
     };
 
-    const cleanUserJid = (jid) => {
-      const n = JID_NUM(jid);
-      return n ? `${n}@s.whatsapp.net` : null;
-    };
-
-    const cleanLidJid = (jid) => {
-      const n = JID_NUM(jid);
-      return n ? `${n}@lid` : null;
-    };
-
-    const unwrapMessage = (msgNode) => {
-      let node = msgNode || {};
-      let viewOnce = false;
-
-      while (
-        node?.viewOnceMessage?.message ||
-        node?.viewOnceMessageV2?.message ||
-        node?.viewOnceMessageV2Extension?.message ||
-        node?.ephemeralMessage?.message
-      ) {
-        if (
-          node?.viewOnceMessage?.message ||
-          node?.viewOnceMessageV2?.message ||
-          node?.viewOnceMessageV2Extension?.message
-        ) {
-          viewOnce = true;
-        }
-
-        node =
-          node.viewOnceMessage?.message ||
-          node.viewOnceMessageV2?.message ||
-          node.viewOnceMessageV2Extension?.message ||
-          node.ephemeralMessage?.message ||
-          {};
+    // Función para guardar multimedia en base64
+    const saveBase64 = async (mediaType, data) => {
+      const stream = await downloadContentFromMessage(data, mediaType);
+      let buffer = Buffer.alloc(0);
+      for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
       }
-
-      return { message: node, viewOnce };
+      guardado.media = buffer.toString("base64");
+      guardado.mimetype = data.mimetype;
     };
 
-    const getWA = () => {
-      if (sock?.wa && typeof sock.wa.downloadContentFromMessage === "function") return sock.wa;
-      if (global.wa && typeof global.wa.downloadContentFromMessage === "function") return global.wa;
-      if (typeof downloadContentFromMessage === "function") return { downloadContentFromMessage };
-      return null;
-    };
-
-    const mimeToExt = (mime, fallback = "bin") => {
-      mime = String(mime || "");
-      if (!mime) return fallback;
-
-      const base = mime.split(";")[0];
-      const sub = base.split("/")[1];
-
-      if (!sub) return fallback;
-      if (sub.includes("jpeg")) return "jpg";
-      if (sub.includes("mpeg")) return "mp3";
-      if (sub.includes("webp")) return "webp";
-      if (sub.includes("quicktime")) return "mov";
-      if (sub.includes("x-matroska")) return "mkv";
-
-      return sub.replace(/^x-/, "") || fallback;
-    };
-
-    const safeFolder = (s = "") => {
-      return String(s || "unknown")
-        .replace(/[^a-zA-Z0-9@._-]/g, "_")
-        .slice(0, 100) || "unknown";
-    };
-
-    const getFileLength = (v) => {
-      try {
-        if (!v) return 0;
-        if (typeof v === "number") return v;
-        if (typeof v === "string") return Number(v) || 0;
-        if (typeof v.toNumber === "function") return v.toNumber();
-        if (typeof v.low === "number") return v.low;
-        return Number(v) || 0;
-      } catch {
-        return 0;
-      }
-    };
-
-    async function resolveSenderInfo(senderRaw) {
-      senderRaw = String(senderRaw || "");
-
-      let realJid = null;
-      let lidJid = null;
-
-      const pnFields = [
-        m?.realJid,
-        m?.key?.senderPn,
-        m?.key?.participantPn,
-        m?.key?.senderAlt,
-        m?.key?.participantAlt,
-        senderRaw
-      ].filter(Boolean);
-
-      for (const jid of pnFields) {
-        if (isUser(jid)) {
-          realJid = cleanUserJid(jid);
-          break;
-        }
-      }
-
-      const lidFields = [
-        m?.realLid,
-        m?.realJid,
-        m?.key?.senderLid,
-        m?.key?.participantLid,
-        senderRaw
-      ].filter(Boolean);
-
-      for (const jid of lidFields) {
-        if (isLid(jid)) {
-          lidJid = cleanLidJid(jid);
-          break;
-        }
-      }
-
-      try {
-        if (global.lidMap instanceof Map) {
-          if (lidJid && !realJid) {
-            const pn = global.lidMap.get(lidJid);
-            if (isUser(pn)) realJid = cleanUserJid(pn);
-          }
-
-          if (realJid && !lidJid) {
-            const lid = global.lidMap.get(realJid);
-            if (isLid(lid)) lidJid = cleanLidJid(lid);
-          }
-        }
-      } catch {}
-
-      try {
-        if (lidJid && !realJid) {
-          const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
-          if (isUser(pn)) {
-            realJid = cleanUserJid(pn);
-
-            if (global.lidMap instanceof Map) {
-              global.lidMap.set(lidJid, realJid);
-              global.lidMap.set(realJid, lidJid);
-            }
-          }
-        }
-      } catch {}
-
-      try {
-        if (realJid && !lidJid) {
-          const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(realJid);
-          if (isLid(lid)) {
-            lidJid = cleanLidJid(lid);
-
-            if (global.lidMap instanceof Map) {
-              global.lidMap.set(realJid, lidJid);
-              global.lidMap.set(lidJid, realJid);
-            }
-          }
-        }
-      } catch {}
-
-      const baseNumber = realJid ? JID_NUM(realJid) : "";
-      const zeroNumber = baseNumber ? addZero(baseNumber) : "";
-      const lidNumber = lidJid ? JID_NUM(lidJid) : "";
-      const rawNumber = JID_NUM(senderRaw);
-      const realNumber = m?.realNumber ? DIGITS(m.realNumber) : "";
-
-      const numbers = [];
-
-      if (baseNumber) numbers.push(baseNumber);
-      if (zeroNumber && zeroNumber !== baseNumber) numbers.push(zeroNumber);
-      if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) numbers.push(lidNumber);
-      if (!numbers.length && realNumber) numbers.push(realNumber);
-      if (!numbers.length && rawNumber) numbers.push(rawNumber);
-
-      const mentionJid = senderRaw || lidJid || realJid;
-      const mentionTag = JID_NUM(mentionJid) || baseNumber || lidNumber || rawNumber || realNumber;
-
-      return {
-        senderRaw,
-        realJid,
-        lidJid,
-        baseNumber,
-        zeroNumber,
-        lidNumber,
-        rawNumber,
-        realNumber,
-        numbers: [...new Set(numbers.filter(Boolean))],
-        mentionJid,
-        mentionTag
-      };
+    // ✅ CORREGIDO: Usamos await para asegurarnos que se termine de guardar
+    if (["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"].includes(type)) {
+      const mediaType = type.replace("Message", "");
+      await saveBase64(mediaType, content); // 👈 ESTE await es clave
     }
 
-    if (!m?.message || m.message.protocolMessage) {
-      // No guardar eventos de eliminación ni mensajes vacíos.
-    } else {
-      const idMsg = m.key.id;
-      const botNumber = JID_NUM(sock.user?.id || "");
-      const botJid = botNumber ? `${botNumber}@s.whatsapp.net` : "";
-
-      const senderId = m.key.participant || (m.key.fromMe ? botJid : m.key.remoteJid);
-      const senderInfo = await resolveSenderInfo(senderId);
-
-      const unwrapped = unwrapMessage(m.message);
-      const cleanMessage = unwrapped.message || {};
-
-      const type = Object.keys(cleanMessage || {})[0];
-      const content = type ? cleanMessage[type] : null;
-
-      if (!type || content == null) {
-        // No guardar mensaje raro.
-      } else {
-        const guardado = {
-          schema: 2,
-          chatId,
-          sender: senderInfo.mentionJid,
-          senderRaw: senderInfo.senderRaw,
-          senderRealJid: senderInfo.realJid,
-          senderLidJid: senderInfo.lidJid,
-          senderNumber: senderInfo.baseNumber || senderInfo.lidNumber || senderInfo.rawNumber || senderInfo.realNumber,
-          senderNumbers: senderInfo.numbers,
-          mentionJid: senderInfo.mentionJid,
-          mentionTag: senderInfo.mentionTag,
-          type,
-          timestamp: Date.now(),
-          fromMe: !!m.key.fromMe,
-          isViewOnce: !!unwrapped.viewOnce
-        };
-
-        const mediaTypes = [
-          "imageMessage",
-          "videoMessage",
-          "audioMessage",
-          "documentMessage",
-          "stickerMessage"
-        ];
-
-        let shouldSave = false;
-
-        if (type === "conversation") {
-          guardado.text = String(content || "");
-          shouldSave = !!guardado.text;
-        }
-
-        if (type === "extendedTextMessage") {
-          guardado.text = String(content?.text || "");
-          shouldSave = !!guardado.text;
-        }
-
-        if (mediaTypes.includes(type)) {
-          const fileLength = getFileLength(content?.fileLength);
-
-          if (fileLength && fileLength > 10 * 1024 * 1024) {
-            shouldSave = false;
-          } else {
-            const WA = getWA();
-            if (!WA) throw new Error("No está disponible downloadContentFromMessage");
-
-            const mediaType = type.replace("Message", "");
-            const stream = await WA.downloadContentFromMessage(content, mediaType);
-
-            let buffer = Buffer.alloc(0);
-            for await (const chunk of stream) {
-              buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            if (!buffer.length) throw new Error("Descarga vacía");
-            if (buffer.length > 10 * 1024 * 1024) throw new Error("Archivo supera 10MB");
-
-            const mime =
-              content?.mimetype ||
-              (type === "stickerMessage" ? "image/webp" : "") ||
-              "application/octet-stream";
-
-            let ext = "bin";
-
-            if (type === "documentMessage" && typeof content?.fileName === "string") {
-              const dot = content.fileName.lastIndexOf(".");
-              ext = dot !== -1 ? content.fileName.slice(dot + 1).toLowerCase() : mimeToExt(mime, "bin");
-            } else {
-              ext = mimeToExt(
-                mime,
-                type === "imageMessage" ? "jpg" :
-                type === "videoMessage" ? "mp4" :
-                type === "audioMessage" ? "mp3" :
-                type === "stickerMessage" ? "webp" :
-                "bin"
-              );
-            }
-
-            const root = path.resolve("./antidelete_media");
-            const scope = isGroup ? "g" : "p";
-            const chatFolder = safeFolder(chatId);
-            const senderFolder = safeFolder(senderInfo.numbers[0] || senderInfo.mentionTag || "unknown");
-            const msgFolder = safeFolder(idMsg);
-
-            const mediaDir = path.join(root, scope, chatFolder, senderFolder, msgFolder);
-            if (!fs.existsSync(mediaDir)) {
-              fs.mkdirSync(mediaDir, { recursive: true });
-            }
-
-            const fileName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${ext}`;
-            const filePath = path.join(mediaDir, fileName);
-            const relativePath = path.relative(process.cwd(), filePath).split(path.sep).join("/");
-
-            fs.writeFileSync(filePath, buffer);
-
-            guardado.mediaType = mediaType;
-            guardado.path = relativePath;
-            guardado.fileName = content?.fileName || fileName;
-            guardado.mime = mime;
-            guardado.mimetype = mime;
-            guardado.ext = ext;
-            guardado.size = buffer.length;
-            guardado.ptt = !!content?.ptt;
-            guardado.seconds = content?.seconds || null;
-            guardado.caption = content?.caption || "";
-
-            shouldSave = true;
-          }
-        }
-
-        if (shouldSave) {
-          let db = getAntideleteDB();
-
-          if (!db || typeof db !== "object") db = {};
-          if (!db.g || typeof db.g !== "object") db.g = {};
-          if (!db.p || typeof db.p !== "object") db.p = {};
-
-          const scope = isGroup ? "g" : "p";
-          db[scope][idMsg] = guardado;
-
-          saveAntideleteDB(db);
-        }
-      }
+    // Texto
+    if (type === "conversation" || type === "extendedTextMessage") {
+      guardado.text = m.message.conversation || m.message.extendedTextMessage?.text || "";
     }
+
+    // Guardar en antidelete.db
+    const db = getAntideleteDB();
+    const scope = isGroup ? "g" : "p";
+    db[scope][idMsg] = guardado;
+    saveAntideleteDB(db);
   }
 } catch (e) {
   console.error("❌ Error en lógica ANTIDELETE:", e);
 }
 // === ✅ FIN GUARDADO ANTIDELETE ===
-
-  // === INICIO DETECCIÓN DE MENSAJE ELIMINADO ===
-if (m?.message?.protocolMessage?.type === 0) {
+// === INICIO DETECCIÓN DE MENSAJE ELIMINADO ===
+if (m.message?.protocolMessage?.type === 0) {
   try {
-    const fs = require("fs");
-    const path = require("path");
-
-    const { getConfig, getAntideleteDB } = requireFromRoot("db");
-
-    const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
-    const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
-
-    const isUser = (j) => typeof j === "string" && j.endsWith("@s.whatsapp.net");
-    const isLid = (j) => typeof j === "string" && j.endsWith("@lid");
-
-    const addZero = (n) => {
-      const clean = DIGITS(n);
-      if (!clean) return "";
-      return clean.endsWith("0") ? clean : clean + "0";
-    };
-
-    const cleanUserJid = (jid) => {
-      const n = JID_NUM(jid);
-      return n ? `${n}@s.whatsapp.net` : null;
-    };
-
-    const cleanLidJid = (jid) => {
-      const n = JID_NUM(jid);
-      return n ? `${n}@lid` : null;
-    };
-
-    async function resolveDeleteUser(anyJid, saved = {}) {
-      const raw = String(anyJid || "");
-
-      let realJid = null;
-      let lidJid = null;
-
-      const ids = [
-        raw,
-        saved.sender,
-        saved.senderRaw,
-        saved.senderRealJid,
-        saved.senderLidJid,
-        saved.mentionJid
-      ].filter(Boolean);
-
-      for (const jid of ids) {
-        if (isUser(jid)) realJid = cleanUserJid(jid);
-        if (isLid(jid)) lidJid = cleanLidJid(jid);
-      }
-
-      try {
-        if (global.lidMap instanceof Map) {
-          if (lidJid && !realJid) {
-            const pn = global.lidMap.get(lidJid);
-            if (isUser(pn)) realJid = cleanUserJid(pn);
-          }
-
-          if (realJid && !lidJid) {
-            const lid = global.lidMap.get(realJid);
-            if (isLid(lid)) lidJid = cleanLidJid(lid);
-          }
-        }
-      } catch {}
-
-      try {
-        if (lidJid && !realJid) {
-          const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
-          if (isUser(pn)) {
-            realJid = cleanUserJid(pn);
-
-            if (global.lidMap instanceof Map) {
-              global.lidMap.set(lidJid, realJid);
-              global.lidMap.set(realJid, lidJid);
-            }
-          }
-        }
-      } catch {}
-
-      try {
-        if (realJid && !lidJid) {
-          const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(realJid);
-          if (isLid(lid)) {
-            lidJid = cleanLidJid(lid);
-
-            if (global.lidMap instanceof Map) {
-              global.lidMap.set(realJid, lidJid);
-              global.lidMap.set(lidJid, realJid);
-            }
-          }
-        }
-      } catch {}
-
-      const baseNumber = realJid ? JID_NUM(realJid) : "";
-      const zeroNumber = baseNumber ? addZero(baseNumber) : "";
-      const lidNumber = lidJid ? JID_NUM(lidJid) : "";
-      const rawNumber = JID_NUM(raw);
-
-      const numbers = [];
-
-      if (Array.isArray(saved.senderNumbers)) {
-        for (const n of saved.senderNumbers) {
-          const d = DIGITS(n);
-          if (d) numbers.push(d);
-        }
-      }
-
-      if (saved.senderNumber) numbers.push(DIGITS(saved.senderNumber));
-      if (baseNumber) numbers.push(baseNumber);
-      if (zeroNumber && zeroNumber !== baseNumber) numbers.push(zeroNumber);
-      if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) numbers.push(lidNumber);
-      if (!numbers.length && rawNumber) numbers.push(rawNumber);
-
-      const mentionJid = saved.mentionJid || raw || lidJid || realJid;
-      const mentionTag =
-        JID_NUM(mentionJid) ||
-        saved.mentionTag ||
-        baseNumber ||
-        lidNumber ||
-        rawNumber ||
-        DIGITS(saved.senderNumber);
-
-      return {
-        raw,
-        realJid,
-        lidJid,
-        baseNumber,
-        zeroNumber,
-        lidNumber,
-        rawNumber,
-        numbers: [...new Set(numbers.filter(Boolean))],
-        mentionJid,
-        mentionTag
-      };
-    }
-
-    async function isAdminByNumbers(targetChatId, numbers = []) {
-      try {
-        const checkNums = new Set(numbers.map(DIGITS).filter(Boolean));
-        if (!checkNums.size) return false;
-
-        const meta = await sock.groupMetadata(targetChatId);
-        const participants = Array.isArray(meta?.participants) ? meta.participants : [];
-
-        const adminNums = new Set();
-
-        for (const p of participants) {
-          const admin = p?.admin === "admin" || p?.admin === "superadmin";
-          if (!admin) continue;
-
-          const ids = [
-            p?.id,
-            p?.jid,
-            p?.lid,
-            p?.pn,
-            p?.phoneNumber,
-            p?.jidAlt
-          ].filter(x => typeof x === "string");
-
-          try {
-            if (typeof sock.lidParser === "function") {
-              const parsed = sock.lidParser([p]);
-              if (parsed?.[0]?.id) ids.push(parsed[0].id);
-              if (parsed?.[0]?.jid) ids.push(parsed[0].jid);
-            }
-          } catch {}
-
-          for (const id of ids) {
-            const d = JID_NUM(id);
-            if (d) {
-              adminNums.add(d);
-
-              const dz = addZero(d);
-              if (dz && dz !== d) adminNums.add(dz);
-            }
-
-            if (isLid(id)) {
-              try {
-                if (global.lidMap instanceof Map) {
-                  const mapped = global.lidMap.get(cleanLidJid(id));
-                  const md = JID_NUM(mapped);
-                  if (md) {
-                    adminNums.add(md);
-
-                    const md0 = addZero(md);
-                    if (md0 && md0 !== md) adminNums.add(md0);
-                  }
-                }
-              } catch {}
-            }
-          }
-        }
-
-        return [...checkNums].some(n => adminNums.has(n));
-      } catch {
-        return false;
-      }
-    }
-
-    const chatId = m.key.remoteJid;
-    const isGroup = chatId.endsWith("@g.us");
-
-    const deletedId = m.message.protocolMessage.key?.id;
-    if (!deletedId) return;
+    const deletedId = m.message.protocolMessage.key.id;
+    const whoDeleted = m.message.protocolMessage.key.participant || m.key.participant || m.key.remoteJid;
+    const isGroup = chatId.endsWith('@g.us');
+    const senderNumber = (whoDeleted || '').replace(/[^0-9]/g, '');
+    const mentionTag = [`${senderNumber}@s.whatsapp.net`];
 
     const antideleteEnabled = isGroup
-      ? String(await getConfig(chatId, "antidelete")) === "1"
-      : String(await getConfig("global", "antideletepri")) === "1";
+  ? (await getConfig(chatId, "antidelete")) === "1"
+  : (await getConfig("global", "antideletepri")) === "1";
 
     if (!antideleteEnabled) return;
 
-    const db = getAntideleteDB();
-    const scope = isGroup ? "g" : "p";
-    const data = db?.[scope] || {};
-    const deletedData = data[deletedId];
+    const fs = require("fs");
+    const dbPath = "./antidelete.db";
 
+    if (!fs.existsSync(dbPath)) return;
+
+    const db = JSON.parse(fs.readFileSync(dbPath));
+    const tipo = isGroup ? "g" : "p";
+    const data = db[tipo] || {};
+    const deletedData = data[deletedId];
     if (!deletedData) return;
 
-    const whoDeleted =
-      m.message.protocolMessage.key?.participant ||
-      m.key.participant ||
-      m.key.remoteJid;
-
-    const savedUser = await resolveDeleteUser(
-      deletedData.mentionJid || deletedData.sender || whoDeleted,
-      deletedData
-    );
+    const senderClean = (deletedData.sender || '').replace(/[^0-9]/g, '');
+    if (senderClean !== senderNumber) return;
 
     if (isGroup) {
-      const isAdmin = await isAdminByNumbers(chatId, savedUser.numbers);
-      if (isAdmin) return;
-    }
-
-    const senderNumber = savedUser.mentionTag || savedUser.numbers[0] || "usuario";
-    const mentionJid = savedUser.mentionJid || `${senderNumber}@s.whatsapp.net`;
-    const mentions = mentionJid ? [mentionJid] : [];
-
-    const type = deletedData.type || "";
-    const mediaType = deletedData.mediaType || String(type).replace("Message", "");
-    const mimetype = deletedData.mimetype || deletedData.mime || "application/octet-stream";
-
-    let buffer = null;
-
-    if (deletedData.path) {
       try {
-        const filePath = path.resolve(deletedData.path);
-        if (fs.existsSync(filePath)) {
-          buffer = fs.readFileSync(filePath);
-        }
-      } catch {}
-    }
-
-    if (!buffer && deletedData.media) {
-      try {
-        buffer = Buffer.from(deletedData.media, "base64");
-      } catch {}
-    }
-
-    const label = deletedData.isViewOnce
-      ? "mensaje de una sola vista eliminado"
-      : "mensaje eliminado";
-
-    if (buffer && buffer.length) {
-      if (type === "stickerMessage" || mediaType === "sticker") {
-        const sent = await sock.sendMessage(chatId, {
-          sticker: buffer
-        }, { quoted: m });
-
-        await sock.sendMessage(chatId, {
-          text: `📌 Sticker eliminado por @${senderNumber}`,
-          mentions
-        }, { quoted: sent });
-
-        return;
-      }
-
-      if (type === "audioMessage" || mediaType === "audio") {
-        const sent = await sock.sendMessage(chatId, {
-          audio: buffer,
-          mimetype,
-          ptt: deletedData.ptt ?? false
-        }, { quoted: m });
-
-        await sock.sendMessage(chatId, {
-          text: `🎧 Audio eliminado por @${senderNumber}`,
-          mentions
-        }, { quoted: sent });
-
-        return;
-      }
-
-      if (type === "imageMessage" || mediaType === "image") {
-        await sock.sendMessage(chatId, {
-          image: buffer,
-          mimetype,
-          caption: `📦 ${label} por @${senderNumber}`,
-          mentions
-        }, { quoted: m });
-
-        return;
-      }
-
-      if (type === "videoMessage" || mediaType === "video") {
-        await sock.sendMessage(chatId, {
-          video: buffer,
-          mimetype,
-          caption: `📦 ${label} por @${senderNumber}`,
-          mentions
-        }, { quoted: m });
-
-        return;
-      }
-
-      if (type === "documentMessage" || mediaType === "document") {
-        await sock.sendMessage(chatId, {
-          document: buffer,
-          mimetype,
-          fileName: deletedData.fileName || `archivo.${deletedData.ext || "bin"}`,
-          caption: `📦 Documento eliminado por @${senderNumber}`,
-          mentions
-        }, { quoted: m });
-
+        const meta = await sock.groupMetadata(chatId);
+        const isAdmin = meta.participants.find(p => p.id === `${senderNumber}@s.whatsapp.net`)?.admin;
+        if (isAdmin) return;
+      } catch (e) {
+        console.error("❌ Error leyendo metadata:", e);
         return;
       }
     }
 
-    if (deletedData.text) {
+    const type = deletedData.type;
+    const mimetype = deletedData.mimetype || 'application/octet-stream';
+    const buffer = deletedData.media ? Buffer.from(deletedData.media, "base64") : null;
+
+    if (buffer) {
+      const sendOpts = {
+        [type.replace("Message", "")]: buffer,
+        mimetype,
+        quoted: m
+      };
+
+      if (type === "stickerMessage") {
+        const sent = await sock.sendMessage(chatId, sendOpts);
+        await sock.sendMessage(chatId, {
+          text: `📌 El sticker fue eliminado por @${senderNumber}`,
+          mentions: mentionTag,
+          quoted: sent
+        });
+      } else if (type === "audioMessage") {
+        const sent = await sock.sendMessage(chatId, sendOpts);
+        await sock.sendMessage(chatId, {
+          text: `🎧 El audio fue eliminado por @${senderNumber}`,
+          mentions: mentionTag,
+          quoted: sent
+        });
+      } else {
+        sendOpts.caption = `📦 Mensaje eliminado por @${senderNumber}`;
+        sendOpts.mentions = mentionTag;
+        await sock.sendMessage(chatId, sendOpts, { quoted: m });
+      }
+
+    } else if (deletedData.text) {
       await sock.sendMessage(chatId, {
-        text: `📝 *Mensaje eliminado:*\n${deletedData.text}\n\n👤 *Usuario:* @${senderNumber}`,
-        mentions
+        text: `📝 *Mensaje eliminado:* ${deletedData.text}\n👤 *Usuario:* @${senderNumber}`,
+        mentions: mentionTag
       }, { quoted: m });
-
-      return;
-    }
-
-    if (deletedData.caption) {
-      await sock.sendMessage(chatId, {
-        text: `📝 *Caption eliminado:*\n${deletedData.caption}\n\n👤 *Usuario:* @${senderNumber}`,
-        mentions
-      }, { quoted: m });
-
-      return;
     }
 
   } catch (err) {
@@ -1875,8 +1305,6 @@ if (m?.message?.protocolMessage?.type === 0) {
   }
 }
 // === FIN DETECCIÓN DE MENSAJE ELIMINADO ===
-
-
 
 // 🔗 LÓGICA ANTILINK desde activos.db compatible PN / LID
 try {
