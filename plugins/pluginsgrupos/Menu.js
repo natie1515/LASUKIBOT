@@ -120,6 +120,9 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}mixemoji / aniemoji
 │๛ ${pref}addco / delco
 │๛ ${pref}sks
+│๛ ${pref}guarsk
+│๛ ${pref}versk
+│๛ ${pref}sendsk
 ╰─────◆
 
 𖠁𝙃𝙀𝙍𝙍𝘼𝙈𝙄𝙀𝙉𝙏𝘼𝙎𖠁
