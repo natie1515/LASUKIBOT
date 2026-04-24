@@ -39,11 +39,10 @@
 - 🌐 Compatible con VPS  
 
 ---
-
 ## 🌐 Hosting oficial
 
 <p align="center">
-  <img src="[https://cdn.russellxz.click/d38e1ec1.jpg](https://cdn.russellxz.click/d38e1ec1.jpg)" alt="Hosting Logo" width="400"/>
+  <img src="https://cdn.russellxz.click/d38e1ec1.jpg" alt="Hosting Logo" width="400">
 </p>
 
 > 🛰️ *La Suki Bot está alojada en:*  
