@@ -74,6 +74,8 @@ const handler = async (msg, { conn }) => {
 
 🛡️ *ADMINISTRACIÓN*
 ╭─────◆
+│๛ ${pref}promote
+│๛ ${pref}demote
 │๛ ${pref}daradmins
 │๛ ${pref}quitaradmins
 │๛ ${pref}kick
