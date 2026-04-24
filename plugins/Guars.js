@@ -72,7 +72,7 @@ const handler = async (msg, { conn, args, wa }) => {
   if (!packName || !/[a-z0-9]/i.test(packName)) {
     try { await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
-      text: `❌ *Error:* Debes indicar un *nombre* para el paquete.\nEjemplo: *${pref}guars memes*`,
+      text: `❌ *Error:* Debes indicar un *nombre* para el paquete.\nEjemplo: *${pref}guarsk memes*`,
     }, { quoted: msg });
   }
 
@@ -206,5 +206,5 @@ const handler = async (msg, { conn, args, wa }) => {
   return conn.sendMessage(chatId, { text: texto }, { quoted: msg });
 };
 
-handler.command = ["guars"];
+handler.command = ["guarsk"];
 module.exports = handler;
