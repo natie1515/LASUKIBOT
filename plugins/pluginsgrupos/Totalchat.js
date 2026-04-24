@@ -1,3 +1,4 @@
+// plugins/totalchat.js
 const fs = require("fs");
 const path = require("path");
 
@@ -116,16 +117,23 @@ async function resolveIdentity(conn, chatId, source) {
   if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) keys.push(lidNumber);
   if (!keys.length && rawNumber) keys.push(rawNumber);
 
+  // CLAVE PARA QUE LA MENCIÓN SALGA AZUL:
+  // En grupos LID, normalmente se debe mencionar con p.id, aunque el número real exista.
+  const mentionJid = raw || lidJid || realJid;
+  const mentionTag = JID_NUM(mentionJid);
+
   return {
     raw,
     realJid,
     lidJid,
     baseNumber,
+    zeroNumber,
     lidNumber,
     rawNumber,
     keys: [...new Set(keys)],
-    mentionJid: raw || realJid || lidJid,
-    showNumber: baseNumber || lidNumber || rawNumber || "usuario"
+    mentionJid,
+    mentionTag,
+    showNumber: mentionTag || baseNumber || lidNumber || rawNumber || "usuario"
   };
 }
 
@@ -157,7 +165,13 @@ const handler = async (msg, { conn }) => {
     }, { quoted: msg });
   }
 
-  const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  let data = {};
+  try {
+    data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch {
+    data = {};
+  }
+
   const chatData = data[chatId];
 
   if (!chatData?.chatCount || Object.keys(chatData.chatCount).length === 0) {
@@ -179,8 +193,8 @@ const handler = async (msg, { conn }) => {
     const count = getCountForIdentity(normalizedCount, identity);
 
     rows.push({
-      jid: identity.mentionJid,
-      number: identity.showNumber,
+      mentionJid: identity.mentionJid,
+      mentionTag: identity.mentionTag,
       count
     });
 
@@ -197,7 +211,7 @@ const handler = async (msg, { conn }) => {
   const ranking = rows
     .map((u, i) => {
       const icon = medallas[i] || `${i + 1}.`;
-      return `${icon} @${u.number} — *${u.count}* mensajes`;
+      return `${icon} @${u.mentionTag} — *${u.count}* mensajes`;
     })
     .join("\n");
 
@@ -210,9 +224,9 @@ const handler = async (msg, { conn }) => {
 
 ${ranking}`;
 
-  await conn.sendMessage(chatId, {
+  return conn.sendMessage(chatId, {
     text: texto,
-    mentions
+    mentions: [...new Set(mentions)]
   }, { quoted: msg });
 };
 
