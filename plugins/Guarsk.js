@@ -201,7 +201,7 @@ const handler = async (msg, { conn, args, wa }) => {
   texto += `• Stickers guardados ahora: *${guardados}*\n`;
   if (errores > 0) texto += `• Errores: *${errores}*\n`;
   texto += `• Total en el paquete: *${total}*\n\n`;
-  texto += `📤 Envíalo con: *${pref}sends ${packName}*`;
+  texto += `📤 Envíalo con: *${pref}sendsk ${packName}*`;
 
   return conn.sendMessage(chatId, { text: texto }, { quoted: msg });
 };
