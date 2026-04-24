@@ -50,6 +50,7 @@ const handler = async (msg, { conn }) => {
 
 🛠️ *CONFIGURACIONES*
 ╭─────◆
+│๛ ${pref}reacion off / on
 │๛ ${pref}infogrupo
 │๛ ${pref}setinfo
 │๛ ${pref}setname
