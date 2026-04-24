@@ -1,3 +1,4 @@
+// plugins/fantasmas.js
 const fs = require("fs");
 const path = require("path");
 
@@ -40,51 +41,6 @@ function normalizeChatCount(chatCount = {}) {
   }
 
   return out;
-}
-
-function safeIsOwner(identity) {
-  try {
-    if (!identity) return false;
-
-    const values = [
-      identity.raw,
-      identity.realJid,
-      identity.lidJid,
-      identity.baseNumber,
-      identity.zeroNumber,
-      identity.lidNumber,
-      identity.rawNumber,
-      ...identity.keys
-    ].filter(Boolean);
-
-    if (typeof global.isOwner === "function") {
-      for (const v of values) {
-        if (global.isOwner(v)) return true;
-      }
-    }
-
-    if (Array.isArray(global.owner)) {
-      const ownerNums = new Set();
-
-      for (const entry of global.owner) {
-        if (Array.isArray(entry)) {
-          for (const x of entry) {
-            const d = JID_NUM(x) || DIGITS(x);
-            if (d) ownerNums.add(d);
-          }
-        } else {
-          const d = JID_NUM(entry) || DIGITS(entry);
-          if (d) ownerNums.add(d);
-        }
-      }
-
-      return values.some(v => ownerNums.has(JID_NUM(v) || DIGITS(v)));
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
 }
 
 async function resolveIdentity(conn, chatId, source) {
@@ -161,6 +117,9 @@ async function resolveIdentity(conn, chatId, source) {
   if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) keys.push(lidNumber);
   if (!keys.length && rawNumber) keys.push(rawNumber);
 
+  const mentionJid = raw || lidJid || realJid;
+  const mentionTag = JID_NUM(mentionJid);
+
   return {
     raw,
     realJid,
@@ -170,9 +129,55 @@ async function resolveIdentity(conn, chatId, source) {
     lidNumber,
     rawNumber,
     keys: [...new Set(keys)],
-    mentionJid: raw || realJid || lidJid,
-    showNumber: baseNumber || lidNumber || rawNumber || "usuario"
+    mentionJid,
+    mentionTag,
+    showNumber: mentionTag || baseNumber || lidNumber || rawNumber || "usuario"
   };
+}
+
+function safeIsOwner(identity) {
+  try {
+    if (!identity) return false;
+
+    const values = [
+      identity.raw,
+      identity.realJid,
+      identity.lidJid,
+      identity.baseNumber,
+      identity.zeroNumber,
+      identity.lidNumber,
+      identity.rawNumber,
+      ...identity.keys
+    ].filter(Boolean);
+
+    if (typeof global.isOwner === "function") {
+      for (const v of values) {
+        if (global.isOwner(v)) return true;
+      }
+    }
+
+    if (Array.isArray(global.owner)) {
+      const ownerNums = new Set();
+
+      for (const entry of global.owner) {
+        if (Array.isArray(entry)) {
+          for (const x of entry) {
+            const d = JID_NUM(x) || DIGITS(x);
+            if (d) ownerNums.add(d);
+          }
+        } else {
+          const d = JID_NUM(entry) || DIGITS(entry);
+          if (d) ownerNums.add(d);
+        }
+      }
+
+      return values.some(v => ownerNums.has(JID_NUM(v) || DIGITS(v)));
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 async function isAdminByIdentity(conn, chatId, identity) {
@@ -265,7 +270,7 @@ const handler = async (msg, { conn, args }) => {
     if (count < limite) {
       fantasmas.push({
         mentionJid: identity.mentionJid,
-        number: identity.showNumber,
+        mentionTag: identity.mentionTag,
         count
       });
 
@@ -289,7 +294,7 @@ No se incluyen admins, owners ni el bot.
   }
 
   const listado = fantasmas
-    .map((u, i) => `│ ${i + 1}. @${u.number} — *${u.count}* mensajes`)
+    .map((u, i) => `│ ${i + 1}. @${u.mentionTag} — *${u.count}* mensajes`)
     .join("\n");
 
   const texto =
@@ -302,9 +307,9 @@ ${listado}
 
 🗑️ Usa *.fankick ${limite}* para eliminar automáticamente a estos inactivos.`;
 
-  await conn.sendMessage(chatId, {
+  return conn.sendMessage(chatId, {
     text: texto,
-    mentions
+    mentions: [...new Set(mentions)]
   }, { quoted: msg });
 };
 
