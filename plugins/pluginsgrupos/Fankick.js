@@ -1,3 +1,4 @@
+// plugins/fankick.js
 const fs = require("fs");
 const path = require("path");
 
@@ -40,51 +41,6 @@ function normalizeChatCount(chatCount = {}) {
   }
 
   return out;
-}
-
-function safeIsOwner(identity) {
-  try {
-    if (!identity) return false;
-
-    const values = [
-      identity.raw,
-      identity.realJid,
-      identity.lidJid,
-      identity.baseNumber,
-      identity.zeroNumber,
-      identity.lidNumber,
-      identity.rawNumber,
-      ...identity.keys
-    ].filter(Boolean);
-
-    if (typeof global.isOwner === "function") {
-      for (const v of values) {
-        if (global.isOwner(v)) return true;
-      }
-    }
-
-    if (Array.isArray(global.owner)) {
-      const ownerNums = new Set();
-
-      for (const entry of global.owner) {
-        if (Array.isArray(entry)) {
-          for (const x of entry) {
-            const d = JID_NUM(x) || DIGITS(x);
-            if (d) ownerNums.add(d);
-          }
-        } else {
-          const d = JID_NUM(entry) || DIGITS(entry);
-          if (d) ownerNums.add(d);
-        }
-      }
-
-      return values.some(v => ownerNums.has(JID_NUM(v) || DIGITS(v)));
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
 }
 
 async function resolveIdentity(conn, chatId, source) {
@@ -161,6 +117,9 @@ async function resolveIdentity(conn, chatId, source) {
   if (lidNumber && lidNumber !== baseNumber && lidNumber !== zeroNumber) keys.push(lidNumber);
   if (!keys.length && rawNumber) keys.push(rawNumber);
 
+  const mentionJid = raw || lidJid || realJid;
+  const mentionTag = JID_NUM(mentionJid);
+
   return {
     raw,
     realJid,
@@ -170,9 +129,55 @@ async function resolveIdentity(conn, chatId, source) {
     lidNumber,
     rawNumber,
     keys: [...new Set(keys)],
-    mentionJid: raw || realJid || lidJid,
-    showNumber: baseNumber || lidNumber || rawNumber || "usuario"
+    mentionJid,
+    mentionTag,
+    showNumber: mentionTag || baseNumber || lidNumber || rawNumber || "usuario"
   };
+}
+
+function safeIsOwner(identity) {
+  try {
+    if (!identity) return false;
+
+    const values = [
+      identity.raw,
+      identity.realJid,
+      identity.lidJid,
+      identity.baseNumber,
+      identity.zeroNumber,
+      identity.lidNumber,
+      identity.rawNumber,
+      ...identity.keys
+    ].filter(Boolean);
+
+    if (typeof global.isOwner === "function") {
+      for (const v of values) {
+        if (global.isOwner(v)) return true;
+      }
+    }
+
+    if (Array.isArray(global.owner)) {
+      const ownerNums = new Set();
+
+      for (const entry of global.owner) {
+        if (Array.isArray(entry)) {
+          for (const x of entry) {
+            const d = JID_NUM(x) || DIGITS(x);
+            if (d) ownerNums.add(d);
+          }
+        } else {
+          const d = JID_NUM(entry) || DIGITS(entry);
+          if (d) ownerNums.add(d);
+        }
+      }
+
+      return values.some(v => ownerNums.has(JID_NUM(v) || DIGITS(v)));
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 async function isAdminByIdentity(conn, chatId, identity) {
@@ -208,8 +213,8 @@ function getCountForIdentity(normalizedCount, identity) {
 async function kickParticipant(conn, chatId, identity) {
   const tryJids = [
     identity.raw,
-    identity.realJid,
-    identity.lidJid
+    identity.lidJid,
+    identity.realJid
   ].filter(Boolean);
 
   for (const jid of [...new Set(tryJids)]) {
@@ -321,7 +326,7 @@ const handler = async (msg, { conn, args }) => {
   }
 
   const lista = kicked
-    .map((item, i) => `${i + 1}. @${item.identity.showNumber} — *${item.count}* mensajes`)
+    .map((item, i) => `${i + 1}. @${item.identity.mentionTag} — *${item.count}* mensajes`)
     .join("\n");
 
   let texto =
@@ -334,9 +339,9 @@ ${lista}`;
     texto += `\n\n⚠️ No pude eliminar a *${failed.length}* usuario(s). Puede que sean admins, ya no estén en el grupo o WhatsApp rechazó el JID.`;
   }
 
-  await conn.sendMessage(chatId, {
+  return conn.sendMessage(chatId, {
     text: texto,
-    mentions
+    mentions: [...new Set(mentions)]
   }, { quoted: msg });
 };
 
