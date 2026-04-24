@@ -16,7 +16,7 @@ const handler = async (msg, { conn }) => {
   // ====== Verificar que exista el archivo ======
   if (!fs.existsSync(PACKS_DB)) {
     return conn.sendMessage(chatId, {
-      text: `📂 *Lista vacía:* No hay paquetes de stickers guardados.\nUsa *${pref}guars <nombre>* respondiendo a un sticker para guardar.`,
+      text: `📂 *Lista vacía:* No hay paquetes de stickers guardados.\nUsa *${pref}guarsk <nombre>* respondiendo a un sticker para guardar.`,
     }, { quoted: msg });
   }
 
@@ -85,8 +85,8 @@ const handler = async (msg, { conn }) => {
   // Footer con info útil
   texto += `━━━━━━━━━━━━━━━\n`;
   texto += `📊 *Total:* ${clavesOrdenadas.length} paquete${clavesOrdenadas.length !== 1 ? "s" : ""} · ${totalStickers} sticker${totalStickers !== 1 ? "s" : ""}\n\n`;
-  texto += `📤 Enviar paquete: *${pref}sends <nombre>*\n`;
-  texto += `🗑️ Eliminar sticker: *${pref}dels <paquete> <número>*`;
+  texto += `📤 Enviar paquete: *${pref}sendsk <nombre>*\n`;
+  texto += `🗑️ Eliminar sticker: *${pref}delsk <paquete> <número>*`;
 
   return conn.sendMessage(chatId, {
     text: texto.trim(),
@@ -94,5 +94,5 @@ const handler = async (msg, { conn }) => {
   }, { quoted: msg });
 };
 
-handler.command = ["vers"];
+handler.command = ["versk"];
 module.exports = handler;
