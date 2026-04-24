@@ -64,7 +64,7 @@ const handler = async (msg, { conn, args, wa }) => {
   if (!quoted) {
     try { await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } }); } catch {}
     return conn.sendMessage(chatId, {
-      text: `❌ *Error:* Debes *responder* a un sticker o a un paquete de stickers con *${pref}guars <nombre>*.`,
+      text: `❌ *Error:* Debes *responder* a un sticker o a un paquete de stickers con *${pref}guarsk <nombre>*.`,
     }, { quoted: msg });
   }
 
