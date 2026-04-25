@@ -173,6 +173,15 @@ let phoneNumber = "";
 
       setupConnection(sock);
 
+      // 🌐 INICIAR API WEB DE LA SUKI BOT
+try {
+  const { startWebServer } = require("./webserver");
+  startWebServer(sock);
+} catch (e) {
+  console.error("❌ Error iniciando API web:", e);
+}
+
+      
       // 🔧 Normaliza participants: si id es @lid y existe .jid (real), reemplaza por el real
       sock.lidParser = function (participants = []) {
         try {
