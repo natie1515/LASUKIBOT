@@ -1,4 +1,5 @@
-// webserver.js
+"use strict";
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -14,10 +15,7 @@ const {
   getAllConfigs
 } = require("./db");
 
-// 🌐 URL CENTRAL DE LA PÁGINA WEB GENERAL DE LA SUKI BOT
 const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
-const SUKI_REGISTER_URL = `${SUKI_PANEL_URL}/api/register-bot`;
-
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 
@@ -42,9 +40,10 @@ const CONFIG_KEYS = new Set([
   "apagado"
 ]);
 
-let AUTO_PUBLIC_IP_CACHE = "";
-let AUTO_PUBLIC_URL_CACHE = "";
-let LAST_REGISTER_OK = false;
+let relayBusy = false;
+let relayStarted = false;
+let lastGroupsCache = [];
+let lastGroupsAt = 0;
 
 function readKeys() {
   try {
@@ -78,10 +77,6 @@ function saveWebSettings(data) {
   try {
     fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify(data || {}, null, 2));
   } catch {}
-}
-
-function normalizeUrl(url) {
-  return String(url || "").trim().replace(/\/+$/, "");
 }
 
 function sha256(text) {
@@ -128,6 +123,55 @@ function getSock() {
   return global.sukiSock || global.sock || null;
 }
 
+function getServerPort() {
+  return (
+    process.env.SERVER_PORT ||
+    process.env.P_SERVER_PORT ||
+    process.env.SUKI_API_PORT ||
+    process.env.PORT ||
+    3001
+  );
+}
+
+function normalizeUrl(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
+function getPublicBaseUrl() {
+  const settings = readWebSettings();
+
+  return normalizeUrl(
+    global.SUKI_PUBLIC_BASE_URL ||
+    settings.public_base_url ||
+    ""
+  );
+}
+
+function updatePublicBaseUrl(req) {
+  try {
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+    const host = req.get("host");
+
+    if (!host) return;
+
+    const currentUrl = normalizeUrl(`${protocol}://${host}`);
+    const settings = readWebSettings();
+
+    if (settings.public_base_url !== currentUrl) {
+      settings.public_base_url = currentUrl;
+      settings.updatedAt = Date.now();
+
+      saveWebSettings(settings);
+
+      global.SUKI_PUBLIC_BASE_URL = currentUrl;
+
+      console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
+    }
+  } catch (e) {
+    console.error("❌ Error actualizando URL pública:", e.message);
+  }
+}
+
 function parseChatIds(value) {
   if (!value) return [];
 
@@ -162,267 +206,16 @@ function normalizeConfigValue(value) {
   );
 }
 
-function getServerPort() {
-  return (
-    process.env.SERVER_PORT ||
-    process.env.P_SERVER_PORT ||
-    process.env.SUKI_API_PORT ||
-    process.env.PORT ||
-    process.env.ALLOCATED_PORT ||
-    3001
-  );
-}
-
-function isBadHost(host) {
-  const h = String(host || "").toLowerCase();
-
-  return (
-    !h ||
-    h.includes("localhost") ||
-    h.includes("127.0.0.1") ||
-    h.includes("0.0.0.0") ||
-    h.startsWith("10.") ||
-    h.startsWith("172.16.") ||
-    h.startsWith("172.17.") ||
-    h.startsWith("172.18.") ||
-    h.startsWith("172.19.") ||
-    h.startsWith("172.20.") ||
-    h.startsWith("172.21.") ||
-    h.startsWith("172.22.") ||
-    h.startsWith("172.23.") ||
-    h.startsWith("172.24.") ||
-    h.startsWith("172.25.") ||
-    h.startsWith("172.26.") ||
-    h.startsWith("172.27.") ||
-    h.startsWith("172.28.") ||
-    h.startsWith("172.29.") ||
-    h.startsWith("172.30.") ||
-    h.startsWith("172.31.") ||
-    h.startsWith("192.168.")
-  );
-}
-
-function cleanHost(host) {
-  return String(host || "")
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/.*$/, "");
-}
-
-async function detectPublicIp() {
-  if (AUTO_PUBLIC_IP_CACHE) return AUTO_PUBLIC_IP_CACHE;
-
-  const envIp =
-    process.env.PUBLIC_IP ||
-    process.env.SUKI_PUBLIC_IP ||
-    process.env.SERVER_IP ||
-    process.env.P_SERVER_IP ||
-    process.env.PTERODACTYL_SERVER_IP ||
-    "";
-
-  if (envIp && !isBadHost(envIp)) {
-    AUTO_PUBLIC_IP_CACHE = cleanHost(envIp).split(":")[0];
-    return AUTO_PUBLIC_IP_CACHE;
-  }
-
-  const urls = [
-    "https://api.ipify.org?format=json",
-    "https://ifconfig.me/ip",
-    "https://checkip.amazonaws.com"
-  ];
-
-  for (const url of urls) {
-    try {
-      const res = await axios.get(url, {
-        timeout: 7000,
-        validateStatus: () => true
-      });
-
-      let ip = "";
-
-      if (typeof res.data === "string") {
-        ip = res.data.trim();
-      } else if (res.data && typeof res.data.ip === "string") {
-        ip = res.data.ip.trim();
-      }
-
-      if (ip && !isBadHost(ip)) {
-        AUTO_PUBLIC_IP_CACHE = ip;
-        return ip;
-      }
-    } catch {}
-  }
-
-  return "";
-}
-
-async function buildAutoPublicUrl() {
-  if (AUTO_PUBLIC_URL_CACHE) return AUTO_PUBLIC_URL_CACHE;
-
-  const explicit =
-    process.env.SUKI_PUBLIC_URL ||
-    process.env.PUBLIC_URL ||
-    process.env.APP_URL ||
-    "";
-
-  if (explicit && /^https?:\/\//i.test(explicit)) {
-    AUTO_PUBLIC_URL_CACHE = normalizeUrl(explicit);
-    return AUTO_PUBLIC_URL_CACHE;
-  }
-
-  const ip = await detectPublicIp();
-  const port = getServerPort();
-  const proto = process.env.SUKI_PUBLIC_PROTO || "http";
-
-  if (ip && port) {
-    AUTO_PUBLIC_URL_CACHE = normalizeUrl(`${proto}://${ip}:${port}`);
-    return AUTO_PUBLIC_URL_CACHE;
-  }
-
-  return "";
-}
-
-function updatePublicBaseUrl(req) {
-  try {
-    const protocol =
-      req.headers["x-forwarded-proto"] ||
-      req.protocol ||
-      "http";
-
-    const host =
-      req.headers["x-forwarded-host"] ||
-      req.get("host");
-
-    if (!host) return;
-
-    const clean = cleanHost(host);
-
-    if (isBadHost(clean)) return;
-
-    const currentUrl = normalizeUrl(`${protocol}://${clean}`);
-    const settings = readWebSettings();
-
-    if (settings.public_base_url !== currentUrl) {
-      settings.public_base_url = currentUrl;
-      settings.updatedAt = Date.now();
-
-      saveWebSettings(settings);
-
-      global.SUKI_PUBLIC_BASE_URL = currentUrl;
-      AUTO_PUBLIC_URL_CACHE = currentUrl;
-
-      console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
-
-      if (typeof global.registerSukiWithPanel === "function") {
-        setTimeout(() => {
-          global.registerSukiWithPanel("url-updated").catch(() => {});
-        }, 1000);
-      }
-    }
-  } catch (e) {
-    console.error("❌ Error actualizando URL pública:", e.message);
-  }
-}
-
-async function getPublicBaseUrlAsync() {
-  const settings = readWebSettings();
-
-  const saved =
-    global.SUKI_PUBLIC_BASE_URL ||
-    settings.public_base_url ||
-    "";
-
-  if (saved) return normalizeUrl(saved);
-
-  const autoUrl = await buildAutoPublicUrl();
-
-  if (autoUrl) {
-    const newSettings = readWebSettings();
-    newSettings.public_base_url = autoUrl;
-    newSettings.updatedAt = Date.now();
-    saveWebSettings(newSettings);
-
-    global.SUKI_PUBLIC_BASE_URL = autoUrl;
-
-    console.log(`🌍 URL pública detectada automáticamente: ${autoUrl}`);
-
-    return autoUrl;
-  }
-
-  return "";
-}
-
-function getPublicBaseUrl() {
-  const settings = readWebSettings();
-
-  return normalizeUrl(
-    global.SUKI_PUBLIC_BASE_URL ||
-    settings.public_base_url ||
-    AUTO_PUBLIC_URL_CACHE ||
-    ""
-  );
-}
-
-async function registerSukiWithPanel(reason = "manual") {
-  try {
-    const publicUrl = await getPublicBaseUrlAsync();
-
-    if (!publicUrl) {
-      console.log("⚠️ No se registró Suki: no se pudo detectar la URL pública.");
-      LAST_REGISTER_OK = false;
-      return false;
-    }
-
-    const keys = readKeys()
-      .filter(k => k && k.hash && k.active !== false)
-      .map(k => ({
-        id: k.id || "",
-        hash: k.hash,
-        active: k.active !== false,
-        createdAt: k.createdAt || null,
-        createdBy: k.createdBy || null
-      }));
-
-    if (!keys.length) {
-      console.log("⚠️ No se registró Suki: no hay API keys activas.");
-      LAST_REGISTER_OK = false;
-      return false;
-    }
-
-    const body = {
-      botName: "La Suki Bot",
-      publicUrl,
-      reason,
-      registeredAt: Date.now(),
-      keys
-    };
-
-    const res = await axios.post(SUKI_REGISTER_URL, body, {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      timeout: 20000,
-      validateStatus: () => true
-    });
-
-    if (!res.data || res.data.ok !== true) {
-      console.log("⚠️ No se pudo registrar Suki en el panel central:", res.status, res.data);
-      LAST_REGISTER_OK = false;
-      return false;
-    }
-
-    LAST_REGISTER_OK = true;
-
-    console.log(`✅ Suki registrada en el panel central: ${SUKI_PANEL_URL}`);
-    console.log(`✅ Keys registradas: ${res.data.saved}`);
-    console.log(`✅ URL pública enviada: ${publicUrl}`);
-
-    return true;
-  } catch (e) {
-    LAST_REGISTER_OK = false;
-    console.log("⚠️ Registro con panel central pendiente:", e.message);
-    return false;
-  }
+function getActiveKeyPayload() {
+  return readKeys()
+    .filter(k => k && k.hash && k.active !== false)
+    .map(k => ({
+      id: k.id || "",
+      hash: String(k.hash).trim().toLowerCase(),
+      active: k.active !== false,
+      createdAt: k.createdAt || null,
+      createdBy: k.createdBy || null
+    }));
 }
 
 async function getGroups(sock) {
@@ -443,39 +236,297 @@ async function getGroups(sock) {
   });
 }
 
-function makeJsonBodyLimit(app) {
-  app.use(express.json({ limit: "30mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "30mb" }));
+async function getGroupsCached(sock, force = false) {
+  const now = Date.now();
+
+  if (!force && lastGroupsCache.length && now - lastGroupsAt < 15000) {
+    return lastGroupsCache;
+  }
+
+  lastGroupsCache = await getGroups(sock);
+  lastGroupsAt = now;
+
+  return lastGroupsCache;
 }
 
-function startRegisterLoop() {
-  if (global.__SUKI_REGISTER_LOOP_STARTED) return;
+async function makeState(sock) {
+  let groups = [];
 
-  global.__SUKI_REGISTER_LOOP_STARTED = true;
+  try {
+    groups = await getGroupsCached(sock, false);
+  } catch {}
 
-  setTimeout(() => {
-    registerSukiWithPanel("startup").catch(() => {});
-  }, 3000);
+  return {
+    connected: !!sock?.user,
+    user: sock?.user || null,
+    groups
+  };
+}
 
-  setInterval(() => {
-    if (!LAST_REGISTER_OK) {
-      registerSukiWithPanel("retry").catch(() => {});
+async function registerWithPanel(reason = "manual") {
+  try {
+    const keys = getActiveKeyPayload();
+
+    if (!keys.length) {
+      console.log("⚠️ No se registró Suki: no hay API keys activas.");
+      return false;
     }
-  }, 60000);
+
+    const sock = getSock();
+    const state = sock ? await makeState(sock) : {};
+
+    const body = {
+      botName: "La Suki Bot",
+      publicUrl: getPublicBaseUrl(),
+      reason,
+      registeredAt: Date.now(),
+      keys,
+      user: state.user || null,
+      groups: state.groups || []
+    };
+
+    const res = await axios.post(`${SUKI_PANEL_URL}/api/register-bot`, body, {
+      timeout: 20000,
+      validateStatus: () => true
+    });
+
+    if (!res.data || res.data.ok !== true) {
+      console.log("⚠️ Registro panel falló:", res.status, res.data);
+      return false;
+    }
+
+    console.log(`✅ Suki registrada en panel central. Keys: ${res.data.saved}`);
+    return true;
+  } catch (e) {
+    console.log("⚠️ Registro con panel pendiente:", e.message);
+    return false;
+  }
+}
+
+async function reportTaskResult(taskId, ok, result = {}, error = "") {
+  try {
+    await axios.post(`${SUKI_PANEL_URL}/api/bot/task-result`, {
+      taskId,
+      ok,
+      result,
+      error
+    }, {
+      timeout: 30000,
+      validateStatus: () => true
+    });
+  } catch (e) {
+    console.log("⚠️ No se pudo reportar task:", taskId, e.message);
+  }
+}
+
+async function executeTask(sock, task) {
+  const type = task.type;
+  const payload = task.payload || {};
+
+  console.log(`📥 Ejecutando task #${task.id}: ${type}`);
+
+  if (type === "get_status") {
+    return {
+      connected: !!sock?.user,
+      user: sock?.user || null
+    };
+  }
+
+  if (type === "get_groups") {
+    const groups = await getGroupsCached(sock, true);
+
+    return {
+      groups
+    };
+  }
+
+  if (type === "set_config") {
+    const chatId = String(payload.chatId || "");
+    const key = String(payload.key || "");
+    const active = normalizeConfigValue(payload.value);
+
+    if (!chatId) throw new Error("Falta chatId");
+    if (!CONFIG_KEYS.has(key)) throw new Error("Config no permitida");
+
+    if (active) {
+      setConfig(chatId, key, 1);
+    } else {
+      deleteConfig(chatId, key);
+    }
+
+    lastGroupsAt = 0;
+
+    return {
+      chatId,
+      key,
+      value: active ? 1 : 0,
+      groups: await getGroupsCached(sock, true)
+    };
+  }
+
+  if (type === "send_text") {
+    const text = String(payload.text || "");
+    const chatIds = parseChatIds(payload.chatIds || payload.chatId);
+
+    if (!text) throw new Error("Falta text");
+    if (!chatIds.length) throw new Error("Falta chatIds");
+
+    const results = [];
+
+    for (const chatId of chatIds) {
+      try {
+        await sock.sendMessage(chatId, { text });
+        results.push({ chatId, ok: true });
+      } catch (e) {
+        results.push({ chatId, ok: false, error: e.message });
+      }
+    }
+
+    return { results };
+  }
+
+  if (type === "send_media") {
+    const chatIds = parseChatIds(payload.chatIds || payload.chatId);
+    const caption = String(payload.caption || "");
+    const mimetype = String(payload.mimetype || "application/octet-stream");
+    const fileName = String(payload.fileName || "archivo.bin");
+    const fileBase64 = String(payload.fileBase64 || "");
+
+    if (!chatIds.length) throw new Error("Falta chatIds");
+    if (!fileBase64) throw new Error("Falta archivo");
+
+    const buffer = Buffer.from(fileBase64, "base64");
+
+    let msgPayload;
+
+    if (mimetype.startsWith("image/")) {
+      msgPayload = { image: buffer, caption };
+    } else if (mimetype.startsWith("video/")) {
+      msgPayload = { video: buffer, caption };
+    } else if (mimetype.startsWith("audio/")) {
+      msgPayload = {
+        audio: buffer,
+        mimetype,
+        ptt: false
+      };
+    } else {
+      msgPayload = {
+        document: buffer,
+        mimetype,
+        fileName,
+        caption
+      };
+    }
+
+    const results = [];
+
+    for (const chatId of chatIds) {
+      try {
+        await sock.sendMessage(chatId, msgPayload);
+        results.push({ chatId, ok: true });
+      } catch (e) {
+        results.push({ chatId, ok: false, error: e.message });
+      }
+    }
+
+    return { results };
+  }
+
+  if (type === "leave_group") {
+    const chatId = String(payload.chatId || "");
+
+    if (!chatId) throw new Error("Falta chatId");
+
+    await sock.groupLeave(chatId);
+
+    lastGroupsAt = 0;
+
+    return {
+      chatId,
+      left: true,
+      groups: await getGroupsCached(sock, true).catch(() => [])
+    };
+  }
+
+  throw new Error(`Task desconocida: ${type}`);
+}
+
+async function relayPollOnce() {
+  if (relayBusy) return;
+
+  relayBusy = true;
+
+  try {
+    const sock = getSock();
+    if (!sock) return;
+
+    const keys = getActiveKeyPayload();
+
+    if (!keys.length) {
+      return;
+    }
+
+    const state = await makeState(sock);
+
+    const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/poll`, {
+      botName: "La Suki Bot",
+      publicUrl: getPublicBaseUrl(),
+      keys,
+      state
+    }, {
+      timeout: 25000,
+      validateStatus: () => true
+    });
+
+    if (!res.data || res.data.ok !== true) {
+      console.log("⚠️ Poll panel falló:", res.status, res.data);
+      return;
+    }
+
+    const tasks = Array.isArray(res.data.tasks) ? res.data.tasks : [];
+
+    for (const task of tasks) {
+      try {
+        const result = await executeTask(sock, task);
+        await reportTaskResult(task.id, true, result, "");
+      } catch (e) {
+        console.log(`❌ Task #${task.id} error:`, e.message);
+        await reportTaskResult(task.id, false, {}, e.message);
+      }
+    }
+  } catch (e) {
+    console.log("⚠️ Relay polling pendiente:", e.message);
+  } finally {
+    relayBusy = false;
+  }
+}
+
+function startRelayPolling() {
+  if (relayStarted) return;
+
+  relayStarted = true;
+
+  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada 3 segundos.");
+
+  setTimeout(() => registerWithPanel("startup").catch(() => {}), 2000);
+  setInterval(() => registerWithPanel("refresh").catch(() => {}), 60000);
+
+  setTimeout(() => relayPollOnce().catch(() => {}), 4000);
+  setInterval(() => relayPollOnce().catch(() => {}), 3000);
+}
+
+function makeJsonBodyLimit(app) {
+  app.use(express.json({ limit: "80mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "80mb" }));
 }
 
 function startWebServer(sock) {
   global.sukiSock = sock;
   global.sock = sock;
-  global.registerSukiWithPanel = registerSukiWithPanel;
 
   if (global.__SUKI_WEB_SERVER_STARTED) {
     console.log("🌐 API web de Suki ya estaba iniciada, sock actualizado.");
-
-    setTimeout(() => {
-      registerSukiWithPanel("sock-updated").catch(() => {});
-    }, 1000);
-
+    startRelayPolling();
     return;
   }
 
@@ -499,44 +550,38 @@ function startWebServer(sock) {
       ok: true,
       name: "La Suki Bot API",
       status: "online",
-      publicUrl: getPublicBaseUrl() || null,
-      panelUrl: SUKI_PANEL_URL,
-      port: PORT,
-      registerOk: LAST_REGISTER_OK
-    });
-  });
-
-  app.get("/api/status", authMiddleware, async (req, res) => {
-    const sock = getSock();
-
-    res.json({
-      ok: true,
-      connected: !!sock?.user,
-      user: sock?.user || null,
-      publicUrl: getPublicBaseUrl() || null,
-      panelUrl: SUKI_PANEL_URL,
-      port: PORT,
-      registerOk: LAST_REGISTER_OK
-    });
-  });
-
-  app.post("/api/register-now", authMiddleware, async (req, res) => {
-    const ok = await registerSukiWithPanel("manual-api");
-
-    res.json({
-      ok,
+      relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
       port: PORT
     });
   });
 
+  app.get("/api/status", authMiddleware, async (req, res) => {
+    res.json({
+      ok: true,
+      connected: !!sock?.user,
+      user: sock?.user || null,
+      relay: true,
+      panelUrl: SUKI_PANEL_URL,
+      publicUrl: getPublicBaseUrl() || null
+    });
+  });
+
+  app.post("/api/register-now", authMiddleware, async (req, res) => {
+    const ok = await registerWithPanel("manual-api");
+
+    res.json({
+      ok,
+      relay: true,
+      panelUrl: SUKI_PANEL_URL,
+      publicUrl: getPublicBaseUrl() || null
+    });
+  });
+
   app.get("/api/groups", authMiddleware, async (req, res) => {
     try {
-      const sock = getSock();
-      if (!sock) throw new Error("Sock no disponible");
-
-      const groups = await getGroups(sock);
+      const groups = await getGroupsCached(sock, true);
 
       res.json({
         ok: true,
@@ -589,6 +634,8 @@ function startWebServer(sock) {
         deleteConfig(chatId, key);
       }
 
+      lastGroupsAt = 0;
+
       res.json({
         ok: true,
         chatId,
@@ -605,9 +652,6 @@ function startWebServer(sock) {
 
   app.post("/api/send/text", authMiddleware, async (req, res) => {
     try {
-      const sock = getSock();
-      if (!sock) throw new Error("Sock no disponible");
-
       const { text } = req.body || {};
       const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
 
@@ -650,9 +694,6 @@ function startWebServer(sock) {
 
   app.post("/api/send/media", authMiddleware, upload.single("file"), async (req, res) => {
     try {
-      const sock = getSock();
-      if (!sock) throw new Error("Sock no disponible");
-
       const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
       const caption = String(req.body.caption || "");
 
@@ -719,12 +760,11 @@ function startWebServer(sock) {
 
   app.post("/api/groups/:chatId/leave", authMiddleware, async (req, res) => {
     try {
-      const sock = getSock();
-      if (!sock) throw new Error("Sock no disponible");
-
       const chatId = decodeURIComponent(req.params.chatId);
 
       await sock.groupLeave(chatId);
+
+      lastGroupsAt = 0;
 
       res.json({
         ok: true,
@@ -739,18 +779,11 @@ function startWebServer(sock) {
     }
   });
 
-  app.listen(PORT, "0.0.0.0", async () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
-    console.log(`🌐 Panel central configurado: ${SUKI_PANEL_URL}`);
-
-    const autoUrl = await buildAutoPublicUrl();
-    if (autoUrl) {
-      console.log(`🌐 URL pública auto detectada: ${autoUrl}`);
-    } else {
-      console.log("⚠️ No se pudo detectar la URL pública todavía.");
-    }
-
-    startRegisterLoop();
+    console.log(`🌐 Panel central: ${SUKI_PANEL_URL}`);
+    console.log("🔁 Modo relay/polling listo.");
+    startRelayPolling();
   });
 }
 
