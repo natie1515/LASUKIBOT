@@ -18,6 +18,7 @@ const {
 const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
+const ACTIVOSS_PATH = path.resolve("./activoss.json");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,11 +35,21 @@ const CONFIG_KEYS = new Set([
   "antidelete",
   "modoadmins",
   "antiarabe",
-  "antiarabe2",
   "antis",
-  "chatgpt",
-  "apagado"
+  "reaccion"
 ]);
+
+const CONFIG_LABELS = {
+  welcome: "🎉 Bienvenidas",
+  despedidas: "👋 Despedidas",
+  antilink: "🔗 Antilink",
+  linkall: "🌐 LinkAll",
+  antidelete: "🛡️ Antidelete",
+  modoadmins: "👑 Modo admins",
+  antiarabe: "🚫 Anti árabe",
+  antis: "🎭 Anti stickers",
+  reaccion: "⚡ Reacciones automáticas"
+};
 
 let relayBusy = false;
 let relayStarted = false;
@@ -76,6 +87,26 @@ function readWebSettings() {
 function saveWebSettings(data) {
   try {
     fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify(data || {}, null, 2));
+  } catch {}
+}
+
+function readActivoss() {
+  try {
+    if (!fs.existsSync(ACTIVOSS_PATH)) {
+      fs.writeFileSync(ACTIVOSS_PATH, JSON.stringify({}, null, 2));
+      return {};
+    }
+
+    const data = JSON.parse(fs.readFileSync(ACTIVOSS_PATH, "utf-8"));
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveActivoss(data) {
+  try {
+    fs.writeFileSync(ACTIVOSS_PATH, JSON.stringify(data || {}, null, 2));
   } catch {}
 }
 
@@ -218,11 +249,132 @@ function getActiveKeyPayload() {
     }));
 }
 
+function getReaccionStatus(chatId) {
+  const db = readActivoss();
+  const estado = String(db?.[chatId]?.reacion || "on").toLowerCase();
+  return estado === "off" ? 0 : 1;
+}
+
+function setReaccionStatus(chatId, active) {
+  const db = readActivoss();
+
+  db[chatId] = db[chatId] || {};
+  db[chatId].reacion = active ? "on" : "off";
+  db[chatId].updatedAt = Date.now();
+
+  saveActivoss(db);
+
+  return active ? 1 : 0;
+}
+
+async function notifyConfig(sock, chatId, key, active) {
+  try {
+    const label = CONFIG_LABELS[key] || key;
+    const estado = active ? "activada ✅" : "desactivada ❌";
+
+    await sock.sendMessage(chatId, {
+      text:
+`⚙️✨ *Configuración actualizada desde el panel web*
+
+${label} fue *${estado}*.
+
+👑 Acción ejecutada por mi dueño desde el panel de *La Suki Bot*.`
+    });
+  } catch (e) {
+    console.log("⚠️ No se pudo notificar config en grupo:", e.message);
+  }
+}
+
+async function notifyGroupMode(sock, chatId, mode) {
+  try {
+    if (mode === "open") {
+      await sock.sendMessage(chatId, {
+        text:
+`🔓✨ *Grupo abierto*
+
+Ahora todos los integrantes pueden enviar mensajes.
+
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.`
+      });
+    } else {
+      await sock.sendMessage(chatId, {
+        text:
+`🔒✨ *Grupo cerrado*
+
+Ahora solo los administradores pueden enviar mensajes.
+
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.`
+      });
+    }
+  } catch (e) {
+    console.log("⚠️ No se pudo notificar modo de grupo:", e.message);
+  }
+}
+
+async function applyGroupMode(sock, chatId, mode) {
+  if (!chatId) throw new Error("Falta chatId");
+
+  if (mode === "open") {
+    await sock.groupSettingUpdate(chatId, "not_announcement");
+    await notifyGroupMode(sock, chatId, "open");
+
+    return {
+      chatId,
+      mode: "open",
+      announce: false
+    };
+  }
+
+  if (mode === "close") {
+    await notifyGroupMode(sock, chatId, "close");
+    await sock.groupSettingUpdate(chatId, "announcement");
+
+    return {
+      chatId,
+      mode: "close",
+      announce: true
+    };
+  }
+
+  throw new Error("Modo inválido");
+}
+
+async function applyConfig(sock, chatId, key, value, notify = true) {
+  if (!chatId) throw new Error("Falta chatId");
+  if (!CONFIG_KEYS.has(key)) throw new Error("Config no permitida");
+
+  const active = normalizeConfigValue(value);
+
+  if (key === "reaccion") {
+    setReaccionStatus(chatId, active);
+  } else {
+    if (active) {
+      setConfig(chatId, key, 1);
+    } else {
+      deleteConfig(chatId, key);
+    }
+  }
+
+  if (notify) {
+    await notifyConfig(sock, chatId, key, active);
+  }
+
+  lastGroupsAt = 0;
+
+  return {
+    chatId,
+    key,
+    value: active ? 1 : 0
+  };
+}
+
 async function getGroups(sock) {
   const groups = await sock.groupFetchAllParticipating();
 
   return Object.entries(groups).map(([id, g]) => {
-    const config = getAllConfigs(id);
+    const config = getAllConfigs(id) || {};
+
+    config.reaccion = getReaccionStatus(id);
 
     return {
       id,
@@ -335,32 +487,33 @@ async function executeTask(sock, task) {
   if (type === "get_groups") {
     const groups = await getGroupsCached(sock, true);
 
-    return {
-      groups
-    };
+    return { groups };
   }
 
   if (type === "set_config") {
     const chatId = String(payload.chatId || "");
     const key = String(payload.key || "");
-    const active = normalizeConfigValue(payload.value);
+    const value = payload.value;
 
-    if (!chatId) throw new Error("Falta chatId");
-    if (!CONFIG_KEYS.has(key)) throw new Error("Config no permitida");
+    const data = await applyConfig(sock, chatId, key, value, true);
 
-    if (active) {
-      setConfig(chatId, key, 1);
-    } else {
-      deleteConfig(chatId, key);
-    }
+    return {
+      ...data,
+      groups: await getGroupsCached(sock, true)
+    };
+  }
+
+  if (type === "group_mode") {
+    const chatId = String(payload.chatId || "");
+    const mode = String(payload.mode || "");
+
+    const data = await applyGroupMode(sock, chatId, mode);
 
     lastGroupsAt = 0;
 
     return {
-      chatId,
-      key,
-      value: active ? 1 : 0,
-      groups: await getGroupsCached(sock, true)
+      ...data,
+      groups: await getGroupsCached(sock, true).catch(() => [])
     };
   }
 
@@ -436,6 +589,20 @@ async function executeTask(sock, task) {
     const chatId = String(payload.chatId || "");
 
     if (!chatId) throw new Error("Falta chatId");
+
+    try {
+      await sock.sendMessage(chatId, {
+        text:
+`👋💜 *Suki se va del grupo...*
+
+Mi dueño me sacó desde el panel web.
+
+Gracias por usar *La Suki Bot*.  
+Bye bye ✨🚀`
+      });
+    } catch {}
+
+    await new Promise(resolve => setTimeout(resolve, 1200));
 
     await sock.groupLeave(chatId);
 
@@ -596,10 +763,33 @@ function startWebServer(sock) {
     }
   });
 
+  app.post("/api/groups/:chatId/group-mode", authMiddleware, async (req, res) => {
+    try {
+      const chatId = decodeURIComponent(req.params.chatId);
+      const mode = String(req.body?.mode || "");
+
+      const result = await applyGroupMode(sock, chatId, mode);
+
+      lastGroupsAt = 0;
+
+      res.json({
+        ok: true,
+        ...result
+      });
+    } catch (e) {
+      res.status(500).json({
+        ok: false,
+        error: e.message
+      });
+    }
+  });
+
   app.get("/api/groups/:chatId/config", authMiddleware, async (req, res) => {
     try {
       const chatId = decodeURIComponent(req.params.chatId);
-      const config = getAllConfigs(chatId);
+      const config = getAllConfigs(chatId) || {};
+
+      config.reaccion = getReaccionStatus(chatId);
 
       res.json({
         ok: true,
@@ -619,28 +809,11 @@ function startWebServer(sock) {
       const chatId = decodeURIComponent(req.params.chatId);
       const { key, value } = req.body || {};
 
-      if (!key || !CONFIG_KEYS.has(key)) {
-        return res.status(400).json({
-          ok: false,
-          error: "Config no permitida"
-        });
-      }
-
-      const active = normalizeConfigValue(value);
-
-      if (active) {
-        setConfig(chatId, key, 1);
-      } else {
-        deleteConfig(chatId, key);
-      }
-
-      lastGroupsAt = 0;
+      const result = await applyConfig(sock, chatId, String(key || ""), value, true);
 
       res.json({
         ok: true,
-        chatId,
-        key,
-        value: active ? 1 : 0
+        ...result
       });
     } catch (e) {
       res.status(500).json({
@@ -761,6 +934,20 @@ function startWebServer(sock) {
   app.post("/api/groups/:chatId/leave", authMiddleware, async (req, res) => {
     try {
       const chatId = decodeURIComponent(req.params.chatId);
+
+      try {
+        await sock.sendMessage(chatId, {
+          text:
+`👋💜 *Suki se va del grupo...*
+
+Mi dueño me sacó desde el panel web.
+
+Gracias por usar *La Suki Bot*.  
+Bye bye ✨🚀`
+        });
+      } catch {}
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
 
       await sock.groupLeave(chatId);
 
