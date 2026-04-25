@@ -15,12 +15,12 @@ const {
   getAllConfigs
 } = require("./db");
 
-const SUKI_PANEL_URL = "lasukibot.ultraplus.click";
+const SUKI_PANEL_URL = "https://lasukibot.ultraplus.click";
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
 
-// ✅ CAMBIO: ahora Suki preguntará al panel cada 15 segundos
+// ✅ Suki preguntará al panel cada 15 segundos
 const RELAY_POLL_INTERVAL_MS = 15000;
 const RELAY_REGISTER_INTERVAL_MS = 60000;
 
@@ -491,7 +491,6 @@ async function executeTask(sock, task) {
 
   if (type === "get_groups") {
     const groups = await getGroupsCached(sock, true);
-
     return { groups };
   }
 
@@ -626,7 +625,6 @@ Bye bye ✨🚀`
 function logPollError(message, data) {
   const now = Date.now();
 
-  // ✅ Para no llenar consola: solo muestra error cada 30 segundos
   if (now - lastPollErrorLogAt < 30000) return;
 
   lastPollErrorLogAt = now;
