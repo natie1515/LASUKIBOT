@@ -18,10 +18,6 @@ const {
 const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
 const SUKI_REGISTER_URL = `${SUKI_PANEL_URL}/api/register-bot`;
 
-// 🌐 URL pública fija de ESTA Suki.
-// Si Pterodactyl cambia el puerto, cambia solo esta línea.
-const SUKI_PUBLIC_URL_FALLBACK = "http://64.20.54.50:30037";
-
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 
@@ -45,6 +41,10 @@ const CONFIG_KEYS = new Set([
   "chatgpt",
   "apagado"
 ]);
+
+let AUTO_PUBLIC_IP_CACHE = "";
+let AUTO_PUBLIC_URL_CACHE = "";
+let LAST_REGISTER_OK = false;
 
 function readKeys() {
   try {
@@ -162,6 +162,126 @@ function normalizeConfigValue(value) {
   );
 }
 
+function getServerPort() {
+  return (
+    process.env.SERVER_PORT ||
+    process.env.P_SERVER_PORT ||
+    process.env.SUKI_API_PORT ||
+    process.env.PORT ||
+    process.env.ALLOCATED_PORT ||
+    3001
+  );
+}
+
+function isBadHost(host) {
+  const h = String(host || "").toLowerCase();
+
+  return (
+    !h ||
+    h.includes("localhost") ||
+    h.includes("127.0.0.1") ||
+    h.includes("0.0.0.0") ||
+    h.startsWith("10.") ||
+    h.startsWith("172.16.") ||
+    h.startsWith("172.17.") ||
+    h.startsWith("172.18.") ||
+    h.startsWith("172.19.") ||
+    h.startsWith("172.20.") ||
+    h.startsWith("172.21.") ||
+    h.startsWith("172.22.") ||
+    h.startsWith("172.23.") ||
+    h.startsWith("172.24.") ||
+    h.startsWith("172.25.") ||
+    h.startsWith("172.26.") ||
+    h.startsWith("172.27.") ||
+    h.startsWith("172.28.") ||
+    h.startsWith("172.29.") ||
+    h.startsWith("172.30.") ||
+    h.startsWith("172.31.") ||
+    h.startsWith("192.168.")
+  );
+}
+
+function cleanHost(host) {
+  return String(host || "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "");
+}
+
+async function detectPublicIp() {
+  if (AUTO_PUBLIC_IP_CACHE) return AUTO_PUBLIC_IP_CACHE;
+
+  const envIp =
+    process.env.PUBLIC_IP ||
+    process.env.SUKI_PUBLIC_IP ||
+    process.env.SERVER_IP ||
+    process.env.P_SERVER_IP ||
+    process.env.PTERODACTYL_SERVER_IP ||
+    "";
+
+  if (envIp && !isBadHost(envIp)) {
+    AUTO_PUBLIC_IP_CACHE = cleanHost(envIp).split(":")[0];
+    return AUTO_PUBLIC_IP_CACHE;
+  }
+
+  const urls = [
+    "https://api.ipify.org?format=json",
+    "https://ifconfig.me/ip",
+    "https://checkip.amazonaws.com"
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await axios.get(url, {
+        timeout: 7000,
+        validateStatus: () => true
+      });
+
+      let ip = "";
+
+      if (typeof res.data === "string") {
+        ip = res.data.trim();
+      } else if (res.data && typeof res.data.ip === "string") {
+        ip = res.data.ip.trim();
+      }
+
+      if (ip && !isBadHost(ip)) {
+        AUTO_PUBLIC_IP_CACHE = ip;
+        return ip;
+      }
+    } catch {}
+  }
+
+  return "";
+}
+
+async function buildAutoPublicUrl() {
+  if (AUTO_PUBLIC_URL_CACHE) return AUTO_PUBLIC_URL_CACHE;
+
+  const explicit =
+    process.env.SUKI_PUBLIC_URL ||
+    process.env.PUBLIC_URL ||
+    process.env.APP_URL ||
+    "";
+
+  if (explicit && /^https?:\/\//i.test(explicit)) {
+    AUTO_PUBLIC_URL_CACHE = normalizeUrl(explicit);
+    return AUTO_PUBLIC_URL_CACHE;
+  }
+
+  const ip = await detectPublicIp();
+  const port = getServerPort();
+  const proto = process.env.SUKI_PUBLIC_PROTO || "http";
+
+  if (ip && port) {
+    AUTO_PUBLIC_URL_CACHE = normalizeUrl(`${proto}://${ip}:${port}`);
+    return AUTO_PUBLIC_URL_CACHE;
+  }
+
+  return "";
+}
+
 function updatePublicBaseUrl(req) {
   try {
     const protocol =
@@ -175,7 +295,11 @@ function updatePublicBaseUrl(req) {
 
     if (!host) return;
 
-    const currentUrl = normalizeUrl(`${protocol}://${host}`);
+    const clean = cleanHost(host);
+
+    if (isBadHost(clean)) return;
+
+    const currentUrl = normalizeUrl(`${protocol}://${clean}`);
     const settings = readWebSettings();
 
     if (settings.public_base_url !== currentUrl) {
@@ -185,6 +309,7 @@ function updatePublicBaseUrl(req) {
       saveWebSettings(settings);
 
       global.SUKI_PUBLIC_BASE_URL = currentUrl;
+      AUTO_PUBLIC_URL_CACHE = currentUrl;
 
       console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
 
@@ -199,23 +324,52 @@ function updatePublicBaseUrl(req) {
   }
 }
 
+async function getPublicBaseUrlAsync() {
+  const settings = readWebSettings();
+
+  const saved =
+    global.SUKI_PUBLIC_BASE_URL ||
+    settings.public_base_url ||
+    "";
+
+  if (saved) return normalizeUrl(saved);
+
+  const autoUrl = await buildAutoPublicUrl();
+
+  if (autoUrl) {
+    const newSettings = readWebSettings();
+    newSettings.public_base_url = autoUrl;
+    newSettings.updatedAt = Date.now();
+    saveWebSettings(newSettings);
+
+    global.SUKI_PUBLIC_BASE_URL = autoUrl;
+
+    console.log(`🌍 URL pública detectada automáticamente: ${autoUrl}`);
+
+    return autoUrl;
+  }
+
+  return "";
+}
+
 function getPublicBaseUrl() {
   const settings = readWebSettings();
 
   return normalizeUrl(
     global.SUKI_PUBLIC_BASE_URL ||
     settings.public_base_url ||
-    SUKI_PUBLIC_URL_FALLBACK ||
+    AUTO_PUBLIC_URL_CACHE ||
     ""
   );
 }
 
 async function registerSukiWithPanel(reason = "manual") {
   try {
-    const publicUrl = getPublicBaseUrl();
+    const publicUrl = await getPublicBaseUrlAsync();
 
     if (!publicUrl) {
-      console.log("⚠️ No se registró Suki: falta publicUrl.");
+      console.log("⚠️ No se registró Suki: no se pudo detectar la URL pública.");
+      LAST_REGISTER_OK = false;
       return false;
     }
 
@@ -231,6 +385,7 @@ async function registerSukiWithPanel(reason = "manual") {
 
     if (!keys.length) {
       console.log("⚠️ No se registró Suki: no hay API keys activas.");
+      LAST_REGISTER_OK = false;
       return false;
     }
 
@@ -252,8 +407,11 @@ async function registerSukiWithPanel(reason = "manual") {
 
     if (!res.data || res.data.ok !== true) {
       console.log("⚠️ No se pudo registrar Suki en el panel central:", res.status, res.data);
+      LAST_REGISTER_OK = false;
       return false;
     }
+
+    LAST_REGISTER_OK = true;
 
     console.log(`✅ Suki registrada en el panel central: ${SUKI_PANEL_URL}`);
     console.log(`✅ Keys registradas: ${res.data.saved}`);
@@ -261,6 +419,7 @@ async function registerSukiWithPanel(reason = "manual") {
 
     return true;
   } catch (e) {
+    LAST_REGISTER_OK = false;
     console.log("⚠️ Registro con panel central pendiente:", e.message);
     return false;
   }
@@ -289,6 +448,22 @@ function makeJsonBodyLimit(app) {
   app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 }
 
+function startRegisterLoop() {
+  if (global.__SUKI_REGISTER_LOOP_STARTED) return;
+
+  global.__SUKI_REGISTER_LOOP_STARTED = true;
+
+  setTimeout(() => {
+    registerSukiWithPanel("startup").catch(() => {});
+  }, 3000);
+
+  setInterval(() => {
+    if (!LAST_REGISTER_OK) {
+      registerSukiWithPanel("retry").catch(() => {});
+    }
+  }, 60000);
+}
+
 function startWebServer(sock) {
   global.sukiSock = sock;
   global.sock = sock;
@@ -307,13 +482,7 @@ function startWebServer(sock) {
   global.__SUKI_WEB_SERVER_STARTED = true;
 
   const app = express();
-
-  const PORT =
-    process.env.SERVER_PORT ||
-    process.env.PORT ||
-    process.env.SUKI_API_PORT ||
-    process.env.P_SERVER_PORT ||
-    3001;
+  const PORT = getServerPort();
 
   app.set("trust proxy", 1);
 
@@ -331,7 +500,9 @@ function startWebServer(sock) {
       name: "La Suki Bot API",
       status: "online",
       publicUrl: getPublicBaseUrl() || null,
-      panelUrl: SUKI_PANEL_URL
+      panelUrl: SUKI_PANEL_URL,
+      port: PORT,
+      registerOk: LAST_REGISTER_OK
     });
   });
 
@@ -343,7 +514,9 @@ function startWebServer(sock) {
       connected: !!sock?.user,
       user: sock?.user || null,
       publicUrl: getPublicBaseUrl() || null,
-      panelUrl: SUKI_PANEL_URL
+      panelUrl: SUKI_PANEL_URL,
+      port: PORT,
+      registerOk: LAST_REGISTER_OK
     });
   });
 
@@ -353,7 +526,8 @@ function startWebServer(sock) {
     res.json({
       ok,
       panelUrl: SUKI_PANEL_URL,
-      publicUrl: getPublicBaseUrl() || null
+      publicUrl: getPublicBaseUrl() || null,
+      port: PORT
     });
   });
 
@@ -568,11 +742,15 @@ function startWebServer(sock) {
   app.listen(PORT, "0.0.0.0", async () => {
     console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
     console.log(`🌐 Panel central configurado: ${SUKI_PANEL_URL}`);
-    console.log(`🌐 URL pública fallback de esta Suki: ${SUKI_PUBLIC_URL_FALLBACK}`);
 
-    setTimeout(() => {
-      registerSukiWithPanel("startup").catch(() => {});
-    }, 3000);
+    const autoUrl = await buildAutoPublicUrl();
+    if (autoUrl) {
+      console.log(`🌐 URL pública auto detectada: ${autoUrl}`);
+    } else {
+      console.log("⚠️ No se pudo detectar la URL pública todavía.");
+    }
+
+    startRegisterLoop();
   });
 }
 
