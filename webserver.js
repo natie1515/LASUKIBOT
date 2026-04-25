@@ -15,7 +15,7 @@ const {
   getAllConfigs
 } = require("./db");
 
-const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
+const SUKI_PANEL_URL = "lasukibot.ultraplus.click";
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
