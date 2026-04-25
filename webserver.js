@@ -159,6 +159,21 @@ function getSock() {
   return global.sukiSock || global.sock || null;
 }
 
+// ✅ Siempre usa el sock actual, no el sock viejo que entró al iniciar el servidor
+function getLiveSock() {
+  const currentSock = getSock();
+
+  if (!currentSock) {
+    throw new Error("Sock no disponible");
+  }
+
+  if (!currentSock.user) {
+    throw new Error("WhatsApp no está conectado");
+  }
+
+  return currentSock;
+}
+
 function getServerPort() {
   return (
     process.env.SERVER_PORT ||
@@ -272,48 +287,83 @@ function setReaccionStatus(chatId, active) {
   return active ? 1 : 0;
 }
 
-async function notifyConfig(sock, chatId, key, active) {
+// ✅ Envío de notificaciones con logs claros
+async function sendGroupNotice(sock, chatId, text, reason = "notice") {
   try {
-    const label = CONFIG_LABELS[key] || key;
-    const estado = active ? "activada ✅" : "desactivada ❌";
+    if (!sock) throw new Error("Sock vacío");
+    if (!sock.user) throw new Error("Sock sin usuario conectado");
+    if (!chatId) throw new Error("chatId vacío");
 
-    await sock.sendMessage(chatId, {
-      text:
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📢 ENVIANDO NOTIFICACIÓN AL GRUPO");
+    console.log("➡️ Razón:", reason);
+    console.log("➡️ ChatId:", chatId);
+    console.log("➡️ Bot:", sock.user?.id || sock.user?.jid || sock.user);
+
+    const sent = await sock.sendMessage(chatId, { text });
+
+    console.log("✅ Notificación enviada correctamente:", reason);
+    return sent;
+  } catch (e) {
+    console.log("❌ No se pudo enviar notificación");
+    console.log("➡️ Razón:", reason);
+    console.log("➡️ ChatId:", chatId);
+    console.log("➡️ Error:", e.message);
+
+    const msg = String(e.message || "").toLowerCase();
+
+    if (
+      msg.includes("not-authorized") ||
+      msg.includes("forbidden") ||
+      msg.includes("admin") ||
+      msg.includes("not a participant")
+    ) {
+      console.log("⚠️ Posible causa: el grupo está cerrado, Suki no es admin o Suki ya no está en el grupo.");
+    }
+
+    return null;
+  }
+}
+
+async function notifyConfig(sock, chatId, key, active) {
+  const label = CONFIG_LABELS[key] || key;
+  const estado = active ? "activada ✅" : "desactivada ❌";
+
+  const text =
 `⚙️✨ *Configuración actualizada desde el panel web*
 
 ${label} fue *${estado}*.
 
-👑 Acción ejecutada por mi dueño desde el panel de *La Suki Bot*.`
-    });
-  } catch (e) {
-    console.log("⚠️ No se pudo notificar config en grupo:", e.message);
-  }
+👑 Acción ejecutada por mi dueño desde el panel de *La Suki Bot*.`;
+
+  return await sendGroupNotice(
+    sock,
+    chatId,
+    text,
+    `config:${key}:${active ? "on" : "off"}`
+  );
 }
 
 async function notifyGroupMode(sock, chatId, mode) {
-  try {
-    if (mode === "open") {
-      await sock.sendMessage(chatId, {
-        text:
+  let text;
+
+  if (mode === "open") {
+    text =
 `🔓✨ *Grupo abierto*
 
 Ahora todos los integrantes pueden enviar mensajes.
 
-👑 Acción ejecutada desde el panel web de *La Suki Bot*.`
-      });
-    } else {
-      await sock.sendMessage(chatId, {
-        text:
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.`;
+  } else {
+    text =
 `🔒✨ *Grupo cerrado*
 
 Ahora solo los administradores pueden enviar mensajes.
 
-👑 Acción ejecutada desde el panel web de *La Suki Bot*.`
-      });
-    }
-  } catch (e) {
-    console.log("⚠️ No se pudo notificar modo de grupo:", e.message);
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.`;
   }
+
+  return await sendGroupNotice(sock, chatId, text, `group_mode:${mode}`);
 }
 
 async function applyGroupMode(sock, chatId, mode) {
@@ -331,6 +381,7 @@ async function applyGroupMode(sock, chatId, mode) {
   }
 
   if (mode === "close") {
+    // ✅ Se notifica antes de cerrar para que pueda mandar el mensaje si todavía está abierto
     await notifyGroupMode(sock, chatId, "close");
     await sock.groupSettingUpdate(chatId, "announcement");
 
@@ -595,15 +646,17 @@ async function executeTask(sock, task) {
     if (!chatId) throw new Error("Falta chatId");
 
     try {
-      await sock.sendMessage(chatId, {
-        text:
+      await sendGroupNotice(
+        sock,
+        chatId,
 `👋💜 *Suki se va del grupo...*
 
 Mi dueño me sacó desde el panel web.
 
 Gracias por usar *La Suki Bot*.  
-Bye bye ✨🚀`
-      });
+Bye bye ✨🚀`,
+        "leave_group"
+      );
     } catch {}
 
     await new Promise(resolve => setTimeout(resolve, 1200));
@@ -672,7 +725,8 @@ async function relayPollOnce() {
 
     for (const task of tasks) {
       try {
-        const result = await executeTask(sock, task);
+        const currentSock = getLiveSock();
+        const result = await executeTask(currentSock, task);
         await reportTaskResult(task.id, true, result, "");
       } catch (e) {
         console.log(`❌ Task #${task.id} error:`, e.message);
@@ -744,10 +798,12 @@ function startWebServer(sock) {
   });
 
   app.get("/api/status", authMiddleware, async (req, res) => {
+    const currentSock = getSock();
+
     res.json({
       ok: true,
-      connected: !!sock?.user,
-      user: sock?.user || null,
+      connected: !!currentSock?.user,
+      user: currentSock?.user || null,
       relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
@@ -768,7 +824,8 @@ function startWebServer(sock) {
 
   app.get("/api/groups", authMiddleware, async (req, res) => {
     try {
-      const groups = await getGroupsCached(sock, true);
+      const currentSock = getLiveSock();
+      const groups = await getGroupsCached(currentSock, true);
 
       res.json({
         ok: true,
@@ -776,6 +833,8 @@ function startWebServer(sock) {
         groups
       });
     } catch (e) {
+      console.log("❌ Error en /api/groups:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -785,10 +844,12 @@ function startWebServer(sock) {
 
   app.post("/api/groups/:chatId/group-mode", authMiddleware, async (req, res) => {
     try {
+      const currentSock = getLiveSock();
+
       const chatId = decodeURIComponent(req.params.chatId);
       const mode = String(req.body?.mode || "");
 
-      const result = await applyGroupMode(sock, chatId, mode);
+      const result = await applyGroupMode(currentSock, chatId, mode);
 
       lastGroupsAt = 0;
 
@@ -797,6 +858,8 @@ function startWebServer(sock) {
         ...result
       });
     } catch (e) {
+      console.log("❌ Error en /api/groups/:chatId/group-mode:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -817,6 +880,8 @@ function startWebServer(sock) {
         config
       });
     } catch (e) {
+      console.log("❌ Error en /api/groups/:chatId/config GET:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -826,16 +891,26 @@ function startWebServer(sock) {
 
   app.post("/api/groups/:chatId/config", authMiddleware, async (req, res) => {
     try {
+      const currentSock = getLiveSock();
+
       const chatId = decodeURIComponent(req.params.chatId);
       const { key, value } = req.body || {};
 
-      const result = await applyConfig(sock, chatId, String(key || ""), value, true);
+      const result = await applyConfig(
+        currentSock,
+        chatId,
+        String(key || ""),
+        value,
+        true
+      );
 
       res.json({
         ok: true,
         ...result
       });
     } catch (e) {
+      console.log("❌ Error en /api/groups/:chatId/config POST:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -845,6 +920,8 @@ function startWebServer(sock) {
 
   app.post("/api/send/text", authMiddleware, async (req, res) => {
     try {
+      const currentSock = getLiveSock();
+
       const { text } = req.body || {};
       const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
 
@@ -866,7 +943,7 @@ function startWebServer(sock) {
 
       for (const chatId of chatIds) {
         try {
-          await sock.sendMessage(chatId, { text: String(text) });
+          await currentSock.sendMessage(chatId, { text: String(text) });
           results.push({ chatId, ok: true });
         } catch (e) {
           results.push({ chatId, ok: false, error: e.message });
@@ -878,6 +955,8 @@ function startWebServer(sock) {
         results
       });
     } catch (e) {
+      console.log("❌ Error en /api/send/text:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -887,6 +966,8 @@ function startWebServer(sock) {
 
   app.post("/api/send/media", authMiddleware, upload.single("file"), async (req, res) => {
     try {
+      const currentSock = getLiveSock();
+
       const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
       const caption = String(req.body.caption || "");
 
@@ -932,7 +1013,7 @@ function startWebServer(sock) {
 
       for (const chatId of chatIds) {
         try {
-          await sock.sendMessage(chatId, payload);
+          await currentSock.sendMessage(chatId, payload);
           results.push({ chatId, ok: true });
         } catch (e) {
           results.push({ chatId, ok: false, error: e.message });
@@ -944,6 +1025,8 @@ function startWebServer(sock) {
         results
       });
     } catch (e) {
+      console.log("❌ Error en /api/send/media:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
@@ -953,23 +1036,25 @@ function startWebServer(sock) {
 
   app.post("/api/groups/:chatId/leave", authMiddleware, async (req, res) => {
     try {
+      const currentSock = getLiveSock();
+
       const chatId = decodeURIComponent(req.params.chatId);
 
-      try {
-        await sock.sendMessage(chatId, {
-          text:
+      await sendGroupNotice(
+        currentSock,
+        chatId,
 `👋💜 *Suki se va del grupo...*
 
 Mi dueño me sacó desde el panel web.
 
 Gracias por usar *La Suki Bot*.  
-Bye bye ✨🚀`
-        });
-      } catch {}
+Bye bye ✨🚀`,
+        "leave_group_direct_api"
+      );
 
       await new Promise(resolve => setTimeout(resolve, 1200));
 
-      await sock.groupLeave(chatId);
+      await currentSock.groupLeave(chatId);
 
       lastGroupsAt = 0;
 
@@ -979,6 +1064,8 @@ Bye bye ✨🚀`
         left: true
       });
     } catch (e) {
+      console.log("❌ Error en /api/groups/:chatId/leave:", e.message);
+
       res.status(500).json({
         ok: false,
         error: e.message
