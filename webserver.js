@@ -18,6 +18,10 @@ const {
 const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
 const SUKI_REGISTER_URL = `${SUKI_PANEL_URL}/api/register-bot`;
 
+// 🌐 URL pública fija de ESTA Suki.
+// Si Pterodactyl cambia el puerto, cambia solo esta línea.
+const SUKI_PUBLIC_URL_FALLBACK = "http://64.20.54.50:30037";
+
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 
@@ -74,6 +78,10 @@ function saveWebSettings(data) {
   try {
     fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify(data || {}, null, 2));
   } catch {}
+}
+
+function normalizeUrl(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
 }
 
 function sha256(text) {
@@ -156,12 +164,18 @@ function normalizeConfigValue(value) {
 
 function updatePublicBaseUrl(req) {
   try {
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-    const host = req.get("host");
+    const protocol =
+      req.headers["x-forwarded-proto"] ||
+      req.protocol ||
+      "http";
+
+    const host =
+      req.headers["x-forwarded-host"] ||
+      req.get("host");
 
     if (!host) return;
 
-    const currentUrl = `${protocol}://${host}`;
+    const currentUrl = normalizeUrl(`${protocol}://${host}`);
     const settings = readWebSettings();
 
     if (settings.public_base_url !== currentUrl) {
@@ -188,9 +202,10 @@ function updatePublicBaseUrl(req) {
 function getPublicBaseUrl() {
   const settings = readWebSettings();
 
-  return (
+  return normalizeUrl(
     global.SUKI_PUBLIC_BASE_URL ||
     settings.public_base_url ||
+    SUKI_PUBLIC_URL_FALLBACK ||
     ""
   );
 }
@@ -200,7 +215,7 @@ async function registerSukiWithPanel(reason = "manual") {
     const publicUrl = getPublicBaseUrl();
 
     if (!publicUrl) {
-      console.log("⚠️ No se registró Suki: falta publicUrl. Abre primero la URL pública del API de Suki.");
+      console.log("⚠️ No se registró Suki: falta publicUrl.");
       return false;
     }
 
@@ -281,6 +296,11 @@ function startWebServer(sock) {
 
   if (global.__SUKI_WEB_SERVER_STARTED) {
     console.log("🌐 API web de Suki ya estaba iniciada, sock actualizado.");
+
+    setTimeout(() => {
+      registerSukiWithPanel("sock-updated").catch(() => {});
+    }, 1000);
+
     return;
   }
 
@@ -548,6 +568,7 @@ function startWebServer(sock) {
   app.listen(PORT, "0.0.0.0", async () => {
     console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
     console.log(`🌐 Panel central configurado: ${SUKI_PANEL_URL}`);
+    console.log(`🌐 URL pública fallback de esta Suki: ${SUKI_PUBLIC_URL_FALLBACK}`);
 
     setTimeout(() => {
       registerSukiWithPanel("startup").catch(() => {});
