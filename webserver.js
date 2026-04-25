@@ -5,6 +5,7 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const axios = require("axios");
 
 const {
   getConfig,
@@ -14,7 +15,7 @@ const {
 } = require("./db");
 
 // 🌐 URL CENTRAL DE LA PÁGINA WEB GENERAL DE LA SUKI BOT
-const SUKI_PANEL_URL = "http://la-suki-bot.ultraplus.click:30206";
+const SUKI_PANEL_URL = "https://la-suki-bot.ultraplus.click";
 const SUKI_REGISTER_URL = `${SUKI_PANEL_URL}/api/register-bot`;
 
 const API_KEYS_PATH = path.resolve("./api_keys.json");
@@ -174,7 +175,9 @@ function updatePublicBaseUrl(req) {
       console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
 
       if (typeof global.registerSukiWithPanel === "function") {
-        global.registerSukiWithPanel("url-updated").catch(() => {});
+        setTimeout(() => {
+          global.registerSukiWithPanel("url-updated").catch(() => {});
+        }, 1000);
       }
     }
   } catch (e) {
@@ -184,6 +187,7 @@ function updatePublicBaseUrl(req) {
 
 function getPublicBaseUrl() {
   const settings = readWebSettings();
+
   return (
     global.SUKI_PUBLIC_BASE_URL ||
     settings.public_base_url ||
@@ -194,6 +198,12 @@ function getPublicBaseUrl() {
 async function registerSukiWithPanel(reason = "manual") {
   try {
     const publicUrl = getPublicBaseUrl();
+
+    if (!publicUrl) {
+      console.log("⚠️ No se registró Suki: falta publicUrl. Abre primero la URL pública del API de Suki.");
+      return false;
+    }
+
     const keys = readKeys()
       .filter(k => k && k.hash && k.active !== false)
       .map(k => ({
@@ -204,7 +214,10 @@ async function registerSukiWithPanel(reason = "manual") {
         createdBy: k.createdBy || null
       }));
 
-    if (!keys.length) return false;
+    if (!keys.length) {
+      console.log("⚠️ No se registró Suki: no hay API keys activas.");
+      return false;
+    }
 
     const body = {
       botName: "La Suki Bot",
@@ -214,22 +227,23 @@ async function registerSukiWithPanel(reason = "manual") {
       keys
     };
 
-    const res = await fetch(SUKI_REGISTER_URL, {
-      method: "POST",
+    const res = await axios.post(SUKI_REGISTER_URL, body, {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(body)
+      timeout: 20000,
+      validateStatus: () => true
     });
 
-    const text = await res.text().catch(() => "");
-
-    if (!res.ok) {
-      console.log(`⚠️ No se pudo registrar Suki en el panel central: ${res.status} ${text.slice(0, 120)}`);
+    if (!res.data || res.data.ok !== true) {
+      console.log("⚠️ No se pudo registrar Suki en el panel central:", res.status, res.data);
       return false;
     }
 
     console.log(`✅ Suki registrada en el panel central: ${SUKI_PANEL_URL}`);
+    console.log(`✅ Keys registradas: ${res.data.saved}`);
+    console.log(`✅ URL pública enviada: ${publicUrl}`);
+
     return true;
   } catch (e) {
     console.log("⚠️ Registro con panel central pendiente:", e.message);
