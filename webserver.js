@@ -20,6 +20,10 @@ const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
 
+// ✅ CAMBIO: ahora Suki preguntará al panel cada 15 segundos
+const RELAY_POLL_INTERVAL_MS = 15000;
+const RELAY_REGISTER_INTERVAL_MS = 60000;
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -55,6 +59,7 @@ let relayBusy = false;
 let relayStarted = false;
 let lastGroupsCache = [];
 let lastGroupsAt = 0;
+let lastPollErrorLogAt = 0;
 
 function readKeys() {
   try {
@@ -618,6 +623,21 @@ Bye bye ✨🚀`
   throw new Error(`Task desconocida: ${type}`);
 }
 
+function logPollError(message, data) {
+  const now = Date.now();
+
+  // ✅ Para no llenar consola: solo muestra error cada 30 segundos
+  if (now - lastPollErrorLogAt < 30000) return;
+
+  lastPollErrorLogAt = now;
+
+  if (data) {
+    console.log(message, data);
+  } else {
+    console.log(message);
+  }
+}
+
 async function relayPollOnce() {
   if (relayBusy) return;
 
@@ -646,7 +666,7 @@ async function relayPollOnce() {
     });
 
     if (!res.data || res.data.ok !== true) {
-      console.log("⚠️ Poll panel falló:", res.status, res.data);
+      logPollError(`⚠️ Poll panel falló: ${res.status}`, res.data);
       return;
     }
 
@@ -662,7 +682,7 @@ async function relayPollOnce() {
       }
     }
   } catch (e) {
-    console.log("⚠️ Relay polling pendiente:", e.message);
+    logPollError("⚠️ Relay polling pendiente: " + e.message);
   } finally {
     relayBusy = false;
   }
@@ -673,13 +693,13 @@ function startRelayPolling() {
 
   relayStarted = true;
 
-  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada 3 segundos.");
+  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada 15 segundos.");
 
   setTimeout(() => registerWithPanel("startup").catch(() => {}), 2000);
-  setInterval(() => registerWithPanel("refresh").catch(() => {}), 60000);
+  setInterval(() => registerWithPanel("refresh").catch(() => {}), RELAY_REGISTER_INTERVAL_MS);
 
-  setTimeout(() => relayPollOnce().catch(() => {}), 4000);
-  setInterval(() => relayPollOnce().catch(() => {}), 3000);
+  setTimeout(() => relayPollOnce().catch(() => {}), 5000);
+  setInterval(() => relayPollOnce().catch(() => {}), RELAY_POLL_INTERVAL_MS);
 }
 
 function makeJsonBodyLimit(app) {
@@ -720,7 +740,8 @@ function startWebServer(sock) {
       relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
-      port: PORT
+      port: PORT,
+      pollIntervalMs: RELAY_POLL_INTERVAL_MS
     });
   });
 
@@ -731,7 +752,8 @@ function startWebServer(sock) {
       user: sock?.user || null,
       relay: true,
       panelUrl: SUKI_PANEL_URL,
-      publicUrl: getPublicBaseUrl() || null
+      publicUrl: getPublicBaseUrl() || null,
+      pollIntervalMs: RELAY_POLL_INTERVAL_MS
     });
   });
 
@@ -970,6 +992,7 @@ Bye bye ✨🚀`
     console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
     console.log(`🌐 Panel central: ${SUKI_PANEL_URL}`);
     console.log("🔁 Modo relay/polling listo.");
+    console.log(`⏱️ Polling configurado cada ${RELAY_POLL_INTERVAL_MS / 1000} segundos.`);
     startRelayPolling();
   });
 }
