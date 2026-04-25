@@ -26,7 +26,7 @@ function readKeys() {
 }
 
 function saveKeys(data) {
-  fs.writeFileSync(API_KEYS_PATH, JSON.stringify(data, null, 2));
+  fs.writeFileSync(API_KEYS_PATH, JSON.stringify(data || [], null, 2));
 }
 
 function isOwnerMsg(msg) {
@@ -60,6 +60,17 @@ function isOwnerMsg(msg) {
   }
 }
 
+function makeApiKey() {
+  const rawKey = "suki_" + crypto.randomBytes(32).toString("hex");
+  const id = crypto.randomBytes(5).toString("hex");
+
+  return {
+    id,
+    rawKey,
+    hash: sha256(rawKey)
+  };
+}
+
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
 
@@ -71,12 +82,12 @@ const handler = async (msg, { conn, args }) => {
 
   const action = String(args[0] || "new").toLowerCase();
 
-  if (action === "list") {
+  if (action === "list" || action === "lista") {
     const keys = readKeys();
 
     if (!keys.length) {
       return conn.sendMessage(chatId, {
-        text: "🔐 No hay API keys creadas."
+        text: "🔐 No hay API key creada."
       }, { quoted: msg });
     }
 
@@ -85,37 +96,31 @@ const handler = async (msg, { conn, args }) => {
     }).join("\n\n");
 
     return conn.sendMessage(chatId, {
-      text: `🔐 *API keys creadas:*\n\n${text}`
+      text: `🔐 *API key actual:*\n\n${text}\n\n📌 Usa *.apikey* para generar una nueva y borrar la anterior.`
     }, { quoted: msg });
   }
 
-  if (action === "del" || action === "delete" || action === "remove") {
-    const id = String(args[1] || "").trim();
-
-    if (!id) {
-      return conn.sendMessage(chatId, {
-        text: "✳️ Usa:\n\n.apikey del ID"
-      }, { quoted: msg });
-    }
-
+  if (
+    action === "del" ||
+    action === "delete" ||
+    action === "remove" ||
+    action === "borrar" ||
+    action === "eliminar"
+  ) {
     const keys = readKeys();
-    const next = keys.filter(k => k.id !== id);
 
-    if (next.length === keys.length) {
+    if (!keys.length) {
       return conn.sendMessage(chatId, {
-        text: "❌ No encontré esa API key."
+        text: "❌ No hay API key para eliminar."
       }, { quoted: msg });
     }
 
-    saveKeys(next);
+    saveKeys([]);
 
     return conn.sendMessage(chatId, {
-      text: `✅ API key *${id}* eliminada correctamente.`
+      text: "✅ Todas las API keys fueron eliminadas correctamente."
     }, { quoted: msg });
   }
-
-  const rawKey = "suki_" + crypto.randomBytes(32).toString("hex");
-  const id = crypto.randomBytes(5).toString("hex");
 
   const sender =
     msg.realJid ||
@@ -123,31 +128,40 @@ const handler = async (msg, { conn, args }) => {
     msg.key?.remoteJid ||
     "";
 
-  const keys = readKeys();
+  const oldKeys = readKeys();
+  const created = makeApiKey();
 
-  keys.push({
-    id,
-    hash: sha256(rawKey),
+  const newKeyData = {
+    id: created.id,
+    hash: created.hash,
     active: true,
     createdAt: Date.now(),
-    createdBy: DIGITS(sender)
-  });
+    createdBy: DIGITS(sender),
+    replacedOldKeys: oldKeys.length
+  };
 
-  saveKeys(keys);
+  // ✅ IMPORTANTE:
+  // Aquí NO usamos push.
+  // Esto borra todas las anteriores y deja solo esta nueva.
+  saveKeys([newKeyData]);
 
   return conn.sendMessage(chatId, {
     text:
-`🔐 *API key creada correctamente*
+`🔐 *API key nueva creada correctamente*
 
-ID: *${id}*
+ID: *${created.id}*
+
+🧹 API keys anteriores eliminadas: *${oldKeys.length}*
 
 Copia esta key y guárdala bien:
 
 \`\`\`
-${rawKey}
+${created.rawKey}
 \`\`\`
 
-⚠️ Por seguridad, esta key completa solo se muestra una vez.`
+⚠️ Por seguridad, esta key completa solo se muestra una vez.
+
+✅ Ahora solo existe *1 API key activa*.`
   }, { quoted: msg });
 };
 
