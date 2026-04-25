@@ -162,7 +162,13 @@ function startWebServer(sock) {
   global.__SUKI_WEB_SERVER_STARTED = true;
 
   const app = express();
-  const PORT = process.env.SUKI_API_PORT || process.env.PORT || 3001;
+
+  const PORT =
+    process.env.SERVER_PORT ||
+    process.env.PORT ||
+    process.env.SUKI_API_PORT ||
+    process.env.P_SERVER_PORT ||
+    3001;
 
   app.use(cors());
   makeJsonBodyLimit(app);
