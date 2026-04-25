@@ -13,7 +13,12 @@ const {
   getAllConfigs
 } = require("./db");
 
+// 🌐 URL CENTRAL DE LA PÁGINA WEB GENERAL DE LA SUKI BOT
+const SUKI_PANEL_URL = "http://la-suki-bot.ultraplus.click:30206";
+const SUKI_REGISTER_URL = `${SUKI_PANEL_URL}/api/register-bot`;
+
 const API_KEYS_PATH = path.resolve("./api_keys.json");
+const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -48,6 +53,26 @@ function readKeys() {
   } catch {
     return [];
   }
+}
+
+function readWebSettings() {
+  try {
+    if (!fs.existsSync(WEB_SETTINGS_PATH)) {
+      fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify({}, null, 2));
+      return {};
+    }
+
+    const data = JSON.parse(fs.readFileSync(WEB_SETTINGS_PATH, "utf-8"));
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveWebSettings(data) {
+  try {
+    fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify(data || {}, null, 2));
+  } catch {}
 }
 
 function sha256(text) {
@@ -128,6 +153,90 @@ function normalizeConfigValue(value) {
   );
 }
 
+function updatePublicBaseUrl(req) {
+  try {
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+    const host = req.get("host");
+
+    if (!host) return;
+
+    const currentUrl = `${protocol}://${host}`;
+    const settings = readWebSettings();
+
+    if (settings.public_base_url !== currentUrl) {
+      settings.public_base_url = currentUrl;
+      settings.updatedAt = Date.now();
+
+      saveWebSettings(settings);
+
+      global.SUKI_PUBLIC_BASE_URL = currentUrl;
+
+      console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
+
+      if (typeof global.registerSukiWithPanel === "function") {
+        global.registerSukiWithPanel("url-updated").catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.error("❌ Error actualizando URL pública:", e.message);
+  }
+}
+
+function getPublicBaseUrl() {
+  const settings = readWebSettings();
+  return (
+    global.SUKI_PUBLIC_BASE_URL ||
+    settings.public_base_url ||
+    ""
+  );
+}
+
+async function registerSukiWithPanel(reason = "manual") {
+  try {
+    const publicUrl = getPublicBaseUrl();
+    const keys = readKeys()
+      .filter(k => k && k.hash && k.active !== false)
+      .map(k => ({
+        id: k.id || "",
+        hash: k.hash,
+        active: k.active !== false,
+        createdAt: k.createdAt || null,
+        createdBy: k.createdBy || null
+      }));
+
+    if (!keys.length) return false;
+
+    const body = {
+      botName: "La Suki Bot",
+      publicUrl,
+      reason,
+      registeredAt: Date.now(),
+      keys
+    };
+
+    const res = await fetch(SUKI_REGISTER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    const text = await res.text().catch(() => "");
+
+    if (!res.ok) {
+      console.log(`⚠️ No se pudo registrar Suki en el panel central: ${res.status} ${text.slice(0, 120)}`);
+      return false;
+    }
+
+    console.log(`✅ Suki registrada en el panel central: ${SUKI_PANEL_URL}`);
+    return true;
+  } catch (e) {
+    console.log("⚠️ Registro con panel central pendiente:", e.message);
+    return false;
+  }
+}
+
 async function getGroups(sock) {
   const groups = await sock.groupFetchAllParticipating();
 
@@ -153,6 +262,8 @@ function makeJsonBodyLimit(app) {
 
 function startWebServer(sock) {
   global.sukiSock = sock;
+  global.sock = sock;
+  global.registerSukiWithPanel = registerSukiWithPanel;
 
   if (global.__SUKI_WEB_SERVER_STARTED) {
     console.log("🌐 API web de Suki ya estaba iniciada, sock actualizado.");
@@ -170,14 +281,23 @@ function startWebServer(sock) {
     process.env.P_SERVER_PORT ||
     3001;
 
+  app.set("trust proxy", 1);
+
   app.use(cors());
   makeJsonBodyLimit(app);
+
+  app.use((req, res, next) => {
+    updatePublicBaseUrl(req);
+    next();
+  });
 
   app.get("/", (req, res) => {
     res.json({
       ok: true,
       name: "La Suki Bot API",
-      status: "online"
+      status: "online",
+      publicUrl: getPublicBaseUrl() || null,
+      panelUrl: SUKI_PANEL_URL
     });
   });
 
@@ -187,7 +307,19 @@ function startWebServer(sock) {
     res.json({
       ok: true,
       connected: !!sock?.user,
-      user: sock?.user || null
+      user: sock?.user || null,
+      publicUrl: getPublicBaseUrl() || null,
+      panelUrl: SUKI_PANEL_URL
+    });
+  });
+
+  app.post("/api/register-now", authMiddleware, async (req, res) => {
+    const ok = await registerSukiWithPanel("manual-api");
+
+    res.json({
+      ok,
+      panelUrl: SUKI_PANEL_URL,
+      publicUrl: getPublicBaseUrl() || null
     });
   });
 
@@ -399,8 +531,13 @@ function startWebServer(sock) {
     }
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", async () => {
     console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
+    console.log(`🌐 Panel central configurado: ${SUKI_PANEL_URL}`);
+
+    setTimeout(() => {
+      registerSukiWithPanel("startup").catch(() => {});
+    }, 3000);
   });
 }
 
