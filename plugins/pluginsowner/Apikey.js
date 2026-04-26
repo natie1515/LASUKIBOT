@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 const API_KEYS_PATH = path.resolve("./api_keys.json");
+const RELAY_STATE_PATH = path.resolve("./relay_client_state.json");
 
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
@@ -144,6 +145,18 @@ const handler = async (msg, { conn, args }) => {
   // Aquí NO usamos push.
   // Esto borra todas las anteriores y deja solo esta nueva.
   saveKeys([newKeyData]);
+
+  // ✅ Limpia estado viejo del relay para que el panel no siga viendo hashes anteriores.
+  try {
+    if (fs.existsSync(RELAY_STATE_PATH)) fs.unlinkSync(RELAY_STATE_PATH);
+  } catch {}
+
+  // ✅ Si la API web ya está viva, fuerza registro inmediato al panel central.
+  try {
+    if (typeof global.__SUKI_RELAY_REGISTER_NOW === "function") {
+      global.__SUKI_RELAY_REGISTER_NOW("apikey-created");
+    }
+  } catch {}
 
   return conn.sendMessage(chatId, {
     text:
