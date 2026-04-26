@@ -16,9 +16,11 @@ const {
 } = require("./db");
 
 const SUKI_PANEL_URL = "https://lasukibot.ultraplus.click";
+
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
+const RELAY_STATE_PATH = path.resolve("./relay_client_state.json");
 
 const RELAY_POLL_INTERVAL_MS = 15000;
 const RELAY_REGISTER_INTERVAL_MS = 60000;
@@ -68,12 +70,25 @@ let lastGroupsCache = [];
 let lastGroupsAt = 0;
 let lastPollErrorLogAt = 0;
 let lastGroupsFetchAttemptAt = 0;
+let lastRegisterOkAt = 0;
 
 const runningTaskIds = new Set();
 const finishedTaskIds = new Map();
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isValidHash(value) {
+  return /^[a-f0-9]{64}$/.test(String(value || "").trim().toLowerCase());
+}
+
+function cleanHash(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (isValidHash(text)) return text;
+
+  const match = text.match(/[a-f0-9]{64}/i);
+  return match ? match[0].toLowerCase() : "";
 }
 
 function shortHash(value) {
@@ -91,62 +106,82 @@ function cleanupFinishedTasks() {
   }
 }
 
-function readKeys() {
+function readJSON(file, fallback) {
   try {
-    if (!fs.existsSync(API_KEYS_PATH)) {
-      fs.writeFileSync(API_KEYS_PATH, JSON.stringify([], null, 2));
-      return [];
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
+      return fallback;
     }
 
-    const data = JSON.parse(fs.readFileSync(API_KEYS_PATH, "utf-8"));
-    return Array.isArray(data) ? data : [];
+    const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+    return data && typeof data === "object" ? data : fallback;
   } catch {
-    return [];
+    return fallback;
   }
+}
+
+function saveJSON(file, data) {
+  try {
+    fs.writeFileSync(file, JSON.stringify(data || {}, null, 2));
+  } catch {}
+}
+
+function readKeys() {
+  const data = readJSON(API_KEYS_PATH, []);
+  return Array.isArray(data) ? data : [];
 }
 
 function readWebSettings() {
-  try {
-    if (!fs.existsSync(WEB_SETTINGS_PATH)) {
-      fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify({}, null, 2));
-      return {};
-    }
-
-    const data = JSON.parse(fs.readFileSync(WEB_SETTINGS_PATH, "utf-8"));
-    return data && typeof data === "object" ? data : {};
-  } catch {
-    return {};
-  }
+  return readJSON(WEB_SETTINGS_PATH, {});
 }
 
 function saveWebSettings(data) {
-  try {
-    fs.writeFileSync(WEB_SETTINGS_PATH, JSON.stringify(data || {}, null, 2));
-  } catch {}
+  saveJSON(WEB_SETTINGS_PATH, data || {});
 }
 
 function readActivoss() {
-  try {
-    if (!fs.existsSync(ACTIVOSS_PATH)) {
-      fs.writeFileSync(ACTIVOSS_PATH, JSON.stringify({}, null, 2));
-      return {};
-    }
-
-    const data = JSON.parse(fs.readFileSync(ACTIVOSS_PATH, "utf-8"));
-    return data && typeof data === "object" ? data : {};
-  } catch {
-    return {};
-  }
+  return readJSON(ACTIVOSS_PATH, {});
 }
 
 function saveActivoss(data) {
-  try {
-    fs.writeFileSync(ACTIVOSS_PATH, JSON.stringify(data || {}, null, 2));
-  } catch {}
+  saveJSON(ACTIVOSS_PATH, data || {});
+}
+
+function readRelayState() {
+  return readJSON(RELAY_STATE_PATH, {});
+}
+
+function saveRelayState(patch = {}) {
+  const old = readRelayState();
+
+  saveJSON(RELAY_STATE_PATH, {
+    ...old,
+    ...patch,
+    updatedAt: Date.now()
+  });
 }
 
 function sha256(text) {
   return crypto.createHash("sha256").update(String(text || "")).digest("hex");
+}
+
+function getHashFromKeyRecord(k = {}) {
+  const fromHash = cleanHash(k.hash || k.keyHash || k.key_hash || k.primaryKeyHash || "");
+  if (fromHash) return fromHash;
+
+  const raw =
+    k.key ||
+    k.apiKey ||
+    k.apikey ||
+    k.rawKey ||
+    k.token ||
+    "";
+
+  if (raw && typeof raw === "string" && raw.length >= 8) {
+    return sha256(raw);
+  }
+
+  return "";
 }
 
 function verifyApiKey(rawKey) {
@@ -155,7 +190,10 @@ function verifyApiKey(rawKey) {
   const hash = sha256(rawKey);
   const keys = readKeys();
 
-  return keys.some(k => k.hash === hash && k.active !== false);
+  return keys.some(k => {
+    const storedHash = getHashFromKeyRecord(k);
+    return storedHash === hash && k.active !== false;
+  });
 }
 
 function getBearer(req) {
@@ -288,21 +326,37 @@ function normalizeConfigValue(value) {
 
 function getActiveKeyPayload() {
   return readKeys()
-    .filter(k => k && k.hash && k.active !== false)
-    .map(k => ({
-      id: k.id || "",
-      hash: String(k.hash).trim().toLowerCase(),
-      keyHash: String(k.hash).trim().toLowerCase(),
-      active: k.active !== false,
-      createdAt: k.createdAt || null,
-      createdBy: k.createdBy || null
-    }));
+    .filter(k => k && k.active !== false)
+    .map(k => {
+      const hash = getHashFromKeyRecord(k);
+
+      return {
+        id: k.id || "",
+        hash,
+        keyHash: hash,
+        key_hash: hash,
+        active: k.active !== false,
+        createdAt: k.createdAt || null,
+        createdBy: k.createdBy || null
+      };
+    })
+    .filter(k => isValidHash(k.hash));
 }
 
 function getActiveKeyHashes() {
-  return getActiveKeyPayload()
-    .map(k => String(k.hash || k.keyHash || "").trim().toLowerCase())
-    .filter(Boolean);
+  const hashes = [];
+
+  for (const k of getActiveKeyPayload()) {
+    const hash = cleanHash(k.hash || k.keyHash);
+    if (hash && !hashes.includes(hash)) hashes.push(hash);
+  }
+
+  const state = readRelayState();
+  const fallback = cleanHash(state.primaryKeyHash || state.keyHash || "");
+
+  if (fallback && !hashes.includes(fallback)) hashes.push(fallback);
+
+  return hashes;
 }
 
 function getPrimaryKeyHash() {
@@ -576,38 +630,64 @@ async function makeState(sock) {
   };
 }
 
-function buildPanelBody(reason, state = {}) {
+function buildPanelBody(reason, state = {}, extra = {}) {
   const keys = getActiveKeyPayload();
   const keyHashes = getActiveKeyHashes();
+  const primaryKeyHash = keyHashes[0] || "";
+
+  if (!primaryKeyHash) {
+    console.log("⚠️ buildPanelBody sin primaryKeyHash válido.");
+    console.log("➡️ Revisa api_keys.json: el campo hash debe ser SHA256 completo de 64 caracteres.");
+  }
 
   return {
     botName: "La Suki Bot",
     publicUrl: getPublicBaseUrl(),
     reason,
     registeredAt: Date.now(),
+
     keys,
+    hashes: keyHashes,
     keyHashes,
+    activeKeys: keyHashes,
     activeKeyHashes: keyHashes,
-    primaryKeyHash: keyHashes[0] || "",
+
+    hash: primaryKeyHash,
+    keyHash: primaryKeyHash,
+    key_hash: primaryKeyHash,
+    primaryHash: primaryKeyHash,
+    primary_hash: primaryKeyHash,
+    primaryKeyHash,
+    primary_key_hash: primaryKeyHash,
+    botHash: primaryKeyHash,
+    bot_hash: primaryKeyHash,
+    relayKeyHash: primaryKeyHash,
+
     user: state.user || null,
     groups: state.groups || [],
-    state
+    state: {
+      ...state,
+      hash: primaryKeyHash,
+      keyHash: primaryKeyHash,
+      primaryHash: primaryKeyHash,
+      primaryKeyHash
+    },
+
+    ...extra
   };
 }
 
-async function registerWithPanel(reason = "manual") {
+async function registerWithPanel(reason = "manual", stateOverride = null) {
   try {
-    const keys = getActiveKeyPayload();
     const keyHashes = getActiveKeyHashes();
 
-    if (!keys.length) {
-      console.log("⚠️ No se registró Suki: no hay API keys activas.");
+    if (!keyHashes.length) {
+      console.log("⚠️ No se registró Suki: no hay API keys activas con hash válido.");
       return false;
     }
 
     const sock = getSock();
-    const state = sock ? await makeState(sock) : {};
-
+    const state = stateOverride || (sock ? await makeState(sock) : {});
     const body = buildPanelBody(reason, state);
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -627,6 +707,16 @@ async function registerWithPanel(reason = "manual") {
       return false;
     }
 
+    lastRegisterOkAt = Date.now();
+
+    saveRelayState({
+      primaryKeyHash: keyHashes[0] || "",
+      keyHashes,
+      lastRegisterOkAt,
+      lastRegisterReason: reason,
+      lastRegisterResponse: res.data
+    });
+
     console.log(`✅ Suki registrada en panel central. Keys: ${res.data.saved}`);
     return true;
   } catch (e) {
@@ -637,6 +727,7 @@ async function registerWithPanel(reason = "manual") {
 
 async function reportTaskResult(taskId, ok, result = {}, error = "") {
   const keyHashes = getActiveKeyHashes();
+  const primaryKeyHash = keyHashes[0] || "";
 
   const body = {
     taskId,
@@ -645,9 +736,17 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
     error: error || "",
     botName: "La Suki Bot",
     publicUrl: getPublicBaseUrl(),
+
+    hashes: keyHashes,
     keyHashes,
     activeKeyHashes: keyHashes,
-    primaryKeyHash: keyHashes[0] || "",
+    hash: primaryKeyHash,
+    keyHash: primaryKeyHash,
+    key_hash: primaryKeyHash,
+    primaryHash: primaryKeyHash,
+    primaryKeyHash,
+    botHash: primaryKeyHash,
+
     finishedAt: Date.now()
   };
 
@@ -658,7 +757,7 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
       console.log("➡️ Task ID:", taskId);
       console.log("➡️ OK:", ok);
       console.log("➡️ Intento:", attempt + "/" + TASK_RESULT_RETRY_ATTEMPTS);
-      console.log("➡️ Primary hash:", shortHash(keyHashes[0]));
+      console.log("➡️ Primary hash:", shortHash(primaryKeyHash));
 
       const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/task-result`, body, {
         timeout: 30000,
@@ -920,6 +1019,32 @@ async function executeAndReportTask(task) {
   }
 }
 
+async function postPollToPanel(body, label = "normal") {
+  const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/poll`, body, {
+    timeout: 25000,
+    validateStatus: () => true
+  });
+
+  if (!res.data || res.data.ok !== true) {
+    logPollError(`⚠️ Poll panel falló (${label}): ${res.status}`, res.data);
+    return {
+      ok: false,
+      tasks: [],
+      data: res.data || null,
+      status: res.status
+    };
+  }
+
+  const tasks = normalizeTasksFromPanel(res.data);
+
+  return {
+    ok: true,
+    tasks,
+    data: res.data,
+    status: res.status
+  };
+}
+
 async function relayPollOnce() {
   if (relayBusy) return;
 
@@ -929,22 +1054,28 @@ async function relayPollOnce() {
     const sock = getSock();
     if (!sock) return;
 
-    const keys = getActiveKeyPayload();
     const keyHashes = getActiveKeyHashes();
 
-    if (!keys.length) {
-      console.log("⚠️ Poll cancelado: no hay API keys activas en api_keys.json.");
+    if (!keyHashes.length) {
+      console.log("⚠️ Poll cancelado: no hay API keys activas con hash válido en api_keys.json.");
       return;
     }
 
     const state = await makeState(sock);
 
+    if (!lastRegisterOkAt || Date.now() - lastRegisterOkAt > RELAY_REGISTER_INTERVAL_MS) {
+      await registerWithPanel("before-poll", state).catch(() => {});
+    }
+
     const pollId = String(Date.now()) + "_" + crypto.randomBytes(3).toString("hex");
 
     const body = {
-      ...buildPanelBody("poll", state),
-      pollId,
-      pollAt: Date.now()
+      ...buildPanelBody("poll", state, {
+        pollId,
+        pollAt: Date.now(),
+        rescuePending: true,
+        takeAnyPending: true
+      })
     };
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -956,31 +1087,69 @@ async function relayPollOnce() {
     console.log("➡️ Connected:", !!state.connected);
     console.log("➡️ Groups state:", Array.isArray(state.groups) ? state.groups.length : 0);
 
-    const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/poll`, body, {
-      timeout: 25000,
-      validateStatus: () => true
-    });
+    let poll = await postPollToPanel(body, "normal");
 
-    if (!res.data || res.data.ok !== true) {
-      logPollError(`⚠️ Poll panel falló: ${res.status}`, res.data);
-      return;
-    }
+    if (!poll.ok) return;
 
-    const tasks = normalizeTasksFromPanel(res.data);
+    let tasks = poll.tasks;
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("📡 POLL PANEL OK");
     console.log("➡️ Poll ID:", pollId);
     console.log("➡️ Tasks recibidas:", tasks.length);
 
-    if (res.data.debug) {
-      console.log("🧾 Debug panel:", res.data.debug);
+    if (poll.data?.debug) {
+      console.log("🧾 Debug panel:", poll.data.debug);
     }
+
+    const debug = poll.data?.debug || {};
+    const pendingTotal = Number(debug.pendingTotal || 0);
+    const selected = Number(debug.selected || 0);
+
+    if (!tasks.length && pendingTotal > 0 && selected === 0) {
+      console.log("⚠️ El panel tiene tareas pendientes pero no entregó ninguna.");
+      console.log("♻️ Reintentando poll de rescate con todos los hashes posibles...");
+
+      const rescueBody = {
+        ...body,
+        reason: "poll-rescue",
+        rescuePoll: true,
+        forceTakePending: true,
+        takeAnyPending: true,
+        allowHashRescue: true,
+        pollId: pollId + "_rescue"
+      };
+
+      poll = await postPollToPanel(rescueBody, "rescue");
+
+      if (poll.ok) {
+        tasks = poll.tasks;
+
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📡 POLL RESCUE OK");
+        console.log("➡️ Poll ID:", rescueBody.pollId);
+        console.log("➡️ Tasks recibidas:", tasks.length);
+
+        if (poll.data?.debug) {
+          console.log("🧾 Debug rescue:", poll.data.debug);
+        }
+      }
+    }
+
+    saveRelayState({
+      primaryKeyHash: keyHashes[0] || "",
+      keyHashes,
+      lastPollAt: Date.now(),
+      lastPollId: pollId,
+      lastPollTasks: tasks.length,
+      lastPanelDebug: poll.data?.debug || null
+    });
 
     if (!tasks.length) {
       console.log("ℹ️ Panel respondió 0 tasks.");
-      console.log("➡️ Si relay_tasks.json tiene pending, el fallo está en panel.js/tasksForPoll o en el hash.");
+      console.log("➡️ Si relay_tasks.json tiene pending, revisa que el task tenga este hash:");
       console.log("➡️ Hash que Suki está usando:", shortHash(keyHashes[0]));
+      console.log("➡️ Si el task está en running, espera 2 minutos o bórralo para probar.");
       return;
     }
 
@@ -1071,7 +1240,8 @@ function startWebServer(sock) {
       primaryKeyHash: shortHash(getPrimaryKeyHash()),
       activeKeys: getActiveKeyHashes().length,
       runningTasks: Array.from(runningTaskIds),
-      finishedTasksCount: finishedTaskIds.size
+      finishedTasksCount: finishedTaskIds.size,
+      relayState: readRelayState()
     });
   });
 
@@ -1096,7 +1266,8 @@ function startWebServer(sock) {
         ok: true,
         message: "Poll ejecutado manualmente",
         primaryKeyHash: shortHash(getPrimaryKeyHash()),
-        activeKeys: getActiveKeyHashes().length
+        activeKeys: getActiveKeyHashes().length,
+        relayState: readRelayState()
       });
     } catch (e) {
       res.status(500).json({
