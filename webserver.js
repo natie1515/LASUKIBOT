@@ -1247,6 +1247,7 @@ async function getGroups(sock) {
 
 async function getGroupsCached(sock, force = false, allowShrink = false) {
   const now = Date.now();
+  const forceFreshShrink = force && allowShrink;
 
   if (!force && lastGroupsCache.length && now - lastGroupsAt < GROUPS_CACHE_MS) {
     lastGroupsCache = hydrateGroups(lastGroupsCache);
@@ -1254,6 +1255,7 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
   }
 
   if (
+    !forceFreshShrink &&
     force &&
     lastGroupsCache.length >= MIN_GROUPS_FOR_COOLDOWN &&
     now - lastGroupsAt < GROUPS_FORCE_COOLDOWN_MS
@@ -1265,6 +1267,7 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
   }
 
   if (
+    !forceFreshShrink &&
     now - lastGroupsFetchAttemptAt < 10000 &&
     lastGroupsCache.length >= MIN_GROUPS_FOR_COOLDOWN
   ) {
@@ -1304,7 +1307,7 @@ async function makeState(sock, forceGroups = false) {
   let groups = [];
 
   try {
-    groups = await getGroupsCached(sock, forceGroups, false);
+    groups = await getGroupsCached(sock, forceGroups, forceGroups);
   } catch (e) {
     console.log("⚠️ No se pudieron cargar grupos para state:", e.message);
 
@@ -1562,7 +1565,7 @@ async function executeTask(sock, task) {
   }
 
   if (type === "get_groups") {
-    const groups = await getGroupsCached(sock, true, false);
+    const groups = await getGroupsCached(sock, true, true);
 
     console.log("👥 Grupos enviados al panel:", groups.length);
 
@@ -1606,7 +1609,7 @@ async function executeTask(sock, task) {
     );
 
     const data = await applyConfig(sock, chatId, key, value, true);
-    const groups = await getGroupsCached(sock, true, false).catch(() => hydrateGroups(lastGroupsCache));
+    const groups = await getGroupsCached(sock, true, true).catch(() => hydrateGroups(lastGroupsCache));
 
     return {
       ...data,
@@ -1638,7 +1641,7 @@ async function executeTask(sock, task) {
 
     lastGroupsAt = 0;
 
-    const groups = await getGroupsCached(sock, true, false).catch(() => hydrateGroups(lastGroupsCache));
+    const groups = await getGroupsCached(sock, true, true).catch(() => hydrateGroups(lastGroupsCache));
 
     return {
       ...data,
@@ -2195,7 +2198,7 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
       const force = req.query.force === "1" || req.query.refresh === "1";
-      const groups = await getGroupsCached(currentSock, force, false);
+      const groups = await getGroupsCached(currentSock, force, force);
 
       res.json({
         ok: true,
