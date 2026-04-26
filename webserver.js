@@ -15,24 +15,43 @@ const {
   getAllConfigs
 } = require("./db");
 
-const SUKI_PANEL_URL = "https://lasukibot.ultraplus.click";
+/*
+  webserver.js para La Suki Bot
+  - Relay/polling con el panel central.
+  - Compatible con Pterodactyl.
+  - Detecta puerto/IP/URL pública automáticamente.
+  - Notifica en grupos cuando se cambia configuración, se abre/cierra grupo o se saca a Suki.
+*/
+
+function normalizeUrl(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
+const DEFAULT_PANEL_URL = "https://lasukibot.ultraplus.click";
+const DEFAULT_PORT = 30261;
+
+const SUKI_PANEL_URL = normalizeUrl(
+  process.env.SUKI_PANEL_URL ||
+  process.env.PANEL_URL ||
+  DEFAULT_PANEL_URL
+);
 
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
 const RELAY_STATE_PATH = path.resolve("./relay_client_state.json");
 
-const RELAY_POLL_INTERVAL_MS = 15000;
-const RELAY_REGISTER_INTERVAL_MS = 60000;
+const RELAY_POLL_INTERVAL_MS = Number(process.env.SUKI_RELAY_POLL_MS || 15000);
+const RELAY_REGISTER_INTERVAL_MS = Number(process.env.SUKI_RELAY_REGISTER_MS || 60000);
 
-const GROUPS_CACHE_MS = 2 * 60 * 1000;
-const GROUPS_FORCE_COOLDOWN_MS = 25 * 1000;
-const GROUPS_FETCH_TIMEOUT_MS = 20000;
+const GROUPS_CACHE_MS = Number(process.env.SUKI_GROUPS_CACHE_MS || 2 * 60 * 1000);
+const GROUPS_FORCE_COOLDOWN_MS = Number(process.env.SUKI_GROUPS_FORCE_COOLDOWN_MS || 25 * 1000);
+const GROUPS_FETCH_TIMEOUT_MS = Number(process.env.SUKI_GROUPS_FETCH_TIMEOUT_MS || 20000);
 const MIN_GROUPS_FOR_COOLDOWN = Number(process.env.SUKI_MIN_GROUPS_FOR_COOLDOWN || 8);
 
-const TASK_RESULT_RETRY_ATTEMPTS = 5;
-const TASK_RESULT_RETRY_DELAY_MS = 2500;
-const FINISHED_TASK_TTL_MS = 10 * 60 * 1000;
+const TASK_RESULT_RETRY_ATTEMPTS = Number(process.env.SUKI_TASK_RESULT_RETRIES || 5);
+const TASK_RESULT_RETRY_DELAY_MS = Number(process.env.SUKI_TASK_RESULT_RETRY_DELAY_MS || 2500);
+const FINISHED_TASK_TTL_MS = Number(process.env.SUKI_FINISHED_TASK_TTL_MS || 10 * 60 * 1000);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -65,8 +84,6 @@ const CONFIG_LABELS = {
   reaccion: "⚡ Reacciones automáticas"
 };
 
-// ✅ Alias para que el panel no falle si manda nombres diferentes.
-// Ejemplo: bienvenida, welcomes, despedida, antisticker, reacion, etc.
 const CONFIG_ALIASES = {
   welcome: "welcome",
   bienvenida: "welcome",
@@ -116,7 +133,6 @@ const CONFIG_ALIASES = {
   reacciones: "reaccion"
 };
 
-// ✅ Alias de tasks para que el relay soporte distintos panel.js.
 const TASK_TYPE_ALIASES = {
   get_status: "get_status",
   status: "get_status",
@@ -208,6 +224,8 @@ function unique(values = []) {
 
 function normalizeKeyName(value) {
   return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
     .replace(/[\s\-]+/g, "_");
@@ -267,12 +285,43 @@ function firstValue(...values) {
   return undefined;
 }
 
+function parseMaybeJSON(value, fallback) {
+  try {
+    if (typeof value === "undefined" || value === null) return fallback;
+    if (typeof value !== "string") return value;
+
+    const clean = value.trim();
+    if (!clean) return fallback;
+
+    return JSON.parse(clean);
+  } catch {
+    return fallback;
+  }
+}
+
+function objectOrEmpty(value) {
+  const parsed = parseMaybeJSON(value, value);
+
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    !Buffer.isBuffer(parsed)
+  ) {
+    return parsed;
+  }
+
+  return {};
+}
+
 function normalizeTaskObject(task = {}) {
+  const basePayload = objectOrEmpty(task.payload);
+
   const payload = {
-    ...(task.payload || {}),
-    ...(task.data || {}),
-    ...(task.body || {}),
-    ...(task.params || {})
+    ...basePayload,
+    ...objectOrEmpty(task.data),
+    ...objectOrEmpty(task.body),
+    ...objectOrEmpty(task.params)
   };
 
   const rawType = firstValue(
@@ -306,15 +355,66 @@ function normalizeTaskObject(task = {}) {
 }
 
 function normalizeChatId(value) {
+  if (typeof value === "object" && value !== null) {
+    value = firstValue(
+      value.id,
+      value.chatId,
+      value.chat_id,
+      value.groupId,
+      value.group_id,
+      value.jid,
+      value.remoteJid
+    );
+  }
+
   const text = String(value || "").trim();
   if (!text) return "";
 
-  // El panel a veces manda IDs encodeados dentro de URLs.
   try {
     return decodeURIComponent(text);
   } catch {
     return text;
   }
+}
+
+function parseChatIds(value) {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    const out = [];
+
+    for (const item of value) {
+      for (const chatId of parseChatIds(item)) {
+        if (chatId && !out.includes(chatId)) out.push(chatId);
+      }
+    }
+
+    return out;
+  }
+
+  if (typeof value === "object") {
+    const id = normalizeChatId(value);
+    return id ? [id] : [];
+  }
+
+  if (typeof value === "string") {
+    const clean = value.trim();
+    if (!clean) return [];
+
+    try {
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed)) return parseChatIds(parsed);
+      if (parsed && typeof parsed === "object") return parseChatIds(parsed);
+    } catch {}
+
+    return clean
+      .split(",")
+      .map(x => normalizeChatId(x))
+      .filter(Boolean);
+  }
+
+  const id = normalizeChatId(value);
+  return id ? [id] : [];
 }
 
 function parseChatIdsAny(...values) {
@@ -335,24 +435,32 @@ function cleanBase64(value) {
 
   if (!text || text === "[limpiado]") return "";
 
-  // Soporta data URL: data:image/png;base64,AAAA...
   const dataUrlMatch = text.match(/^data:([^;]+);base64,(.+)$/i);
   if (dataUrlMatch) {
     text = dataUrlMatch[2];
   }
 
-  // Quita espacios y saltos por si el panel parte el base64.
   return text.replace(/\s+/g, "");
 }
 
-function bufferFromBase64(value) {
+function bufferFromAny(value) {
+  if (!value || value === "[limpiado]") return null;
+
+  if (Buffer.isBuffer(value)) return value;
+
+  if (
+    typeof value === "object" &&
+    value.type === "Buffer" &&
+    Array.isArray(value.data)
+  ) {
+    return Buffer.from(value.data);
+  }
+
   const cleaned = cleanBase64(value);
   if (!cleaned) return null;
 
   const buffer = Buffer.from(cleaned, "base64");
-  if (!buffer.length) return null;
-
-  return buffer;
+  return buffer.length ? buffer : null;
 }
 
 function guessMimeFromName(fileName = "") {
@@ -474,7 +582,15 @@ function collectHashesDeep(value, out = [], depth = 0) {
 }
 
 function getHashFromKeyRecord(k = {}) {
-  const fromHash = cleanHash(k.hash || k.keyHash || k.key_hash || k.primaryKeyHash || "");
+  const fromHash = cleanHash(
+    k.hash ||
+    k.keyHash ||
+    k.key_hash ||
+    k.primaryKeyHash ||
+    k.primary_key_hash ||
+    ""
+  );
+
   if (fromHash) return fromHash;
 
   const raw =
@@ -495,11 +611,11 @@ function getHashFromKeyRecord(k = {}) {
 function getKnownHashesFromLocalFiles() {
   const hashes = [];
 
-  // ✅ Solo api_keys.json y variables de entorno.
-  // ❌ No se lee relay_client_state.json aquí porque guarda hashes viejos.
-  // Eso puede provocar que el panel entregue tareas a una key vieja y Suki no las tome bien.
   try {
-    collectHashesDeep(readJSON(API_KEYS_PATH, []), hashes);
+    for (const key of readKeys()) {
+      const hash = getHashFromKeyRecord(key);
+      if (isValidHash(hash)) hashes.push(hash);
+    }
   } catch {}
 
   try {
@@ -518,11 +634,16 @@ function verifyApiKey(rawKey) {
   if (!rawKey) return false;
 
   const hash = sha256(rawKey);
+  const cleanRaw = cleanHash(rawKey);
   const keys = readKeys();
 
   return keys.some(k => {
     const storedHash = getHashFromKeyRecord(k);
-    return storedHash === hash && k.active !== false;
+    return (
+      k.active !== false &&
+      storedHash &&
+      (storedHash === hash || storedHash === cleanRaw)
+    );
   });
 }
 
@@ -536,6 +657,7 @@ function getBearer(req) {
   return (
     req.headers["x-api-key"] ||
     req.query.apikey ||
+    req.query.apiKey ||
     ""
   );
 }
@@ -577,12 +699,63 @@ function getServerPort() {
     process.env.P_SERVER_PORT ||
     process.env.SUKI_API_PORT ||
     process.env.PORT ||
-    3001
+    DEFAULT_PORT
   );
 }
 
-function normalizeUrl(url) {
-  return String(url || "").trim().replace(/\/+$/, "");
+function getServerIp() {
+  return (
+    process.env.SERVER_IP ||
+    process.env.P_SERVER_IP ||
+    process.env.PTERODACTYL_IP ||
+    process.env.PTERODACTYL_NODE_IP ||
+    process.env.NODE_IP ||
+    process.env.ALLOCATION_IP ||
+    process.env.HOST ||
+    ""
+  );
+}
+
+function buildDetectedPublicUrl() {
+  const fromEnv = normalizeUrl(
+    process.env.SUKI_PUBLIC_BASE_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    process.env.WEB_PUBLIC_URL ||
+    process.env.APP_URL ||
+    process.env.PUBLIC_URL ||
+    ""
+  );
+
+  if (fromEnv) return fromEnv;
+
+  const settings = readWebSettings();
+  const fromSettings = normalizeUrl(settings.public_base_url || "");
+  if (fromSettings) return fromSettings;
+
+  const ip = String(getServerIp() || "").trim();
+  const port = String(getServerPort() || "").trim();
+
+  if (ip && port && ip !== "0.0.0.0") {
+    return normalizeUrl(`http://${ip}:${port}`);
+  }
+
+  return "";
+}
+
+function setInitialPublicBaseUrl() {
+  const current = buildDetectedPublicUrl();
+  if (!current) return;
+
+  global.SUKI_PUBLIC_BASE_URL = current;
+
+  const settings = readWebSettings();
+
+  if (settings.public_base_url !== current) {
+    settings.public_base_url = current;
+    settings.detectedAt = Date.now();
+    settings.updatedAt = Date.now();
+    saveWebSettings(settings);
+  }
 }
 
 function getPublicBaseUrl() {
@@ -591,18 +764,33 @@ function getPublicBaseUrl() {
   return normalizeUrl(
     global.SUKI_PUBLIC_BASE_URL ||
     settings.public_base_url ||
+    buildDetectedPublicUrl() ||
     ""
   );
 }
 
 function updatePublicBaseUrl(req) {
   try {
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-    const host = req.get("host");
+    const protocol = String(req.headers["x-forwarded-proto"] || req.protocol || "http")
+      .split(",")[0]
+      .trim();
+
+    const host = String(req.headers["x-forwarded-host"] || req.get("host") || "")
+      .split(",")[0]
+      .trim();
 
     if (!host) return;
 
     const currentUrl = normalizeUrl(`${protocol}://${host}`);
+
+    if (
+      !currentUrl ||
+      currentUrl.includes("localhost") ||
+      currentUrl.includes("127.0.0.1")
+    ) {
+      return;
+    }
+
     const settings = readWebSettings();
 
     if (settings.public_base_url !== currentUrl) {
@@ -613,31 +801,11 @@ function updatePublicBaseUrl(req) {
 
       global.SUKI_PUBLIC_BASE_URL = currentUrl;
 
-      console.log(`🌍 URL pública de esta Suki actualizada: ${currentUrl}`);
+      console.log("🌍 URL pública de esta Suki actualizada:", currentUrl);
     }
   } catch (e) {
     console.error("❌ Error actualizando URL pública:", e.message);
   }
-}
-
-function parseChatIds(value) {
-  if (!value) return [];
-
-  if (Array.isArray(value)) return value.filter(Boolean);
-
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    } catch {}
-
-    return value
-      .split(",")
-      .map(x => x.trim())
-      .filter(Boolean);
-  }
-
-  return [];
 }
 
 function normalizeConfigValue(value) {
@@ -650,7 +818,12 @@ function normalizeConfigValue(value) {
     v === "on" ||
     v === "true" ||
     v === "activar" ||
-    v === "activado"
+    v === "activado" ||
+    v === "enable" ||
+    v === "enabled" ||
+    v === "yes" ||
+    v === "si" ||
+    v === "sí"
   );
 }
 
@@ -661,7 +834,7 @@ function getActiveKeyPayload() {
       const hash = getHashFromKeyRecord(k);
 
       return {
-        id: k.id || "",
+        id: k.id || hash.slice(0, 12),
         hash,
         keyHash: hash,
         key_hash: hash,
@@ -697,8 +870,9 @@ function getPrimaryKeyHash() {
 
 function getReaccionStatus(chatId) {
   const db = readActivoss();
-  const estado = String(db?.[chatId]?.reacion || "on").toLowerCase();
-  return estado === "off" ? 0 : 1;
+  const estado = String(db?.[chatId]?.reacion || db?.[chatId]?.reaccion || "on").toLowerCase();
+
+  return estado === "off" || estado === "0" || estado === "false" ? 0 : 1;
 }
 
 function setReaccionStatus(chatId, active) {
@@ -706,11 +880,66 @@ function setReaccionStatus(chatId, active) {
 
   db[chatId] = db[chatId] || {};
   db[chatId].reacion = active ? "on" : "off";
+  db[chatId].reaccion = active ? "on" : "off";
   db[chatId].updatedAt = Date.now();
 
   saveActivoss(db);
 
   return active ? 1 : 0;
+}
+
+function readGroupConfig(chatId) {
+  let config = {};
+
+  try {
+    config = getAllConfigs(chatId) || {};
+  } catch {
+    config = {};
+  }
+
+  return {
+    ...config,
+    reaccion: getReaccionStatus(chatId)
+  };
+}
+
+function hydrateGroupConfig(group = {}) {
+  const id = String(group.id || "");
+  if (!id) return group;
+
+  return {
+    ...group,
+    config: {
+      ...(group.config || {}),
+      ...readGroupConfig(id)
+    }
+  };
+}
+
+function hydrateGroups(groups = []) {
+  return (Array.isArray(groups) ? groups : [])
+    .filter(g => g && g.id)
+    .map(g => hydrateGroupConfig(g));
+}
+
+function patchCachedGroup(chatId, patch = {}) {
+  const id = normalizeChatId(chatId);
+  if (!id) return;
+
+  lastGroupsCache = hydrateGroups(lastGroupsCache.map(g => {
+    if (String(g.id) !== id) return g;
+
+    return {
+      ...g,
+      ...patch,
+      config: {
+        ...(g.config || {}),
+        ...(patch.config || {})
+      }
+    };
+  }));
+
+  lastGroupsAt = Date.now();
 }
 
 async function sendGroupNotice(sock, chatId, text, reason = "notice") {
@@ -801,6 +1030,10 @@ async function applyGroupMode(sock, chatId, mode) {
     await sock.groupSettingUpdate(chatId, "not_announcement");
     await notifyGroupMode(sock, chatId, "open");
 
+    patchCachedGroup(chatId, {
+      announce: false
+    });
+
     return {
       chatId,
       mode: "open",
@@ -811,6 +1044,10 @@ async function applyGroupMode(sock, chatId, mode) {
   if (mode === "close") {
     await notifyGroupMode(sock, chatId, "close");
     await sock.groupSettingUpdate(chatId, "announcement");
+
+    patchCachedGroup(chatId, {
+      announce: true
+    });
 
     return {
       chatId,
@@ -840,6 +1077,13 @@ async function applyConfig(sock, chatId, key, value, notify = true) {
       deleteConfig(chatId, key);
     }
   }
+
+  patchCachedGroup(chatId, {
+    config: {
+      [key]: active ? 1 : 0,
+      reaccion: key === "reaccion" ? (active ? 1 : 0) : getReaccionStatus(chatId)
+    }
+  });
 
   if (notify) {
     await notifyConfig(sock, chatId, key, active);
@@ -876,10 +1120,7 @@ function withTimeout(promise, ms, label = "timeout") {
 }
 
 function normalizeGroupObject(id, g = {}) {
-  const config = getAllConfigs(id) || {};
-  config.reaccion = getReaccionStatus(id);
-
-  return {
+  return hydrateGroupConfig({
     id,
     subject: g.subject || "Sin nombre",
     owner: g.owner || null,
@@ -887,9 +1128,8 @@ function normalizeGroupObject(id, g = {}) {
     restrict: !!g.restrict,
     participants: Array.isArray(g.participants)
       ? g.participants.length
-      : Number(g.participants || g.participantsCount || 0),
-    config
-  };
+      : Number(g.participants || g.participantsCount || 0)
+  });
 }
 
 function mergeGroups(oldGroups = [], newGroups = []) {
@@ -902,6 +1142,7 @@ function mergeGroups(oldGroups = [], newGroups = []) {
   for (const g of newGroups || []) {
     if (g?.id) {
       const old = map.get(String(g.id)) || {};
+
       map.set(String(g.id), {
         ...old,
         ...g,
@@ -913,14 +1154,15 @@ function mergeGroups(oldGroups = [], newGroups = []) {
     }
   }
 
-  return Array.from(map.values());
+  return hydrateGroups(Array.from(map.values()));
 }
 
 function setGroupsCache(groups = [], reason = "update", allowShrink = false) {
-  const incoming = Array.isArray(groups) ? groups.filter(g => g?.id) : [];
+  const incoming = hydrateGroups(Array.isArray(groups) ? groups.filter(g => g?.id) : []);
 
   if (!incoming.length && lastGroupsCache.length) {
     console.log("⚠️ No se actualizó caché porque llegaron 0 grupos. Razón:", reason);
+    lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
 
@@ -954,6 +1196,10 @@ async function getGroups(sock) {
     throw new Error("WhatsApp no está conectado");
   }
 
+  if (typeof sock.groupFetchAllParticipating !== "function") {
+    throw new Error("groupFetchAllParticipating no disponible en sock");
+  }
+
   const groups = await withTimeout(
     sock.groupFetchAllParticipating(),
     GROUPS_FETCH_TIMEOUT_MS,
@@ -967,6 +1213,7 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
   const now = Date.now();
 
   if (!force && lastGroupsCache.length && now - lastGroupsAt < GROUPS_CACHE_MS) {
+    lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
 
@@ -977,6 +1224,7 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
   ) {
     console.log("♻️ Usando caché estable de grupos para evitar rate-overlimit.");
     console.log("➡️ Cache:", lastGroupsCache.length);
+    lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
 
@@ -986,6 +1234,7 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
   ) {
     console.log("♻️ Evitando doble carga de grupos muy seguida.");
     console.log("➡️ Cache:", lastGroupsCache.length);
+    lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
 
@@ -1001,11 +1250,13 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
 
     if (isRateLimitError(e) && lastGroupsCache.length) {
       console.log("♻️ Rate-overlimit detectado. Devolviendo caché de grupos:", lastGroupsCache.length);
+      lastGroupsCache = hydrateGroups(lastGroupsCache);
       return lastGroupsCache;
     }
 
     if (lastGroupsCache.length) {
       console.log("♻️ Error cargando grupos. Devolviendo caché:", lastGroupsCache.length);
+      lastGroupsCache = hydrateGroups(lastGroupsCache);
       return lastGroupsCache;
     }
 
@@ -1022,7 +1273,7 @@ async function makeState(sock, forceGroups = false) {
     console.log("⚠️ No se pudieron cargar grupos para state:", e.message);
 
     if (lastGroupsCache.length) {
-      groups = lastGroupsCache;
+      groups = hydrateGroups(lastGroupsCache);
     }
   }
 
@@ -1032,13 +1283,13 @@ async function makeState(sock, forceGroups = false) {
     groups,
     groups_json: JSON.stringify(groups),
     group_cache: groups,
-    groups_cache: groups
+    groups_cache: groups,
+    groupsCount: groups.length
   };
 }
 
 function buildPanelKeyPayload() {
   const active = getActiveKeyPayload();
-  const activeHashes = active.map(k => k.hash);
   const allHashes = getAllPanelHashes();
 
   const out = [];
@@ -1064,12 +1315,11 @@ function buildPanelBody(reason, state = {}, extra = {}) {
   const keys = buildPanelKeyPayload();
   const keyHashes = unique(keys.map(k => k.hash));
   const primaryKeyHash = getPrimaryKeyHash();
-
-  const groups = Array.isArray(state.groups) ? state.groups : [];
+  const groups = hydrateGroups(Array.isArray(state.groups) ? state.groups : []);
 
   if (!primaryKeyHash) {
     console.log("⚠️ buildPanelBody sin primaryKeyHash válido.");
-    console.log("➡️ Revisa api_keys.json: el campo hash debe ser SHA256 completo de 64 caracteres.");
+    console.log("➡️ Revisa api_keys.json: debe tener hash SHA256 completo o key raw activa.");
   }
 
   return {
@@ -1141,7 +1391,9 @@ async function registerWithPanel(reason = "manual", stateOverride = null) {
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("📡 REGISTRANDO SUKI EN PANEL");
+    console.log("➡️ Panel:", SUKI_PANEL_URL);
     console.log("➡️ Razón:", reason);
+    console.log("➡️ Public URL:", getPublicBaseUrl() || "sin detectar");
     console.log("➡️ Keys conocidas:", keyHashes.length);
     console.log("➡️ Primary hash:", shortHash(getPrimaryKeyHash()));
     console.log("➡️ Hashes enviados:", keyHashes.map(shortHash).join(", "));
@@ -1170,8 +1422,8 @@ async function registerWithPanel(reason = "manual", stateOverride = null) {
       lastRegisterResponse: res.data
     });
 
-    console.log(`✅ Suki registrada en panel central. Keys: ${res.data.saved}`);
-    console.log("➡️ Panel dice grupos:", res.data.groups ?? "sin campo groups");
+    console.log("✅ Suki registrada en panel central.");
+    console.log("➡️ Keys guardadas por panel:", res.data.saved ?? "sin campo saved");
 
     return true;
   } catch (e) {
@@ -1203,8 +1455,11 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
     keyHash: primaryKeyHash,
     key_hash: primaryKeyHash,
     primaryHash: primaryKeyHash,
+    primary_hash: primaryKeyHash,
     primaryKeyHash,
+    primary_key_hash: primaryKeyHash,
     botHash: primaryKeyHash,
+    bot_hash: primaryKeyHash,
 
     finishedAt: Date.now()
   };
@@ -1260,7 +1515,7 @@ async function executeTask(sock, task) {
   const type = normalizeTaskType(task.type);
   const payload = task.payload || {};
 
-  console.log(`📥 Ejecutando task #${task.id}: ${type}`);
+  console.log("📥 Ejecutando task #" + task.id + ": " + type);
   console.log("➡️ Payload keys:", Object.keys(payload).join(", ") || "sin payload");
 
   if (type === "get_status") {
@@ -1315,7 +1570,7 @@ async function executeTask(sock, task) {
     );
 
     const data = await applyConfig(sock, chatId, key, value, true);
-    const groups = await getGroupsCached(sock, true, false).catch(() => lastGroupsCache);
+    const groups = await getGroupsCached(sock, true, false).catch(() => hydrateGroups(lastGroupsCache));
 
     return {
       ...data,
@@ -1347,7 +1602,7 @@ async function executeTask(sock, task) {
 
     lastGroupsAt = 0;
 
-    const groups = await getGroupsCached(sock, true, false).catch(() => lastGroupsCache);
+    const groups = await getGroupsCached(sock, true, false).catch(() => hydrateGroups(lastGroupsCache));
 
     return {
       ...data,
@@ -1423,7 +1678,8 @@ async function executeTask(sock, task) {
     const caption = String(firstValue(payload.caption, payload.text, payload.message, "") || "");
     const fileName = String(firstValue(payload.fileName, payload.filename, payload.name, "archivo.bin") || "archivo.bin");
     const mimetype = String(firstValue(payload.mimetype, payload.mimeType, payload.mime, guessMimeFromName(fileName)) || "application/octet-stream");
-    const fileBase64 = firstValue(
+
+    const fileData = firstValue(
       payload.fileBase64,
       payload.base64,
       payload.file,
@@ -1436,9 +1692,7 @@ async function executeTask(sock, task) {
 
     if (!chatIds.length) throw new Error("Falta chatId/chatIds");
 
-    const buffer = Buffer.isBuffer(fileBase64)
-      ? fileBase64
-      : bufferFromBase64(fileBase64);
+    const buffer = bufferFromAny(fileData);
 
     if (!buffer) throw new Error("Falta archivo/base64");
 
@@ -1507,13 +1761,13 @@ Bye bye ✨🚀`,
       "leave_group"
     );
 
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    await sleep(1200);
 
     await sock.groupLeave(chatId);
 
     lastGroupsAt = 0;
 
-    const groups = await getGroupsCached(sock, true, true).catch(() => lastGroupsCache);
+    const groups = await getGroupsCached(sock, true, true).catch(() => hydrateGroups(lastGroupsCache));
 
     return {
       chatId,
@@ -1549,15 +1803,13 @@ function logPollError(message, data) {
 
   lastPollErrorLogAt = now;
 
-  if (data) {
-    console.log(message, data);
-  } else {
-    console.log(message);
-  }
+  if (data) console.log(message, data);
+  else console.log(message);
 }
 
 async function executeAndReportTask(task) {
   task = normalizeTaskObject(task);
+
   const taskId = String(task?.id || "");
 
   if (!taskId) {
@@ -1619,6 +1871,7 @@ async function postPollToPanel(body, label = "normal") {
 
   if (!res.data || res.data.ok !== true) {
     logPollError(`⚠️ Poll panel falló (${label}): ${res.status}`, res.data);
+
     return {
       ok: false,
       tasks: [],
@@ -1666,7 +1919,8 @@ async function relayPollOnce() {
         pollId,
         pollAt: Date.now(),
         rescuePending: true,
-        takeAnyPending: true
+        takeAnyPending: true,
+        allowHashRescue: true
       })
     };
 
@@ -1674,6 +1928,7 @@ async function relayPollOnce() {
     console.log("📡 ENVIANDO POLL AL PANEL");
     console.log("➡️ Poll ID:", pollId);
     console.log("➡️ Panel:", SUKI_PANEL_URL);
+    console.log("➡️ Public URL:", getPublicBaseUrl() || "sin detectar");
     console.log("➡️ Keys:", keyHashes.length);
     console.log("➡️ Primary hash:", shortHash(getPrimaryKeyHash()));
     console.log("➡️ Hashes:", keyHashes.map(shortHash).join(", "));
@@ -1761,7 +2016,7 @@ function startRelayPolling() {
 
   relayStarted = true;
 
-  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada 15 segundos.");
+  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada " + (RELAY_POLL_INTERVAL_MS / 1000) + " segundos.");
 
   setTimeout(() => registerWithPanel("startup").catch(() => {}), 2000);
   setInterval(() => registerWithPanel("refresh").catch(() => {}), RELAY_REGISTER_INTERVAL_MS);
@@ -1779,7 +2034,8 @@ function startWebServer(sock) {
   global.sukiSock = sock;
   global.sock = sock;
 
-  // ✅ Permite que comandos como .apikey pidan re-registro inmediato sin reiniciar.
+  setInitialPublicBaseUrl();
+
   global.__SUKI_RELAY_REGISTER_NOW = (reason = "manual-global") => {
     return registerWithPanel(reason).catch(e => {
       console.log("⚠️ Registro global falló:", e.message);
@@ -1823,6 +2079,7 @@ function startWebServer(sock) {
       relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
+      detectedIp: getServerIp() || null,
       port: PORT,
       pollIntervalMs: RELAY_POLL_INTERVAL_MS,
       groupsCacheMs: GROUPS_CACHE_MS,
@@ -1844,6 +2101,8 @@ function startWebServer(sock) {
       relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
+      detectedIp: getServerIp() || null,
+      port: PORT,
       pollIntervalMs: RELAY_POLL_INTERVAL_MS,
       groupsCache: lastGroupsCache.length,
       groupsLastUpdate: lastGroupsAt || null,
@@ -1895,7 +2154,8 @@ function startWebServer(sock) {
   app.get("/api/groups", authMiddleware, async (req, res) => {
     try {
       const currentSock = getLiveSock();
-      const groups = await getGroupsCached(currentSock, true, false);
+      const force = req.query.force === "1" || req.query.refresh === "1";
+      const groups = await getGroupsCached(currentSock, force, false);
 
       res.json({
         ok: true,
@@ -1942,9 +2202,7 @@ function startWebServer(sock) {
   app.get("/api/groups/:chatId/config", authMiddleware, async (req, res) => {
     try {
       const chatId = normalizeChatId(req.params.chatId);
-      const config = getAllConfigs(chatId) || {};
-
-      config.reaccion = getReaccionStatus(chatId);
+      const config = readGroupConfig(chatId);
 
       res.json({
         ok: true,
@@ -1994,7 +2252,14 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
 
-      const { text } = req.body || {};
+      const text = String(firstValue(
+        req.body?.text,
+        req.body?.message,
+        req.body?.msg,
+        req.body?.body,
+        req.body?.content
+      ) || "");
+
       const chatIds = parseChatIdsAny(
         req.body.chatIds,
         req.body.chat_ids,
@@ -2027,7 +2292,7 @@ function startWebServer(sock) {
 
       for (const chatId of chatIds) {
         try {
-          await currentSock.sendMessage(chatId, { text: String(text) });
+          await currentSock.sendMessage(chatId, { text });
           results.push({ chatId, ok: true });
         } catch (e) {
           results.push({ chatId, ok: false, error: e.message });
@@ -2036,7 +2301,10 @@ function startWebServer(sock) {
 
       res.json({
         ok: true,
-        results
+        results,
+        total: results.length,
+        success: results.filter(r => r.ok).length,
+        failed: results.filter(r => !r.ok).length
       });
     } catch (e) {
       console.log("❌ Error en /api/send/text:", e.message);
@@ -2065,6 +2333,7 @@ function startWebServer(sock) {
         req.body.jid,
         req.body.remoteJid
       );
+
       const caption = String(req.body.caption || "");
 
       if (!chatIds.length) {
@@ -2081,15 +2350,16 @@ function startWebServer(sock) {
         });
       }
 
-      const mimetype = req.file.mimetype || "";
+      const mimetype = req.file.mimetype || guessMimeFromName(req.file.originalname || "");
       const buffer = req.file.buffer;
+      const fileName = req.file.originalname || "archivo.bin";
 
       let payload;
 
       if (mimetype.startsWith("image/")) {
         payload = { image: buffer, caption };
       } else if (mimetype.startsWith("video/")) {
-        payload = { video: buffer, caption };
+        payload = { video: buffer, caption, mimetype };
       } else if (mimetype.startsWith("audio/")) {
         payload = {
           audio: buffer,
@@ -2100,7 +2370,7 @@ function startWebServer(sock) {
         payload = {
           document: buffer,
           mimetype: mimetype || "application/octet-stream",
-          fileName: req.file.originalname || "archivo.bin",
+          fileName,
           caption
         };
       }
@@ -2118,7 +2388,10 @@ function startWebServer(sock) {
 
       res.json({
         ok: true,
-        results
+        results,
+        total: results.length,
+        success: results.filter(r => r.ok).length,
+        failed: results.filter(r => !r.ok).length
       });
     } catch (e) {
       console.log("❌ Error en /api/send/media:", e.message);
@@ -2148,13 +2421,13 @@ Bye bye ✨🚀`,
         "leave_group_direct_api"
       );
 
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await sleep(1200);
 
       await currentSock.groupLeave(chatId);
 
       lastGroupsAt = 0;
 
-      const groups = await getGroupsCached(currentSock, true, true).catch(() => lastGroupsCache);
+      const groups = await getGroupsCached(currentSock, true, true).catch(() => hydrateGroups(lastGroupsCache));
 
       res.json({
         ok: true,
@@ -2173,15 +2446,18 @@ Bye bye ✨🚀`,
   });
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🌐 API web de La Suki Bot activa en puerto ${PORT}`);
-    console.log(`🌐 Panel central: ${SUKI_PANEL_URL}`);
+    console.log("🌐 API web de La Suki Bot activa en puerto " + PORT);
+    console.log("🌐 Panel central:", SUKI_PANEL_URL);
+    console.log("🌍 Public URL detectada:", getPublicBaseUrl() || "sin detectar todavía");
+    console.log("🧩 IP detectada:", getServerIp() || "sin IP env");
     console.log("🔁 Modo relay/polling listo.");
-    console.log(`⏱️ Polling configurado cada ${RELAY_POLL_INTERVAL_MS / 1000} segundos.`);
-    console.log(`♻️ Caché de grupos: ${GROUPS_CACHE_MS / 1000}s`);
-    console.log(`🛡️ Cooldown force grupos: ${GROUPS_FORCE_COOLDOWN_MS / 1000}s`);
-    console.log(`🔑 Primary hash: ${shortHash(getPrimaryKeyHash())}`);
-    console.log(`🔑 Keys activas: ${getActiveKeyHashes().length}`);
-    console.log(`🔑 Hashes conocidos: ${getAllPanelHashes().map(shortHash).join(", ") || "ninguno"}`);
+    console.log("⏱️ Polling configurado cada " + (RELAY_POLL_INTERVAL_MS / 1000) + " segundos.");
+    console.log("♻️ Caché de grupos: " + (GROUPS_CACHE_MS / 1000) + "s");
+    console.log("🛡️ Cooldown force grupos: " + (GROUPS_FORCE_COOLDOWN_MS / 1000) + "s");
+    console.log("🔑 Primary hash:", shortHash(getPrimaryKeyHash()));
+    console.log("🔑 Keys activas:", getActiveKeyHashes().length);
+    console.log("🔑 Hashes conocidos:", getAllPanelHashes().map(shortHash).join(", ") || "ninguno");
+
     startRelayPolling();
   });
 }
