@@ -36,6 +36,29 @@ const SUKI_PANEL_URL = normalizeUrl(
   DEFAULT_PANEL_URL
 );
 
+const SUKI_PUBLIC_WEB_URL = normalizeUrl(
+  process.env.SUKI_PUBLIC_WEB_URL ||
+  "https://lasukibot.ultraplus.click"
+);
+
+const SKY_ULTRA_PLUS_URL = normalizeUrl(
+  process.env.SKY_ULTRA_PLUS_URL ||
+  "https://dash.skyultraplus.com"
+);
+
+function notificationFooter() {
+  return `
+╭━━━〔 🌐 LA SUKI BOT 〕━━━╮
+┃ 💜 Página oficial:
+┃ ${SUKI_PUBLIC_WEB_URL}
+┃
+┃ 🚀 *Sky Ultra Plus*
+┃ ⚡ El hosting del futuro
+┃ 🤖 Donde la mejor bot está alojada
+┃ ${SKY_ULTRA_PLUS_URL}
+╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+}
+
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
@@ -984,11 +1007,16 @@ async function notifyConfig(sock, chatId, key, active) {
   const estado = active ? "activada ✅" : "desactivada ❌";
 
   const text =
-`⚙️✨ *Configuración actualizada desde el panel web*
+`╭━━━〔 ⚙️ PANEL WEB 〕━━━╮
+┃ ✨ *Configuración actualizada*
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-${label} fue *${estado}*.
+🧩 *Ajuste:* ${label}
+📌 *Estado:* ${estado}
 
-👑 Acción ejecutada por mi dueño desde el panel de *La Suki Bot*.`;
+👑 Acción ejecutada por mi dueño desde el panel web de *La Suki Bot*.
+
+${notificationFooter()}`;
 
   return await sendGroupNotice(
     sock,
@@ -1003,18 +1031,26 @@ async function notifyGroupMode(sock, chatId, mode) {
 
   if (mode === "open") {
     text =
-`🔓✨ *Grupo abierto*
+`╭━━━〔 🔓 GRUPO ABIERTO 〕━━━╮
+┃ ✨ *Modo del grupo actualizado*
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-Ahora todos los integrantes pueden enviar mensajes.
+✅ Ahora todos los integrantes pueden enviar mensajes.
 
-👑 Acción ejecutada desde el panel web de *La Suki Bot*.`;
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.
+
+${notificationFooter()}`;
   } else {
     text =
-`🔒✨ *Grupo cerrado*
+`╭━━━〔 🔒 GRUPO CERRADO 〕━━━╮
+┃ ✨ *Modo del grupo actualizado*
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-Ahora solo los administradores pueden enviar mensajes.
+👑 Ahora solo los administradores pueden enviar mensajes.
 
-👑 Acción ejecutada desde el panel web de *La Suki Bot*.`;
+👑 Acción ejecutada desde el panel web de *La Suki Bot*.
+
+${notificationFooter()}`;
   }
 
   return await sendGroupNotice(sock, chatId, text, `group_mode:${mode}`);
@@ -1752,12 +1788,16 @@ async function executeTask(sock, task) {
     await sendGroupNotice(
       sock,
       chatId,
-`👋💜 *Suki se va del grupo...*
+`╭━━━〔 👋 SUKI SE VA 〕━━━╮
+┃ 💜 *Gracias por usarme*
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
 Mi dueño me sacó desde el panel web.
 
-Gracias por usar *La Suki Bot*.  
-Bye bye ✨🚀`,
+Gracias por usar *La Suki Bot*.
+Bye bye ✨🚀
+
+${notificationFooter()}`,
       "leave_group"
     );
 
@@ -2412,12 +2452,16 @@ function startWebServer(sock) {
       await sendGroupNotice(
         currentSock,
         chatId,
-`👋💜 *Suki se va del grupo...*
+`╭━━━〔 👋 SUKI SE VA 〕━━━╮
+┃ 💜 *Gracias por usarme*
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
 Mi dueño me sacó desde el panel web.
 
-Gracias por usar *La Suki Bot*.  
-Bye bye ✨🚀`,
+Gracias por usar *La Suki Bot*.
+Bye bye ✨🚀
+
+${notificationFooter()}`,
         "leave_group_direct_api"
       );
 
