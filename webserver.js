@@ -65,6 +65,104 @@ const CONFIG_LABELS = {
   reaccion: "⚡ Reacciones automáticas"
 };
 
+// ✅ Alias para que el panel no falle si manda nombres diferentes.
+// Ejemplo: bienvenida, welcomes, despedida, antisticker, reacion, etc.
+const CONFIG_ALIASES = {
+  welcome: "welcome",
+  bienvenida: "welcome",
+  bienvenidas: "welcome",
+  welcomes: "welcome",
+
+  despedidas: "despedidas",
+  despedida: "despedidas",
+  bye: "despedidas",
+  byes: "despedidas",
+  goodbye: "despedidas",
+
+  antilink: "antilink",
+  anti_link: "antilink",
+  anti_links: "antilink",
+  links: "antilink",
+
+  linkall: "linkall",
+  link_all: "linkall",
+  all_links: "linkall",
+
+  antidelete: "antidelete",
+  anti_delete: "antidelete",
+  antieliminar: "antidelete",
+
+  modoadmins: "modoadmins",
+  modo_admins: "modoadmins",
+  onlyadmins: "modoadmins",
+  only_admins: "modoadmins",
+  admins: "modoadmins",
+
+  antiarabe: "antiarabe",
+  anti_arabe: "antiarabe",
+  antiarab: "antiarabe",
+  anti_arab: "antiarabe",
+
+  antis: "antis",
+  antisticker: "antis",
+  antistickers: "antis",
+  anti_sticker: "antis",
+  anti_stickers: "antis",
+
+  reaccion: "reaccion",
+  reacion: "reaccion",
+  reaction: "reaccion",
+  reactions: "reaccion",
+  reacciones: "reaccion"
+};
+
+// ✅ Alias de tasks para que el relay soporte distintos panel.js.
+const TASK_TYPE_ALIASES = {
+  get_status: "get_status",
+  status: "get_status",
+  ping: "get_status",
+
+  get_groups: "get_groups",
+  groups: "get_groups",
+  list_groups: "get_groups",
+
+  set_config: "set_config",
+  config: "set_config",
+  group_config: "set_config",
+  set_group_config: "set_config",
+  update_config: "set_config",
+  update_group_config: "set_config",
+  toggle_config: "set_config",
+  activar_config: "set_config",
+  deactivate_config: "set_config",
+
+  group_mode: "group_mode",
+  set_group_mode: "group_mode",
+  update_group_mode: "group_mode",
+  change_group_mode: "group_mode",
+  open_group: "group_mode",
+  close_group: "group_mode",
+
+  send_text: "send_text",
+  send_message: "send_text",
+  send_msg: "send_text",
+  message: "send_text",
+  text: "send_text",
+  broadcast_text: "send_text",
+
+  send_media: "send_media",
+  send_multimedia: "send_media",
+  send_file: "send_media",
+  send_document: "send_media",
+  media: "send_media",
+  multimedia: "send_media",
+  broadcast_media: "send_media",
+
+  leave_group: "leave_group",
+  salir_grupo: "leave_group",
+  leave: "leave_group"
+};
+
 let relayBusy = false;
 let relayStarted = false;
 let lastGroupsCache = [];
@@ -106,6 +204,172 @@ function unique(values = []) {
   }
 
   return out;
+}
+
+function normalizeKeyName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-]+/g, "_");
+}
+
+function normalizeConfigKey(value) {
+  const raw = normalizeKeyName(value);
+  return CONFIG_ALIASES[raw] || raw;
+}
+
+function normalizeTaskType(value) {
+  const raw = normalizeKeyName(value);
+  return TASK_TYPE_ALIASES[raw] || raw;
+}
+
+function normalizeGroupMode(value, fallbackType = "") {
+  const raw = normalizeKeyName(value || fallbackType);
+
+  if ([
+    "open",
+    "abrir",
+    "abierto",
+    "not_announcement",
+    "notannouncement",
+    "unlocked",
+    "public",
+    "todos",
+    "all"
+  ].includes(raw)) {
+    return "open";
+  }
+
+  if ([
+    "close",
+    "cerrar",
+    "cerrado",
+    "announcement",
+    "locked",
+    "private",
+    "admins",
+    "admin"
+  ].includes(raw)) {
+    return "close";
+  }
+
+  return raw;
+}
+
+function firstValue(...values) {
+  for (const value of values) {
+    if (typeof value === "undefined" || value === null) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    if (Array.isArray(value) && !value.length) continue;
+    return value;
+  }
+
+  return undefined;
+}
+
+function normalizeTaskObject(task = {}) {
+  const payload = {
+    ...(task.payload || {}),
+    ...(task.data || {}),
+    ...(task.body || {}),
+    ...(task.params || {})
+  };
+
+  const rawType = firstValue(
+    task.type,
+    task.action,
+    task.name,
+    task.command,
+    payload.type,
+    payload.action
+  );
+
+  const type = normalizeTaskType(rawType);
+
+  const id = String(firstValue(
+    task.id,
+    task.taskId,
+    task.task_id,
+    task._id,
+    payload.id,
+    payload.taskId,
+    payload.task_id
+  ) || "");
+
+  return {
+    ...task,
+    id,
+    type,
+    rawType,
+    payload
+  };
+}
+
+function normalizeChatId(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  // El panel a veces manda IDs encodeados dentro de URLs.
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
+function parseChatIdsAny(...values) {
+  const out = [];
+
+  for (const value of values) {
+    for (const chatId of parseChatIds(value)) {
+      const clean = normalizeChatId(chatId);
+      if (clean && !out.includes(clean)) out.push(clean);
+    }
+  }
+
+  return out;
+}
+
+function cleanBase64(value) {
+  let text = String(value || "").trim();
+
+  if (!text || text === "[limpiado]") return "";
+
+  // Soporta data URL: data:image/png;base64,AAAA...
+  const dataUrlMatch = text.match(/^data:([^;]+);base64,(.+)$/i);
+  if (dataUrlMatch) {
+    text = dataUrlMatch[2];
+  }
+
+  // Quita espacios y saltos por si el panel parte el base64.
+  return text.replace(/\s+/g, "");
+}
+
+function bufferFromBase64(value) {
+  const cleaned = cleanBase64(value);
+  if (!cleaned) return null;
+
+  const buffer = Buffer.from(cleaned, "base64");
+  if (!buffer.length) return null;
+
+  return buffer;
+}
+
+function guessMimeFromName(fileName = "") {
+  const name = String(fileName || "").toLowerCase();
+
+  if (/\.(jpg|jpeg)$/.test(name)) return "image/jpeg";
+  if (/\.png$/.test(name)) return "image/png";
+  if (/\.webp$/.test(name)) return "image/webp";
+  if (/\.gif$/.test(name)) return "image/gif";
+  if (/\.mp4$/.test(name)) return "video/mp4";
+  if (/\.webm$/.test(name)) return "video/webm";
+  if (/\.(mp3|mpeg)$/.test(name)) return "audio/mpeg";
+  if (/\.ogg$/.test(name)) return "audio/ogg";
+  if (/\.wav$/.test(name)) return "audio/wav";
+  if (/\.pdf$/.test(name)) return "application/pdf";
+
+  return "application/octet-stream";
 }
 
 function cleanupFinishedTasks() {
@@ -231,12 +495,11 @@ function getHashFromKeyRecord(k = {}) {
 function getKnownHashesFromLocalFiles() {
   const hashes = [];
 
+  // ✅ Solo api_keys.json y variables de entorno.
+  // ❌ No se lee relay_client_state.json aquí porque guarda hashes viejos.
+  // Eso puede provocar que el panel entregue tareas a una key vieja y Suki no las tome bien.
   try {
     collectHashesDeep(readJSON(API_KEYS_PATH, []), hashes);
-  } catch {}
-
-  try {
-    collectHashesDeep(readJSON(RELAY_STATE_PATH, {}), hashes);
   } catch {}
 
   try {
@@ -529,6 +792,9 @@ Ahora solo los administradores pueden enviar mensajes.
 }
 
 async function applyGroupMode(sock, chatId, mode) {
+  chatId = normalizeChatId(chatId);
+  mode = normalizeGroupMode(mode);
+
   if (!chatId) throw new Error("Falta chatId");
 
   if (mode === "open") {
@@ -557,8 +823,11 @@ async function applyGroupMode(sock, chatId, mode) {
 }
 
 async function applyConfig(sock, chatId, key, value, notify = true) {
+  chatId = normalizeChatId(chatId);
+  key = normalizeConfigKey(key);
+
   if (!chatId) throw new Error("Falta chatId");
-  if (!CONFIG_KEYS.has(key)) throw new Error("Config no permitida");
+  if (!CONFIG_KEYS.has(key)) throw new Error(`Config no permitida: ${key}`);
 
   const active = normalizeConfigValue(value);
 
@@ -917,6 +1186,8 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
 
   const body = {
     taskId,
+    task_id: taskId,
+    id: taskId,
     ok,
     result: result || {},
     error: error || "",
@@ -984,10 +1255,13 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
 }
 
 async function executeTask(sock, task) {
-  const type = task.type;
+  task = normalizeTaskObject(task);
+
+  const type = normalizeTaskType(task.type);
   const payload = task.payload || {};
 
   console.log(`📥 Ejecutando task #${task.id}: ${type}`);
+  console.log("➡️ Payload keys:", Object.keys(payload).join(", ") || "sin payload");
 
   if (type === "get_status") {
     return {
@@ -1012,12 +1286,36 @@ async function executeTask(sock, task) {
   }
 
   if (type === "set_config") {
-    const chatId = String(payload.chatId || "");
-    const key = String(payload.key || "");
-    const value = payload.value;
+    const chatId = normalizeChatId(firstValue(
+      payload.chatId,
+      payload.chat_id,
+      payload.groupId,
+      payload.group_id,
+      payload.jid,
+      payload.remoteJid
+    ));
+
+    const key = normalizeConfigKey(firstValue(
+      payload.key,
+      payload.configKey,
+      payload.config_key,
+      payload.name,
+      payload.setting,
+      payload.option
+    ));
+
+    const value = firstValue(
+      payload.value,
+      payload.active,
+      payload.enabled,
+      payload.status,
+      payload.state,
+      payload.on,
+      true
+    );
 
     const data = await applyConfig(sock, chatId, key, value, true);
-    const groups = await getGroupsCached(sock, true, false);
+    const groups = await getGroupsCached(sock, true, false).catch(() => lastGroupsCache);
 
     return {
       ...data,
@@ -1029,8 +1327,21 @@ async function executeTask(sock, task) {
   }
 
   if (type === "group_mode") {
-    const chatId = String(payload.chatId || "");
-    const mode = String(payload.mode || "");
+    const chatId = normalizeChatId(firstValue(
+      payload.chatId,
+      payload.chat_id,
+      payload.groupId,
+      payload.group_id,
+      payload.jid,
+      payload.remoteJid
+    ));
+
+    const mode = normalizeGroupMode(firstValue(
+      payload.mode,
+      payload.value,
+      payload.status,
+      payload.state
+    ), task.rawType || task.type);
 
     const data = await applyGroupMode(sock, chatId, mode);
 
@@ -1048,11 +1359,31 @@ async function executeTask(sock, task) {
   }
 
   if (type === "send_text") {
-    const text = String(payload.text || "");
-    const chatIds = parseChatIds(payload.chatIds || payload.chatId);
+    const text = String(firstValue(
+      payload.text,
+      payload.message,
+      payload.msg,
+      payload.body,
+      payload.content,
+      payload.caption
+    ) || "");
 
-    if (!text) throw new Error("Falta text");
-    if (!chatIds.length) throw new Error("Falta chatIds");
+    const chatIds = parseChatIdsAny(
+      payload.chatIds,
+      payload.chat_ids,
+      payload.groups,
+      payload.groupIds,
+      payload.group_ids,
+      payload.chatId,
+      payload.chat_id,
+      payload.groupId,
+      payload.group_id,
+      payload.jid,
+      payload.remoteJid
+    );
+
+    if (!text) throw new Error("Falta text/message");
+    if (!chatIds.length) throw new Error("Falta chatId/chatIds");
 
     const results = [];
 
@@ -1061,36 +1392,67 @@ async function executeTask(sock, task) {
         await sock.sendMessage(chatId, { text });
         results.push({ chatId, ok: true });
       } catch (e) {
+        console.log("❌ send_text falló:", chatId, e.message);
         results.push({ chatId, ok: false, error: e.message });
       }
     }
 
-    return { results };
+    return {
+      results,
+      total: results.length,
+      success: results.filter(r => r.ok).length,
+      failed: results.filter(r => !r.ok).length
+    };
   }
 
   if (type === "send_media") {
-    const chatIds = parseChatIds(payload.chatIds || payload.chatId);
-    const caption = String(payload.caption || "");
-    const mimetype = String(payload.mimetype || "application/octet-stream");
-    const fileName = String(payload.fileName || "archivo.bin");
-    const fileBase64 = String(payload.fileBase64 || "");
+    const chatIds = parseChatIdsAny(
+      payload.chatIds,
+      payload.chat_ids,
+      payload.groups,
+      payload.groupIds,
+      payload.group_ids,
+      payload.chatId,
+      payload.chat_id,
+      payload.groupId,
+      payload.group_id,
+      payload.jid,
+      payload.remoteJid
+    );
 
-    if (!chatIds.length) throw new Error("Falta chatIds");
-    if (!fileBase64 || fileBase64 === "[limpiado]") throw new Error("Falta archivo");
+    const caption = String(firstValue(payload.caption, payload.text, payload.message, "") || "");
+    const fileName = String(firstValue(payload.fileName, payload.filename, payload.name, "archivo.bin") || "archivo.bin");
+    const mimetype = String(firstValue(payload.mimetype, payload.mimeType, payload.mime, guessMimeFromName(fileName)) || "application/octet-stream");
+    const fileBase64 = firstValue(
+      payload.fileBase64,
+      payload.base64,
+      payload.file,
+      payload.data,
+      payload.buffer,
+      payload.media,
+      payload.mediaBase64,
+      payload.media_base64
+    );
 
-    const buffer = Buffer.from(fileBase64, "base64");
+    if (!chatIds.length) throw new Error("Falta chatId/chatIds");
+
+    const buffer = Buffer.isBuffer(fileBase64)
+      ? fileBase64
+      : bufferFromBase64(fileBase64);
+
+    if (!buffer) throw new Error("Falta archivo/base64");
 
     let msgPayload;
 
     if (mimetype.startsWith("image/")) {
       msgPayload = { image: buffer, caption };
     } else if (mimetype.startsWith("video/")) {
-      msgPayload = { video: buffer, caption };
+      msgPayload = { video: buffer, caption, mimetype };
     } else if (mimetype.startsWith("audio/")) {
       msgPayload = {
         audio: buffer,
         mimetype,
-        ptt: false
+        ptt: payload.ptt === true || String(payload.ptt || "").toLowerCase() === "true"
       };
     } else {
       msgPayload = {
@@ -1108,15 +1470,28 @@ async function executeTask(sock, task) {
         await sock.sendMessage(chatId, msgPayload);
         results.push({ chatId, ok: true });
       } catch (e) {
+        console.log("❌ send_media falló:", chatId, e.message);
         results.push({ chatId, ok: false, error: e.message });
       }
     }
 
-    return { results };
+    return {
+      results,
+      total: results.length,
+      success: results.filter(r => r.ok).length,
+      failed: results.filter(r => !r.ok).length
+    };
   }
 
   if (type === "leave_group") {
-    const chatId = String(payload.chatId || "");
+    const chatId = normalizeChatId(firstValue(
+      payload.chatId,
+      payload.chat_id,
+      payload.groupId,
+      payload.group_id,
+      payload.jid,
+      payload.remoteJid
+    ));
 
     if (!chatId) throw new Error("Falta chatId");
 
@@ -1150,14 +1525,21 @@ Bye bye ✨🚀`,
     };
   }
 
-  throw new Error(`Task desconocida: ${type}`);
+  throw new Error(`Task desconocida: ${task.type}`);
 }
 
 function normalizeTasksFromPanel(data) {
-  if (Array.isArray(data?.tasks)) return data.tasks;
-  if (Array.isArray(data?.data?.tasks)) return data.data.tasks;
-  if (Array.isArray(data?.result?.tasks)) return data.result.tasks;
-  return [];
+  let tasks = [];
+
+  if (Array.isArray(data?.tasks)) tasks = data.tasks;
+  else if (Array.isArray(data?.data?.tasks)) tasks = data.data.tasks;
+  else if (Array.isArray(data?.result?.tasks)) tasks = data.result.tasks;
+  else if (data?.task && typeof data.task === "object") tasks = [data.task];
+  else if (data?.data?.task && typeof data.data.task === "object") tasks = [data.data.task];
+
+  return tasks
+    .filter(Boolean)
+    .map(t => normalizeTaskObject(t));
 }
 
 function logPollError(message, data) {
@@ -1175,6 +1557,7 @@ function logPollError(message, data) {
 }
 
 async function executeAndReportTask(task) {
+  task = normalizeTaskObject(task);
   const taskId = String(task?.id || "");
 
   if (!taskId) {
@@ -1396,6 +1779,21 @@ function startWebServer(sock) {
   global.sukiSock = sock;
   global.sock = sock;
 
+  // ✅ Permite que comandos como .apikey pidan re-registro inmediato sin reiniciar.
+  global.__SUKI_RELAY_REGISTER_NOW = (reason = "manual-global") => {
+    return registerWithPanel(reason).catch(e => {
+      console.log("⚠️ Registro global falló:", e.message);
+      return false;
+    });
+  };
+
+  global.__SUKI_RELAY_POLL_NOW = () => {
+    return relayPollOnce().catch(e => {
+      console.log("⚠️ Poll global falló:", e.message);
+      return false;
+    });
+  };
+
   if (global.__SUKI_WEB_SERVER_STARTED) {
     console.log("🌐 API web de Suki ya estaba iniciada, sock actualizado.");
     startRelayPolling();
@@ -1520,7 +1918,7 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
 
-      const chatId = decodeURIComponent(req.params.chatId);
+      const chatId = normalizeChatId(req.params.chatId);
       const mode = String(req.body?.mode || "");
 
       const result = await applyGroupMode(currentSock, chatId, mode);
@@ -1543,7 +1941,7 @@ function startWebServer(sock) {
 
   app.get("/api/groups/:chatId/config", authMiddleware, async (req, res) => {
     try {
-      const chatId = decodeURIComponent(req.params.chatId);
+      const chatId = normalizeChatId(req.params.chatId);
       const config = getAllConfigs(chatId) || {};
 
       config.reaccion = getReaccionStatus(chatId);
@@ -1567,7 +1965,7 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
 
-      const chatId = decodeURIComponent(req.params.chatId);
+      const chatId = normalizeChatId(req.params.chatId);
       const { key, value } = req.body || {};
 
       const result = await applyConfig(
@@ -1597,7 +1995,19 @@ function startWebServer(sock) {
       const currentSock = getLiveSock();
 
       const { text } = req.body || {};
-      const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
+      const chatIds = parseChatIdsAny(
+        req.body.chatIds,
+        req.body.chat_ids,
+        req.body.groups,
+        req.body.groupIds,
+        req.body.group_ids,
+        req.body.chatId,
+        req.body.chat_id,
+        req.body.groupId,
+        req.body.group_id,
+        req.body.jid,
+        req.body.remoteJid
+      );
 
       if (!chatIds.length) {
         return res.status(400).json({
@@ -1642,7 +2052,19 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
 
-      const chatIds = parseChatIds(req.body.chatIds || req.body.chatId);
+      const chatIds = parseChatIdsAny(
+        req.body.chatIds,
+        req.body.chat_ids,
+        req.body.groups,
+        req.body.groupIds,
+        req.body.group_ids,
+        req.body.chatId,
+        req.body.chat_id,
+        req.body.groupId,
+        req.body.group_id,
+        req.body.jid,
+        req.body.remoteJid
+      );
       const caption = String(req.body.caption || "");
 
       if (!chatIds.length) {
@@ -1712,7 +2134,7 @@ function startWebServer(sock) {
     try {
       const currentSock = getLiveSock();
 
-      const chatId = decodeURIComponent(req.params.chatId);
+      const chatId = normalizeChatId(req.params.chatId);
 
       await sendGroupNotice(
         currentSock,
