@@ -20,7 +20,6 @@ const API_KEYS_PATH = path.resolve("./api_keys.json");
 const WEB_SETTINGS_PATH = path.resolve("./web_settings.json");
 const ACTIVOSS_PATH = path.resolve("./activoss.json");
 
-// ✅ Suki preguntará al panel cada 15 segundos
 const RELAY_POLL_INTERVAL_MS = 15000;
 const RELAY_REGISTER_INTERVAL_MS = 60000;
 
@@ -159,7 +158,6 @@ function getSock() {
   return global.sukiSock || global.sock || null;
 }
 
-// ✅ Siempre usa el sock actual, no el sock viejo que entró al iniciar el servidor
 function getLiveSock() {
   const currentSock = getSock();
 
@@ -287,7 +285,6 @@ function setReaccionStatus(chatId, active) {
   return active ? 1 : 0;
 }
 
-// ✅ Envío de notificaciones con logs claros
 async function sendGroupNotice(sock, chatId, text, reason = "notice") {
   try {
     if (!sock) throw new Error("Sock vacío");
@@ -318,7 +315,7 @@ async function sendGroupNotice(sock, chatId, text, reason = "notice") {
       msg.includes("admin") ||
       msg.includes("not a participant")
     ) {
-      console.log("⚠️ Posible causa: el grupo está cerrado, Suki no es admin o Suki ya no está en el grupo.");
+      console.log("⚠️ Posible causa: grupo cerrado, Suki no es admin o Suki ya no está en el grupo.");
     }
 
     return null;
@@ -381,7 +378,6 @@ async function applyGroupMode(sock, chatId, mode) {
   }
 
   if (mode === "close") {
-    // ✅ Se notifica antes de cerrar para que pueda mandar el mensaje si todavía está abierto
     await notifyGroupMode(sock, chatId, "close");
     await sock.groupSettingUpdate(chatId, "announcement");
 
@@ -427,7 +423,7 @@ async function applyConfig(sock, chatId, key, value, notify = true) {
 async function getGroups(sock) {
   const groups = await sock.groupFetchAllParticipating();
 
-  return Object.entries(groups).map(([id, g]) => {
+  return Object.entries(groups || {}).map(([id, g]) => {
     const config = getAllConfigs(id) || {};
 
     config.reaccion = getReaccionStatus(id);
@@ -462,7 +458,9 @@ async function makeState(sock) {
 
   try {
     groups = await getGroupsCached(sock, false);
-  } catch {}
+  } catch (e) {
+    console.log("⚠️ No se pudieron cargar grupos para state:", e.message);
+  }
 
   return {
     connected: !!sock?.user,
@@ -490,7 +488,8 @@ async function registerWithPanel(reason = "manual") {
       registeredAt: Date.now(),
       keys,
       user: state.user || null,
-      groups: state.groups || []
+      groups: state.groups || [],
+      state
     };
 
     const res = await axios.post(`${SUKI_PANEL_URL}/api/register-bot`, body, {
@@ -513,7 +512,7 @@ async function registerWithPanel(reason = "manual") {
 
 async function reportTaskResult(taskId, ok, result = {}, error = "") {
   try {
-    await axios.post(`${SUKI_PANEL_URL}/api/bot/task-result`, {
+    const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/task-result`, {
       taskId,
       ok,
       result,
@@ -522,8 +521,16 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
       timeout: 30000,
       validateStatus: () => true
     });
+
+    if (!res.data || res.data.ok !== true) {
+      console.log("⚠️ Panel no aceptó resultado task:", taskId, res.status, res.data);
+      return false;
+    }
+
+    return true;
   } catch (e) {
     console.log("⚠️ No se pudo reportar task:", taskId, e.message);
+    return false;
   }
 }
 
@@ -542,6 +549,9 @@ async function executeTask(sock, task) {
 
   if (type === "get_groups") {
     const groups = await getGroupsCached(sock, true);
+
+    console.log("👥 Grupos enviados al panel:", groups.length);
+
     return { groups };
   }
 
@@ -601,7 +611,7 @@ async function executeTask(sock, task) {
     const fileBase64 = String(payload.fileBase64 || "");
 
     if (!chatIds.length) throw new Error("Falta chatIds");
-    if (!fileBase64) throw new Error("Falta archivo");
+    if (!fileBase64 || fileBase64 === "[limpiado]") throw new Error("Falta archivo");
 
     const buffer = Buffer.from(fileBase64, "base64");
 
@@ -645,19 +655,17 @@ async function executeTask(sock, task) {
 
     if (!chatId) throw new Error("Falta chatId");
 
-    try {
-      await sendGroupNotice(
-        sock,
-        chatId,
+    await sendGroupNotice(
+      sock,
+      chatId,
 `👋💜 *Suki se va del grupo...*
 
 Mi dueño me sacó desde el panel web.
 
 Gracias por usar *La Suki Bot*.  
 Bye bye ✨🚀`,
-        "leave_group"
-      );
-    } catch {}
+      "leave_group"
+    );
 
     await new Promise(resolve => setTimeout(resolve, 1200));
 
@@ -723,11 +731,24 @@ async function relayPollOnce() {
 
     const tasks = Array.isArray(res.data.tasks) ? res.data.tasks : [];
 
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📡 POLL PANEL OK");
+    console.log("➡️ Tasks recibidas:", tasks.length);
+
     for (const task of tasks) {
       try {
         const currentSock = getLiveSock();
+
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📥 Ejecutando task recibida");
+        console.log("➡️ ID:", task.id);
+        console.log("➡️ Tipo:", task.type);
+
         const result = await executeTask(currentSock, task);
+
         await reportTaskResult(task.id, true, result, "");
+
+        console.log("✅ Task ejecutada y reportada:", task.id);
       } catch (e) {
         console.log(`❌ Task #${task.id} error:`, e.message);
         await reportTaskResult(task.id, false, {}, e.message);
