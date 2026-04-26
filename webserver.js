@@ -23,6 +23,11 @@ const ACTIVOSS_PATH = path.resolve("./activoss.json");
 const RELAY_POLL_INTERVAL_MS = 15000;
 const RELAY_REGISTER_INTERVAL_MS = 60000;
 
+// ✅ Evita rate-overlimit de Baileys/WhatsApp al cargar grupos
+const GROUPS_CACHE_MS = 2 * 60 * 1000;
+const GROUPS_FORCE_COOLDOWN_MS = 60 * 1000;
+const GROUPS_FETCH_TIMEOUT_MS = 15000;
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -59,6 +64,7 @@ let relayStarted = false;
 let lastGroupsCache = [];
 let lastGroupsAt = 0;
 let lastPollErrorLogAt = 0;
+let lastGroupsFetchAttemptAt = 0;
 
 function readKeys() {
   try {
@@ -420,8 +426,37 @@ async function applyConfig(sock, chatId, key, value, notify = true) {
   };
 }
 
+function isRateLimitError(e) {
+  const msg = String(e?.message || e || "").toLowerCase();
+
+  return (
+    msg.includes("rate-overlimit") ||
+    msg.includes("rate overlimit") ||
+    msg.includes("rate-limit") ||
+    msg.includes("too many") ||
+    msg.includes("429")
+  );
+}
+
+function withTimeout(promise, ms, label = "timeout") {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(label)), ms);
+    })
+  ]);
+}
+
 async function getGroups(sock) {
-  const groups = await sock.groupFetchAllParticipating();
+  if (!sock?.user) {
+    throw new Error("WhatsApp no está conectado");
+  }
+
+  const groups = await withTimeout(
+    sock.groupFetchAllParticipating(),
+    GROUPS_FETCH_TIMEOUT_MS,
+    "Timeout cargando grupos"
+  );
 
   return Object.entries(groups || {}).map(([id, g]) => {
     const config = getAllConfigs(id) || {};
@@ -443,14 +478,46 @@ async function getGroups(sock) {
 async function getGroupsCached(sock, force = false) {
   const now = Date.now();
 
-  if (!force && lastGroupsCache.length && now - lastGroupsAt < 15000) {
+  if (!force && lastGroupsCache.length && now - lastGroupsAt < GROUPS_CACHE_MS) {
     return lastGroupsCache;
   }
 
-  lastGroupsCache = await getGroups(sock);
-  lastGroupsAt = now;
+  if (force && lastGroupsCache.length && now - lastGroupsAt < GROUPS_FORCE_COOLDOWN_MS) {
+    console.log("♻️ Usando caché de grupos para evitar rate-overlimit.");
+    return lastGroupsCache;
+  }
 
-  return lastGroupsCache;
+  if (now - lastGroupsFetchAttemptAt < 10000 && lastGroupsCache.length) {
+    console.log("♻️ Evitando doble carga de grupos muy seguida.");
+    return lastGroupsCache;
+  }
+
+  lastGroupsFetchAttemptAt = now;
+
+  try {
+    const freshGroups = await getGroups(sock);
+
+    lastGroupsCache = freshGroups;
+    lastGroupsAt = Date.now();
+
+    console.log("👥 Grupos cargados desde WhatsApp:", freshGroups.length);
+
+    return lastGroupsCache;
+  } catch (e) {
+    console.log("⚠️ No se pudieron cargar grupos:", e.message);
+
+    if (isRateLimitError(e) && lastGroupsCache.length) {
+      console.log("♻️ Rate-overlimit detectado. Devolviendo caché de grupos:", lastGroupsCache.length);
+      return lastGroupsCache;
+    }
+
+    if (lastGroupsCache.length) {
+      console.log("♻️ Error cargando grupos. Devolviendo caché:", lastGroupsCache.length);
+      return lastGroupsCache;
+    }
+
+    throw e;
+  }
 }
 
 async function makeState(sock) {
@@ -460,6 +527,10 @@ async function makeState(sock) {
     groups = await getGroupsCached(sock, false);
   } catch (e) {
     console.log("⚠️ No se pudieron cargar grupos para state:", e.message);
+
+    if (lastGroupsCache.length) {
+      groups = lastGroupsCache;
+    }
   }
 
   return {
@@ -552,7 +623,11 @@ async function executeTask(sock, task) {
 
     console.log("👥 Grupos enviados al panel:", groups.length);
 
-    return { groups };
+    return {
+      groups,
+      cached: true,
+      total: groups.length
+    };
   }
 
   if (type === "set_config") {
@@ -814,7 +889,9 @@ function startWebServer(sock) {
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
       port: PORT,
-      pollIntervalMs: RELAY_POLL_INTERVAL_MS
+      pollIntervalMs: RELAY_POLL_INTERVAL_MS,
+      groupsCacheMs: GROUPS_CACHE_MS,
+      groupsForceCooldownMs: GROUPS_FORCE_COOLDOWN_MS
     });
   });
 
@@ -828,7 +905,9 @@ function startWebServer(sock) {
       relay: true,
       panelUrl: SUKI_PANEL_URL,
       publicUrl: getPublicBaseUrl() || null,
-      pollIntervalMs: RELAY_POLL_INTERVAL_MS
+      pollIntervalMs: RELAY_POLL_INTERVAL_MS,
+      groupsCache: lastGroupsCache.length,
+      groupsLastUpdate: lastGroupsAt || null
     });
   });
 
@@ -851,6 +930,7 @@ function startWebServer(sock) {
       res.json({
         ok: true,
         total: groups.length,
+        cached: true,
         groups
       });
     } catch (e) {
@@ -858,7 +938,8 @@ function startWebServer(sock) {
 
       res.status(500).json({
         ok: false,
-        error: e.message
+        error: e.message,
+        cachedGroups: lastGroupsCache.length
       });
     }
   });
@@ -1099,6 +1180,8 @@ Bye bye ✨🚀`,
     console.log(`🌐 Panel central: ${SUKI_PANEL_URL}`);
     console.log("🔁 Modo relay/polling listo.");
     console.log(`⏱️ Polling configurado cada ${RELAY_POLL_INTERVAL_MS / 1000} segundos.`);
+    console.log(`♻️ Caché de grupos: ${GROUPS_CACHE_MS / 1000}s`);
+    console.log(`🛡️ Cooldown force grupos: ${GROUPS_FORCE_COOLDOWN_MS / 1000}s`);
     startRelayPolling();
   });
 }
