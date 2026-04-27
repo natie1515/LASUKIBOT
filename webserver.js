@@ -823,12 +823,8 @@ function updatePublicBaseUrl(req) {
       saveWebSettings(settings);
 
       global.SUKI_PUBLIC_BASE_URL = currentUrl;
-
-      console.log("🌍 URL pública de esta Suki actualizada:", currentUrl);
     }
-  } catch (e) {
-    console.error("❌ Error actualizando URL pública:", e.message);
-  }
+  } catch {}
 }
 
 function normalizeConfigValue(value) {
@@ -965,39 +961,14 @@ function patchCachedGroup(chatId, patch = {}) {
   lastGroupsAt = Date.now();
 }
 
-async function sendGroupNotice(sock, chatId, text, reason = "notice") {
+async function sendGroupNotice(sock, chatId, text) {
   try {
     if (!sock) throw new Error("Sock vacío");
     if (!sock.user) throw new Error("Sock sin usuario conectado");
     if (!chatId) throw new Error("chatId vacío");
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📢 ENVIANDO NOTIFICACIÓN AL GRUPO");
-    console.log("➡️ Razón:", reason);
-    console.log("➡️ ChatId:", chatId);
-    console.log("➡️ Bot:", sock.user?.id || sock.user?.jid || sock.user);
-
-    const sent = await sock.sendMessage(chatId, { text });
-
-    console.log("✅ Notificación enviada correctamente:", reason);
-    return sent;
-  } catch (e) {
-    console.log("❌ No se pudo enviar notificación");
-    console.log("➡️ Razón:", reason);
-    console.log("➡️ ChatId:", chatId);
-    console.log("➡️ Error:", e.message);
-
-    const msg = String(e.message || "").toLowerCase();
-
-    if (
-      msg.includes("not-authorized") ||
-      msg.includes("forbidden") ||
-      msg.includes("admin") ||
-      msg.includes("not a participant")
-    ) {
-      console.log("⚠️ Posible causa: grupo cerrado, Suki no es admin o Suki ya no está en el grupo.");
-    }
-
+    return await sock.sendMessage(chatId, { text });
+  } catch {
     return null;
   }
 }
@@ -1018,12 +989,7 @@ async function notifyConfig(sock, chatId, key, active) {
 
 ${notificationFooter()}`;
 
-  return await sendGroupNotice(
-    sock,
-    chatId,
-    text,
-    `config:${key}:${active ? "on" : "off"}`
-  );
+  return await sendGroupNotice(sock, chatId, text);
 }
 
 async function notifyGroupMode(sock, chatId, mode) {
@@ -1053,7 +1019,7 @@ ${notificationFooter()}`;
 ${notificationFooter()}`;
   }
 
-  return await sendGroupNotice(sock, chatId, text, `group_mode:${mode}`);
+  return await sendGroupNotice(sock, chatId, text);
 }
 
 async function applyGroupMode(sock, chatId, mode) {
@@ -1197,19 +1163,12 @@ function setGroupsCache(groups = [], reason = "update", allowShrink = false) {
   const incoming = hydrateGroups(Array.isArray(groups) ? groups.filter(g => g?.id) : []);
 
   if (!incoming.length && lastGroupsCache.length) {
-    console.log("⚠️ No se actualizó caché porque llegaron 0 grupos. Razón:", reason);
     lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
 
   if (!allowShrink && lastGroupsCache.length && incoming.length < lastGroupsCache.length) {
     const merged = mergeGroups(lastGroupsCache, incoming);
-
-    console.log("⚠️ Evité bajar caché de grupos.");
-    console.log("➡️ Razón:", reason);
-    console.log("➡️ Cache anterior:", lastGroupsCache.length);
-    console.log("➡️ Entrante:", incoming.length);
-    console.log("➡️ Merge final:", merged.length);
 
     lastGroupsCache = merged;
     lastGroupsAt = Date.now();
@@ -1219,10 +1178,6 @@ function setGroupsCache(groups = [], reason = "update", allowShrink = false) {
 
   lastGroupsCache = incoming;
   lastGroupsAt = Date.now();
-
-  console.log("✅ Caché de grupos actualizada.");
-  console.log("➡️ Razón:", reason);
-  console.log("➡️ Total:", lastGroupsCache.length);
 
   return lastGroupsCache;
 }
@@ -1260,8 +1215,6 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
     lastGroupsCache.length >= MIN_GROUPS_FOR_COOLDOWN &&
     now - lastGroupsAt < GROUPS_FORCE_COOLDOWN_MS
   ) {
-    console.log("♻️ Usando caché estable de grupos para evitar rate-overlimit.");
-    console.log("➡️ Cache:", lastGroupsCache.length);
     lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
@@ -1271,8 +1224,6 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
     now - lastGroupsFetchAttemptAt < 10000 &&
     lastGroupsCache.length >= MIN_GROUPS_FOR_COOLDOWN
   ) {
-    console.log("♻️ Evitando doble carga de grupos muy seguida.");
-    console.log("➡️ Cache:", lastGroupsCache.length);
     lastGroupsCache = hydrateGroups(lastGroupsCache);
     return lastGroupsCache;
   }
@@ -1281,20 +1232,14 @@ async function getGroupsCached(sock, force = false, allowShrink = false) {
 
   try {
     const freshGroups = await getGroups(sock);
-    console.log("👥 Grupos cargados desde WhatsApp:", freshGroups.length);
-
     return setGroupsCache(freshGroups, force ? "force-fetch" : "fetch", allowShrink);
   } catch (e) {
-    console.log("⚠️ No se pudieron cargar grupos:", e.message);
-
     if (isRateLimitError(e) && lastGroupsCache.length) {
-      console.log("♻️ Rate-overlimit detectado. Devolviendo caché de grupos:", lastGroupsCache.length);
       lastGroupsCache = hydrateGroups(lastGroupsCache);
       return lastGroupsCache;
     }
 
     if (lastGroupsCache.length) {
-      console.log("♻️ Error cargando grupos. Devolviendo caché:", lastGroupsCache.length);
       lastGroupsCache = hydrateGroups(lastGroupsCache);
       return lastGroupsCache;
     }
@@ -1308,9 +1253,7 @@ async function makeState(sock, forceGroups = false) {
 
   try {
     groups = await getGroupsCached(sock, forceGroups, forceGroups);
-  } catch (e) {
-    console.log("⚠️ No se pudieron cargar grupos para state:", e.message);
-
+  } catch {
     if (lastGroupsCache.length) {
       groups = hydrateGroups(lastGroupsCache);
     }
@@ -1355,11 +1298,6 @@ function buildPanelBody(reason, state = {}, extra = {}) {
   const keyHashes = unique(keys.map(k => k.hash));
   const primaryKeyHash = getPrimaryKeyHash();
   const groups = hydrateGroups(Array.isArray(state.groups) ? state.groups : []);
-
-  if (!primaryKeyHash) {
-    console.log("⚠️ buildPanelBody sin primaryKeyHash válido.");
-    console.log("➡️ Revisa api_keys.json: debe tener hash SHA256 completo o key raw activa.");
-  }
 
   return {
     botName: "La Suki Bot",
@@ -1419,24 +1357,11 @@ async function registerWithPanel(reason = "manual", stateOverride = null) {
   try {
     const keyHashes = getAllPanelHashes();
 
-    if (!keyHashes.length) {
-      console.log("⚠️ No se registró Suki: no hay API keys activas con hash válido.");
-      return false;
-    }
+    if (!keyHashes.length) return false;
 
     const sock = getSock();
     const state = stateOverride || (sock ? await makeState(sock, true) : {});
     const body = buildPanelBody(reason, state);
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📡 REGISTRANDO SUKI EN PANEL");
-    console.log("➡️ Panel:", SUKI_PANEL_URL);
-    console.log("➡️ Razón:", reason);
-    console.log("➡️ Public URL:", getPublicBaseUrl() || "sin detectar");
-    console.log("➡️ Keys conocidas:", keyHashes.length);
-    console.log("➡️ Primary hash:", shortHash(getPrimaryKeyHash()));
-    console.log("➡️ Hashes enviados:", keyHashes.map(shortHash).join(", "));
-    console.log("➡️ Grupos enviados:", Array.isArray(body.groups) ? body.groups.length : 0);
 
     const res = await axios.post(`${SUKI_PANEL_URL}/api/register-bot`, body, {
       timeout: 25000,
@@ -1445,10 +1370,7 @@ async function registerWithPanel(reason = "manual", stateOverride = null) {
       validateStatus: () => true
     });
 
-    if (!res.data || res.data.ok !== true) {
-      console.log("⚠️ Registro panel falló:", res.status, res.data);
-      return false;
-    }
+    if (!res.data || res.data.ok !== true) return false;
 
     lastRegisterOkAt = Date.now();
 
@@ -1461,12 +1383,8 @@ async function registerWithPanel(reason = "manual", stateOverride = null) {
       lastRegisterResponse: res.data
     });
 
-    console.log("✅ Suki registrada en panel central.");
-    console.log("➡️ Keys guardadas por panel:", res.data.saved ?? "sin campo saved");
-
     return true;
-  } catch (e) {
-    console.log("⚠️ Registro con panel pendiente:", e.message);
+  } catch {
     return false;
   }
 }
@@ -1505,13 +1423,6 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
 
   for (let attempt = 1; attempt <= TASK_RESULT_RETRY_ATTEMPTS; attempt++) {
     try {
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 REPORTANDO RESULTADO DE TASK AL PANEL");
-      console.log("➡️ Task ID:", taskId);
-      console.log("➡️ OK:", ok);
-      console.log("➡️ Intento:", attempt + "/" + TASK_RESULT_RETRY_ATTEMPTS);
-      console.log("➡️ Primary hash:", shortHash(primaryKeyHash));
-
       const res = await axios.post(`${SUKI_PANEL_URL}/api/bot/task-result`, body, {
         timeout: 30000,
         maxBodyLength: Infinity,
@@ -1520,8 +1431,6 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
       });
 
       if (!res.data || res.data.ok !== true) {
-        console.log("⚠️ Panel no aceptó resultado task:", taskId, res.status, res.data);
-
         if (attempt < TASK_RESULT_RETRY_ATTEMPTS) {
           await sleep(TASK_RESULT_RETRY_DELAY_MS);
           continue;
@@ -1530,15 +1439,8 @@ async function reportTaskResult(taskId, ok, result = {}, error = "") {
         return false;
       }
 
-      if (res.data.missing) {
-        console.log("⚠️ Panel respondió que la task no existe:", taskId);
-      }
-
-      console.log("✅ Resultado de task confirmado por panel:", taskId);
       return true;
-    } catch (e) {
-      console.log("⚠️ No se pudo reportar task:", taskId, e.message);
-
+    } catch {
       if (attempt < TASK_RESULT_RETRY_ATTEMPTS) {
         await sleep(TASK_RESULT_RETRY_DELAY_MS);
       }
@@ -1554,9 +1456,6 @@ async function executeTask(sock, task) {
   const type = normalizeTaskType(task.type);
   const payload = task.payload || {};
 
-  console.log("📥 Ejecutando task #" + task.id + ": " + type);
-  console.log("➡️ Payload keys:", Object.keys(payload).join(", ") || "sin payload");
-
   if (type === "get_status") {
     return {
       connected: !!sock?.user,
@@ -1566,8 +1465,6 @@ async function executeTask(sock, task) {
 
   if (type === "get_groups") {
     const groups = await getGroupsCached(sock, true, true);
-
-    console.log("👥 Grupos enviados al panel:", groups.length);
 
     return {
       groups,
@@ -1686,7 +1583,6 @@ async function executeTask(sock, task) {
         await sock.sendMessage(chatId, { text });
         results.push({ chatId, ok: true });
       } catch (e) {
-        console.log("❌ send_text falló:", chatId, e.message);
         results.push({ chatId, ok: false, error: e.message });
       }
     }
@@ -1763,7 +1659,6 @@ async function executeTask(sock, task) {
         await sock.sendMessage(chatId, msgPayload);
         results.push({ chatId, ok: true });
       } catch (e) {
-        console.log("❌ send_media falló:", chatId, e.message);
         results.push({ chatId, ok: false, error: e.message });
       }
     }
@@ -1800,8 +1695,7 @@ Mi dueño me sacó desde el panel web.
 Gracias por usar *La Suki Bot*.
 Bye bye ✨🚀
 
-${notificationFooter()}`,
-      "leave_group"
+${notificationFooter()}`
     );
 
     await sleep(1200);
@@ -1839,61 +1733,31 @@ function normalizeTasksFromPanel(data) {
     .map(t => normalizeTaskObject(t));
 }
 
-function logPollError(message, data) {
-  const now = Date.now();
-
-  if (now - lastPollErrorLogAt < 30000) return;
-
-  lastPollErrorLogAt = now;
-
-  if (data) console.log(message, data);
-  else console.log(message);
-}
+function logPollError() {}
 
 async function executeAndReportTask(task) {
   task = normalizeTaskObject(task);
 
   const taskId = String(task?.id || "");
 
-  if (!taskId) {
-    console.log("⚠️ Task sin ID recibida. Ignorada.");
-    return;
-  }
+  if (!taskId) return;
 
   cleanupFinishedTasks();
 
-  if (runningTaskIds.has(taskId)) {
-    console.log("♻️ Task ya está ejecutándose. Ignorada para evitar duplicado:", taskId);
-    return;
-  }
-
-  if (finishedTaskIds.has(taskId)) {
-    console.log("♻️ Task ya fue ejecutada antes. Ignorada para evitar duplicado:", taskId);
-    return;
-  }
+  if (runningTaskIds.has(taskId)) return;
+  if (finishedTaskIds.has(taskId)) return;
 
   runningTaskIds.add(taskId);
 
   try {
     const currentSock = getLiveSock();
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📥 EJECUTANDO TASK RECIBIDA");
-    console.log("➡️ ID:", taskId);
-    console.log("➡️ Tipo:", task.type);
-
     const result = await executeTask(currentSock, task);
-
     const reported = await reportTaskResult(taskId, true, result, "");
 
     if (reported) {
       finishedTaskIds.set(taskId, Date.now());
     }
-
-    console.log("✅ Task ejecutada:", taskId);
   } catch (e) {
-    console.log(`❌ Task #${taskId} error:`, e.message);
-
     const reported = await reportTaskResult(taskId, false, {}, e.message);
 
     if (reported) {
@@ -1944,10 +1808,7 @@ async function relayPollOnce() {
 
     const keyHashes = getAllPanelHashes();
 
-    if (!keyHashes.length) {
-      console.log("⚠️ Poll cancelado: no hay API keys activas con hash válido en api_keys.json.");
-      return;
-    }
+    if (!keyHashes.length) return;
 
     const state = await makeState(sock, false);
 
@@ -1967,28 +1828,17 @@ async function relayPollOnce() {
       })
     };
 
-    
-
     let poll = await postPollToPanel(body, "normal");
 
     if (!poll.ok) return;
 
     let tasks = poll.tasks;
 
-    
-
-    if (poll.data?.debug) {
-      console.log("🧾 Debug panel:", poll.data.debug);
-    }
-
     const debug = poll.data?.debug || {};
     const pendingTotal = Number(debug.pendingTotal || 0);
     const selected = Number(debug.selected || 0);
 
     if (!tasks.length && pendingTotal > 0 && selected === 0) {
-      console.log("⚠️ El panel tiene tareas pendientes pero no entregó ninguna.");
-      console.log("♻️ Reintentando poll de rescate con todos los hashes posibles...");
-
       const rescueBody = {
         ...body,
         reason: "poll-rescue",
@@ -2003,15 +1853,6 @@ async function relayPollOnce() {
 
       if (poll.ok) {
         tasks = poll.tasks;
-
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("📡 POLL RESCUE OK");
-        console.log("➡️ Poll ID:", rescueBody.pollId);
-        console.log("➡️ Tasks recibidas:", tasks.length);
-
-        if (poll.data?.debug) {
-          console.log("🧾 Debug rescue:", poll.data.debug);
-        }
       }
     }
 
@@ -2025,18 +1866,12 @@ async function relayPollOnce() {
       lastPanelDebug: poll.data?.debug || null
     });
 
-    if (!tasks.length) {
-      console.log("ℹ️ Panel respondió 0 tasks.");
-      console.log("➡️ Hash que Suki está usando:", shortHash(getPrimaryKeyHash()));
-      console.log("➡️ Grupos que Suki está mandando:", Array.isArray(body.groups) ? body.groups.length : 0);
-      return;
-    }
+    if (!tasks.length) return;
 
     for (const task of tasks) {
       await executeAndReportTask(task);
     }
-  } catch (e) {
-    logPollError("⚠️ Relay polling pendiente: " + e.message);
+  } catch {
   } finally {
     relayBusy = false;
   }
@@ -2046,8 +1881,6 @@ function startRelayPolling() {
   if (relayStarted) return;
 
   relayStarted = true;
-
-  console.log("🔁 Relay polling activado: Suki preguntará tareas al panel cada " + (RELAY_POLL_INTERVAL_MS / 1000) + " segundos.");
 
   setTimeout(() => registerWithPanel("startup").catch(() => {}), 2000);
   setInterval(() => registerWithPanel("refresh").catch(() => {}), RELAY_REGISTER_INTERVAL_MS);
@@ -2068,21 +1901,14 @@ function startWebServer(sock) {
   setInitialPublicBaseUrl();
 
   global.__SUKI_RELAY_REGISTER_NOW = (reason = "manual-global") => {
-    return registerWithPanel(reason).catch(e => {
-      console.log("⚠️ Registro global falló:", e.message);
-      return false;
-    });
+    return registerWithPanel(reason).catch(() => false);
   };
 
   global.__SUKI_RELAY_POLL_NOW = () => {
-    return relayPollOnce().catch(e => {
-      console.log("⚠️ Poll global falló:", e.message);
-      return false;
-    });
+    return relayPollOnce().catch(() => false);
   };
 
   if (global.__SUKI_WEB_SERVER_STARTED) {
-    console.log("🌐 API web de Suki ya estaba iniciada, sock actualizado.");
     startRelayPolling();
     return;
   }
@@ -2195,8 +2021,6 @@ function startWebServer(sock) {
         groups
       });
     } catch (e) {
-      console.log("❌ Error en /api/groups:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message,
@@ -2221,8 +2045,6 @@ function startWebServer(sock) {
         ...result
       });
     } catch (e) {
-      console.log("❌ Error en /api/groups/:chatId/group-mode:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
@@ -2241,8 +2063,6 @@ function startWebServer(sock) {
         config
       });
     } catch (e) {
-      console.log("❌ Error en /api/groups/:chatId/config GET:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
@@ -2270,8 +2090,6 @@ function startWebServer(sock) {
         ...result
       });
     } catch (e) {
-      console.log("❌ Error en /api/groups/:chatId/config POST:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
@@ -2338,8 +2156,6 @@ function startWebServer(sock) {
         failed: results.filter(r => !r.ok).length
       });
     } catch (e) {
-      console.log("❌ Error en /api/send/text:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
@@ -2425,8 +2241,6 @@ function startWebServer(sock) {
         failed: results.filter(r => !r.ok).length
       });
     } catch (e) {
-      console.log("❌ Error en /api/send/media:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
@@ -2452,8 +2266,7 @@ Mi dueño me sacó desde el panel web.
 Gracias por usar *La Suki Bot*.
 Bye bye ✨🚀
 
-${notificationFooter()}`,
-        "leave_group_direct_api"
+${notificationFooter()}`
       );
 
       await sleep(1200);
@@ -2471,8 +2284,6 @@ ${notificationFooter()}`,
         groups
       });
     } catch (e) {
-      console.log("❌ Error en /api/groups/:chatId/leave:", e.message);
-
       res.status(500).json({
         ok: false,
         error: e.message
