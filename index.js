@@ -218,22 +218,6 @@ try {
       }
 
 
-sock.ev.on("group-participants.update", (update) => {
-  console.log("🔥 TEST group-participants.update:", JSON.stringify(update, null, 2));
-});
-
-sock.ev.on("messages.upsert", ({ messages }) => {
-  for (const m of messages || []) {
-    if (m.messageStubType || m.type) {
-      console.log("🔥 TEST STUB:", {
-        remoteJid: m.key?.remoteJid,
-        messageStubType: m.messageStubType,
-        messageStubParameters: m.messageStubParameters,
-        type: m.type
-      });
-    }
-  }
-});
       
       // 💬 Manejo de mensajes
 
