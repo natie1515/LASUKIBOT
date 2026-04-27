@@ -1967,16 +1967,7 @@ async function relayPollOnce() {
       })
     };
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📡 ENVIANDO POLL AL PANEL");
-    console.log("➡️ Poll ID:", pollId);
-    console.log("➡️ Panel:", SUKI_PANEL_URL);
-    console.log("➡️ Public URL:", getPublicBaseUrl() || "sin detectar");
-    console.log("➡️ Keys:", keyHashes.length);
-    console.log("➡️ Primary hash:", shortHash(getPrimaryKeyHash()));
-    console.log("➡️ Hashes:", keyHashes.map(shortHash).join(", "));
-    console.log("➡️ Connected:", !!state.connected);
-    console.log("➡️ Groups state:", Array.isArray(state.groups) ? state.groups.length : 0);
+    
 
     let poll = await postPollToPanel(body, "normal");
 
@@ -1984,10 +1975,7 @@ async function relayPollOnce() {
 
     let tasks = poll.tasks;
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📡 POLL PANEL OK");
-    console.log("➡️ Poll ID:", pollId);
-    console.log("➡️ Tasks recibidas:", tasks.length);
+    
 
     if (poll.data?.debug) {
       console.log("🧾 Debug panel:", poll.data.debug);
