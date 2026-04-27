@@ -1166,14 +1166,155 @@ try {
   console.error("❌ Error en conteo de mensajes en setwelcome.json:", e);
 }
 // === ✅ FIN CONTEO DE MENSAJES EN setwelcome.json PN / LID ===
-
-
-
-
-
-
-
   
+// === ⛔ INICIO GUARDADO ANTIDELETE (con activos.db y antidelete.db) ===
+try {
+  const isGroup = chatId.endsWith("@g.us");
+
+  const { getConfig, getAntideleteDB, saveAntideleteDB } = requireFromRoot("db");
+  const antideleteGroupActive = isGroup ? await getConfig(chatId, "antidelete") == 1 : false;
+  const antideletePrivActive = !isGroup ? await getConfig("global", "antideletepri") == 1 : false;
+
+  if (antideleteGroupActive || antideletePrivActive) {
+    const idMsg = m.key.id;
+    const botNumber = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    const senderId = m.key.participant || (m.key.fromMe ? botNumber : m.key.remoteJid);
+    const type = Object.keys(m.message || {})[0];
+    const content = m.message[type];
+
+    // ❌ No guardar si es view once
+    if (type === "viewOnceMessageV2") return;
+
+    // ❌ No guardar si supera 10MB
+    if (
+      ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"].includes(type) &&
+      content.fileLength > 10 * 1024 * 1024
+    ) return;
+
+    // Objeto base
+    const guardado = {
+      chatId,
+      sender: senderId,
+      type,
+      timestamp: Date.now()
+    };
+
+    // Función para guardar multimedia en base64
+    const saveBase64 = async (mediaType, data) => {
+      const stream = await downloadContentFromMessage(data, mediaType);
+      let buffer = Buffer.alloc(0);
+      for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
+      }
+      guardado.media = buffer.toString("base64");
+      guardado.mimetype = data.mimetype;
+    };
+
+    // ✅ CORREGIDO: Usamos await para asegurarnos que se termine de guardar
+    if (["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"].includes(type)) {
+      const mediaType = type.replace("Message", "");
+      await saveBase64(mediaType, content); // 👈 ESTE await es clave
+    }
+
+    // Texto
+    if (type === "conversation" || type === "extendedTextMessage") {
+      guardado.text = m.message.conversation || m.message.extendedTextMessage?.text || "";
+    }
+
+    // Guardar en antidelete.db
+    const db = getAntideleteDB();
+    const scope = isGroup ? "g" : "p";
+    db[scope][idMsg] = guardado;
+    saveAntideleteDB(db);
+  }
+} catch (e) {
+  console.error("❌ Error en lógica ANTIDELETE:", e);
+}
+// === ✅ FIN GUARDADO ANTIDELETE ===
+// === INICIO DETECCIÓN DE MENSAJE ELIMINADO ===
+if (m.message?.protocolMessage?.type === 0) {
+  try {
+    const deletedId = m.message.protocolMessage.key.id;
+    const whoDeleted = m.message.protocolMessage.key.participant || m.key.participant || m.key.remoteJid;
+    const isGroup = chatId.endsWith('@g.us');
+    const senderNumber = (whoDeleted || '').replace(/[^0-9]/g, '');
+    const mentionTag = [`${senderNumber}@s.whatsapp.net`];
+
+    const antideleteEnabled = isGroup
+  ? (await getConfig(chatId, "antidelete")) === "1"
+  : (await getConfig("global", "antideletepri")) === "1";
+
+    if (!antideleteEnabled) return;
+
+    const fs = require("fs");
+    const dbPath = "./antidelete.db";
+
+    if (!fs.existsSync(dbPath)) return;
+
+    const db = JSON.parse(fs.readFileSync(dbPath));
+    const tipo = isGroup ? "g" : "p";
+    const data = db[tipo] || {};
+    const deletedData = data[deletedId];
+    if (!deletedData) return;
+
+    const senderClean = (deletedData.sender || '').replace(/[^0-9]/g, '');
+    if (senderClean !== senderNumber) return;
+
+    if (isGroup) {
+      try {
+        const meta = await sock.groupMetadata(chatId);
+        const isAdmin = meta.participants.find(p => p.id === `${senderNumber}@s.whatsapp.net`)?.admin;
+        if (isAdmin) return;
+      } catch (e) {
+        console.error("❌ Error leyendo metadata:", e);
+        return;
+      }
+    }
+
+    const type = deletedData.type;
+    const mimetype = deletedData.mimetype || 'application/octet-stream';
+    const buffer = deletedData.media ? Buffer.from(deletedData.media, "base64") : null;
+
+    if (buffer) {
+      const sendOpts = {
+        [type.replace("Message", "")]: buffer,
+        mimetype,
+        quoted: m
+      };
+
+      if (type === "stickerMessage") {
+        const sent = await sock.sendMessage(chatId, sendOpts);
+        await sock.sendMessage(chatId, {
+          text: `📌 El sticker fue eliminado por @${senderNumber}`,
+          mentions: mentionTag,
+          quoted: sent
+        });
+      } else if (type === "audioMessage") {
+        const sent = await sock.sendMessage(chatId, sendOpts);
+        await sock.sendMessage(chatId, {
+          text: `🎧 El audio fue eliminado por @${senderNumber}`,
+          mentions: mentionTag,
+          quoted: sent
+        });
+      } else {
+        sendOpts.caption = `📦 Mensaje eliminado por @${senderNumber}`;
+        sendOpts.mentions = mentionTag;
+        await sock.sendMessage(chatId, sendOpts, { quoted: m });
+      }
+
+    } else if (deletedData.text) {
+      await sock.sendMessage(chatId, {
+        text: `📝 *Mensaje eliminado:* ${deletedData.text}\n👤 *Usuario:* @${senderNumber}`,
+        mentions: mentionTag
+      }, { quoted: m });
+    }
+
+  } catch (err) {
+    console.error("❌ Error en lógica antidelete:", err);
+  }
+}
+// === FIN DETECCIÓN DE MENSAJE ELIMINADO ===
+
 // 🔗 LÓGICA ANTILINK desde activos.db compatible PN / LID
 try {
   const fs = require("fs");
@@ -2474,104 +2615,164 @@ try {
 }
 // === FIN BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
 
-// === ⛔ INICIO FILTRO DE MENSAJES EN PRIVADO POR LISTA (con detección real de bot y owner) ===
+// === 🔐 INICIO FILTRO PRIVADO + MODO PRIVADO GLOBAL CORREGIDO ===
 try {
-  const chatId = m.key.remoteJid;
-  const isGroup = chatId.endsWith("@g.us");
+  const fs = require("fs");
+  const path = require("path");
+  const { getConfig } = requireFromRoot("db");
 
-  if (!isGroup) {
-    const fs = require("fs");
-    const path = require("path");
+  const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
-    // ✅ Número limpio del bot (solo dígitos, sin :10 ni @s.whatsapp.net)
-    const botRaw = sock.user?.id || sock.user?.jid || "";
-    const botNumber = botRaw.split(":")[0].split("@")[0].replace(/[^0-9]/g, "");
-    const botJid = botNumber + "@s.whatsapp.net";
+  function jidText(value) {
+    if (!value) return "";
+    if (typeof value === "string") return value;
 
-    // ✅ fromMe robusto: verifica tanto la flag como si el remoteJid es el propio bot
-    const fromMe = m.key.fromMe === true;
+    return String(
+      value.id ||
+      value.jid ||
+      value.lid ||
+      value.user ||
+      value._serialized ||
+      ""
+    );
+  }
 
-    // ✅ En privado el sender real es el remoteJid cuando fromMe es false,
-    //    y el propio bot cuando fromMe es true
-    const senderId = fromMe
-      ? botJid
-      : (m.key.participant || m.key.remoteJid || "");
+  function normalizeOwnerList() {
+    if (Array.isArray(global.owner)) return global.owner;
+    return [];
+  }
 
-    const senderNum = senderId.replace(/[^0-9]/g, "");
+  function isOwnerNumber(number) {
+    const clean = DIGITS(number);
+    if (!clean) return false;
 
-    // ✅ isBot: es el bot si fromMe=true O si su número coincide exactamente
-    const isBot = fromMe || senderNum === botNumber;
+    if (typeof global.isOwner === "function") {
+      try {
+        if (global.isOwner(clean)) return true;
+        if (global.isOwner(clean + "@s.whatsapp.net")) return true;
+      } catch {}
+    }
 
-    // ✅ isOwner: verifica contra global.owner con número limpio
-    const isOwner = typeof global.isOwner === "function"
-      ? global.isOwner(senderNum)
-      : global.owner.some(function(entry) {
-          var n = Array.isArray(entry) ? entry[0] : entry;
-          return String(n).replace(/[^0-9]/g, "") === senderNum;
-        });
-
-    if (!isBot && !isOwner) {
-      const welcomePath = path.resolve("setwelcome.json");
-      const welcomeData = fs.existsSync(welcomePath)
-        ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
-        : {};
-
-      const lista = welcomeData.lista || [];
-
-      // ✅ Comparar por dígitos para cubrir variantes (@lid, con 0, sin 0)
-      const estaEnLista = lista.some(function(jid) {
-        return String(jid).replace(/[^0-9]/g, "") === senderNum;
-      });
-
-      if (!estaEnLista) {
-        console.log("⛔ PRIVADO BLOQUEADO —", senderNum, "no está en la lista");
-        return;
+    return normalizeOwnerList().some((entry) => {
+      if (Array.isArray(entry)) {
+        return entry.some((x) => DIGITS(x) === clean);
       }
+
+      return DIGITS(entry) === clean;
+    });
+  }
+
+  function readPrivateWhitelist() {
+    try {
+      const welcomePath = path.resolve("setwelcome.json");
+
+      if (!fs.existsSync(welcomePath)) return [];
+
+      const raw = fs.readFileSync(welcomePath, "utf-8");
+      if (!raw.trim()) return [];
+
+      const data = JSON.parse(raw);
+      const lista = Array.isArray(data.lista) ? data.lista : [];
+
+      return lista
+        .map((x) => DIGITS(x))
+        .filter(Boolean);
+    } catch (e) {
+      console.log("⚠️ No se pudo leer setwelcome.json:", e.message);
+      return [];
     }
   }
-} catch (e) {
-  console.error("❌ Error en lógica de control privado:", e);
-}
-// === ✅ FIN FILTRO DE MENSAJES EN PRIVADO POR LISTA ===
 
+  const chatId = jidText(m?.key?.remoteJid);
 
-  
-// === 🔐 INICIO MODO PRIVADO GLOBAL ===
-try {
-  const chatId = m.key.remoteJid;
+  if (!chatId) {
+    console.log("⛔ Mensaje ignorado: remoteJid vacío.");
+    return;
+  }
+
   const isGroup = chatId.endsWith("@g.us");
-  const botJid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+
+  const botRaw = jidText(sock?.user?.id || sock?.user?.jid || "");
+  const botNumber = DIGITS(String(botRaw).split(":")[0].split("@")[0]);
+  const botJid = botNumber ? `${botNumber}@s.whatsapp.net` : "";
+
+  const fromMe = m?.key?.fromMe === true;
 
   const senderId = isGroup
-    ? m.key.participant
-    : m.key.fromMe
+    ? jidText(m?.key?.participant || m?.participant || m?.sender || "")
+    : fromMe
       ? botJid
-      : chatId;
+      : jidText(m?.key?.remoteJid || m?.sender || "");
 
-  const senderNum = senderId.replace(/[^0-9]/g, "");
-  const isBot = senderId === botJid;
-  const isOwner = global.owner.some(([id]) => id === senderNum);
+  const senderNum = DIGITS(String(senderId).split(":")[0]);
 
-  const { getConfig } = requireFromRoot("db");
-  const modoPrivado = await getConfig("global", "modoprivado");
+  const isBot = fromMe || (!!botNumber && senderNum === botNumber);
+  const isOwner = isOwnerNumber(senderNum);
 
-  if (parseInt(modoPrivado) === 1) {
-    const fs = require("fs");
-    const path = require("path");
-    const welcomePath = path.resolve("setwelcome.json");
-    const welcomeData = fs.existsSync(welcomePath)
-      ? JSON.parse(fs.readFileSync(welcomePath, "utf-8"))
-      : {};
-    const whitelist = welcomeData.lista || [];
-    const jid = `${senderNum}@s.whatsapp.net`;
-    const permitido = isOwner || isBot || whitelist.includes(jid);
+  const whitelistNums = readPrivateWhitelist();
+  const isInPrivateWhitelist = whitelistNums.includes(senderNum);
 
-    if (!permitido) return;
+  let modoPrivado = 0;
+
+  try {
+    modoPrivado = await getConfig("global", "modoprivado");
+  } catch (e) {
+    modoPrivado = 0;
   }
+
+  const modoPrivadoActivo =
+    modoPrivado === 1 ||
+    String(modoPrivado || "").trim() === "1" ||
+    String(modoPrivado || "").toLowerCase() === "on" ||
+    String(modoPrivado || "").toLowerCase() === "true";
+
+  /*
+    ✅ PRIVADO:
+    El bot solo responde a:
+    - El mismo bot
+    - Owners
+    - Usuarios en setwelcome.json -> lista
+
+    Esto aplica aunque modoprivado esté apagado.
+  */
+  if (!isGroup) {
+    const permitidoPrivado = isBot || isOwner || isInPrivateWhitelist;
+
+    if (!permitidoPrivado) {
+      console.log("⛔ PRIVADO BLOQUEADO");
+      console.log("➡️ Sender:", senderId || "vacío");
+      console.log("➡️ Número:", senderNum || "vacío");
+      console.log("➡️ Owner:", isOwner);
+      console.log("➡️ Lista privada:", isInPrivateWhitelist);
+      return;
+    }
+  }
+
+  /*
+    ✅ GRUPOS + MODO PRIVADO GLOBAL:
+    Si modoprivado está activo, en grupos solo responde a:
+    - El mismo bot
+    - Owners
+
+    En privado NO bloquea a los de la lista.
+  */
+  if (isGroup && modoPrivadoActivo) {
+    const permitidoGrupo = isBot || isOwner;
+
+    if (!permitidoGrupo) {
+      console.log("⛔ GRUPO BLOQUEADO POR MODO PRIVADO GLOBAL");
+      console.log("➡️ Grupo:", chatId);
+      console.log("➡️ Sender:", senderId || "vacío");
+      console.log("➡️ Número:", senderNum || "vacío");
+      console.log("➡️ Owner:", isOwner);
+      return;
+    }
+  }
+
 } catch (e) {
-  console.error("❌ Error en lógica de modo privado:", e);
+  console.error("❌ Error en filtro privado/modoprivado:", e);
 }
-// === 🔐 FIN MODO PRIVADO GLOBAL ===
+// === ✅ FIN FILTRO PRIVADO + MODO PRIVADO GLOBAL CORREGIDO ===
 
 
   
