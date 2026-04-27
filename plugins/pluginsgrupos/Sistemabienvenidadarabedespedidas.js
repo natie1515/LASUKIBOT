@@ -1,4 +1,4 @@
-const fs = require("fs");
+/*const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("canvas");
 const { getConfig } = requireFromRoot("db");
@@ -176,7 +176,7 @@ function getParticipantCandidates(value) {
 }
 
 /** Si id es @lid y existe .jid o .phoneNumber real, usa el real */
-function lidParser(participants = []) {
+/*function lidParser(participants = []) {
   try {
     return participants.map(v => ({
       id: (
@@ -199,7 +199,7 @@ function lidParser(participants = []) {
 }
 
 /** Con metadata y un JID real/LID/objeto → { realJid, lidJid, number } */
-function resolveRealFromMeta(meta, anyJid) {
+/*function resolveRealFromMeta(meta, anyJid) {
   const out = {
     realJid: null,
     lidJid: null,
@@ -903,4 +903,4 @@ const handler = async (conn) => {
 };
 
 handler.run = handler;
-module.exports = handler;
+module.exports = handler;/*
