@@ -1,12 +1,17 @@
-
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("canvas");
 const { getConfig } = requireFromRoot("db");
+
 // Cache global de admins por chat
 const adminCache = {};
+
 // ==== HELPERS LID/REAL ====
-const DIGITS = (s = "") => String(s || "").replace(/\D/g, "");
+// ✅ Extrae solo números de forma segura
+const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+
+// ✅ Fuerza a que cualquier JID se convierta en un texto limpio (evita el error de "Object")
+const getJidStr = (obj) => typeof obj === "string" ? obj : (obj?.id || "");
 
 /** Si id es @lid y existe .jid (real), usa el real */
 function lidParser(participants = []) {
@@ -28,9 +33,12 @@ function resolveRealFromMeta(meta, anyJid) {
   const out = { realJid: null, lidJid: null, number: null };
   const raw  = Array.isArray(meta?.participants) ? meta.participants : [];
   const norm = lidParser(raw);
+  
+  // Aseguramos que trabajamos con string puro
+  const safeJid = getJidStr(anyJid);
 
-  if (typeof anyJid === "string" && anyJid.endsWith("@s.whatsapp.net")) {
-    out.realJid = anyJid;
+  if (safeJid.endsWith("@s.whatsapp.net")) {
+    out.realJid = safeJid;
     // buscar su par @lid (si existe)
     for (let i = 0; i < raw.length; i++) {
       if (norm[i]?.id === out.realJid && typeof raw[i]?.id === "string" && raw[i].id.endsWith("@lid")) {
@@ -38,9 +46,9 @@ function resolveRealFromMeta(meta, anyJid) {
         break;
       }
     }
-  } else if (typeof anyJid === "string" && anyJid.endsWith("@lid")) {
-    out.lidJid = anyJid;
-    const idx = raw.findIndex(p => p?.id === anyJid);
+  } else if (safeJid.endsWith("@lid")) {
+    out.lidJid = safeJid;
+    const idx = raw.findIndex(p => p?.id === safeJid);
     if (idx >= 0) {
       const w = raw[idx];
       if (typeof w?.jid === "string" && w.jid.endsWith("@s.whatsapp.net")) out.realJid = w.jid;
@@ -48,26 +56,31 @@ function resolveRealFromMeta(meta, anyJid) {
     }
   }
 
-  out.number = DIGITS(out.realJid || "");
+  // Extrae número usando real o fallback al original
+  out.number = DIGITS(out.realJid || safeJid);
   return out;
 }
 // ==== FIN HELPERS ====
+
 const handler = async (conn) => {
   conn.ev.on("group-participants.update", async (update) => {
     try {
       const chatId = update.id;
       const isGroup = chatId.endsWith("@g.us");
       if (!isGroup) return;
-//bueno
-if (!adminCache[chatId]) {
-  const oldMeta = await conn.groupMetadata(chatId);
-  adminCache[chatId] = new Set(
-    oldMeta.participants
-      .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-      .map(p => p.id)
-  );
-}
-//ok      
+
+      const metadata = await conn.groupMetadata(chatId).catch(() => null);
+      if (!metadata) return; // Protección si la metadata falla
+
+      // Actualizar Cache de Admins Inicial
+      if (!adminCache[chatId]) {
+        adminCache[chatId] = new Set(
+          metadata.participants
+            .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+            .map(p => getJidStr(p))
+        );
+      }
+      
       const welcomeActive = await getConfig(chatId, "welcome");
       const byeActive = await getConfig(chatId, "despedidas");
       const antiArabe = await getConfig(chatId, "antiarabe");
@@ -103,63 +116,74 @@ if (!adminCache[chatId]) {
         "976", "980", "981", "992", "994", "995", "998"
       ];
 
-      const metadata = await conn.groupMetadata(chatId);
+      // 🔰 SISTEMA DE AVISO DE CAMBIOS DE ADMIN (PROMOTE Y DEMOTE)
+      if (update.action === "promote" || update.action === "demote") {
+        const actor = getJidStr(update.author);
+        const actorNum = actor ? DIGITS(actor) : "Desconocido";
 
+        for (const targetRaw of update.participants) {
+          const target = getJidStr(targetRaw);
+          if (!target) continue;
 
+          const { realJid, number } = resolveRealFromMeta(metadata, target);
+          const targetNum = number || DIGITS(target);
+          const targetMention = realJid || target;
 
-      
-// 🔰 Aviso simple cuando ascienden a admin
-if (update.action === "promote" && update.participants?.length) {
-  const actor = update.author;
-  const target = update.participants[0];
-  if (actor && target) {
-    const texto = `
-╭──『 👑 *NUEVO ADMIN* 』─◆
-│ 👤 Usuario: @${target.split("@")[0]}
-│ ✅ Ascendido por: @${actor.split("@")[0]}
-╰────────────────────◆`.trim();
+          const mencionesEfectivas = [targetMention, actor].filter(Boolean).map(String);
 
-    await conn.sendMessage(chatId, {
-      text: texto,
-      mentions: [actor, target]
-    });
-  }
-}
+          if (update.action === "promote") {
+            const texto = `╭──『 👑 *NUEVO ADMIN* 』─◆\n│ 👤 Usuario: @${targetNum}\n│ ✅ Ascendido por: @${actorNum}\n╰────────────────────◆`;
+            await conn.sendMessage(chatId, {
+              text: texto,
+              mentions: mencionesEfectivas
+            });
+          } else if (update.action === "demote") {
+            const texto = `╭──『 📉 *ADMIN DEGRADADO* 』─◆\n│ 👤 Usuario: @${targetNum}\n│ ❌ Degradado por: @${actorNum}\n╰────────────────────◆`;
+            await conn.sendMessage(chatId, {
+              text: texto,
+              mentions: mencionesEfectivas
+            });
+          }
+        }
+      }
 
+      // 🔄 SISTEMA DE BIENVENIDAS, DESPEDIDAS Y ANTIÁRABE
+      for (const pRaw of update.participants) {
+        const participant = getJidStr(pRaw);
+        if (!participant) continue;
 
-      
-// 🔒 FIN SISTEMA DE PROTECCIÓN Y AVISO DE CAMBIOS DE ADMIN 🔒
-      for (const participant of update.participants) {
         const { realJid, lidJid, number } = resolveRealFromMeta(metadata, participant);
 
-// para mencionar, usa el real si existe (mejor soporte en LID):
-const mentionId = realJid || participant;
-const phoneForMention = number || participant.split("@")[0];
-const mention = `@${phoneForMention}`;
+        // Para mencionar, usa el real si existe (mejor soporte en LID)
+        const mentionId = String(realJid || participant);
+        const phoneForMention = number || DIGITS(participant);
+        const mention = `@${phoneForMention}`;
 
         if (update.action === "add") {
-  // ahora validamos con el NÚMERO REAL
-  const isArabic = (antiArabe == 1) && number && arabes.some(cc => number.startsWith(cc));
+          // Validamos con el NÚMERO REAL
+          const isArabic = (antiArabe == 1) && number && arabes.some(cc => number.startsWith(cc));
 
-  if (isArabic) {
-    const info = metadata.participants.find(p => p.id === participant);
-    const isAdmin = info?.admin === "admin" || info?.admin === "superadmin";
-    // para owner, mejor pasar número real si tu helper lo soporta
-    const isOwner = global.isOwner && (global.isOwner(number) || global.isOwner(mentionId));
+          if (isArabic) {
+            // Buscamos si el usuario agregado es Admin o Owner (robusto)
+            const info = metadata.participants.find(p => getJidStr(p) === realJid || getJidStr(p) === lidJid || getJidStr(p) === participant);
+            const isAdmin = info?.admin === "admin" || info?.admin === "superadmin";
+            
+            const isOwner = Array.isArray(global.owner) && global.owner.some(function(entry) {
+              let n = Array.isArray(entry) ? entry[0] : entry;
+              return String(n).replace(/[^0-9]/g, "") === number;
+            });
 
-    if (!isAdmin && !isOwner) {
-      await conn.sendMessage(chatId, {
-        text: `🚫 ${mention} tiene un prefijo prohibido y será eliminado.`,
-        mentions: [mentionId]
-      });
-      try {
-        await conn.groupParticipantsUpdate(chatId, [participant], "remove");
-      } catch {}
-      continue; // no enviar bienvenida
-    }
-  }
-
-  // … (sigue tu bienvenida normal)
+            if (!isAdmin && !isOwner) {
+              await conn.sendMessage(chatId, {
+                text: `🚫 ${mention} tiene un prefijo prohibido y será eliminado.`,
+                mentions: [mentionId]
+              });
+              try {
+                await conn.groupParticipantsUpdate(chatId, [participant], "remove");
+              } catch {}
+              continue; // Salta la bienvenida si fue expulsado
+            }
+          }
 
           if (welcomeActive != 1) continue;
 
@@ -177,9 +201,7 @@ const mention = `@${phoneForMention}`;
           if (bienvenidaPersonalizada) {
             await conn.sendMessage(chatId, {
               image: { url: perfilURL },
-              caption: `👋 ${mention}
-
-${bienvenidaPersonalizada}`,
+              caption: `👋 ${mention}\n\n${bienvenidaPersonalizada}`,
               mentions: [mentionId]
             });
           } else {
@@ -189,14 +211,12 @@ ${bienvenidaPersonalizada}`,
             if (modo === "video") {
               await conn.sendMessage(chatId, {
                 video: { url: "https://cdn.russellxz.click/8e968c1d.mp4" },
-                caption: `👋 ${mention}
-
-${mensaje}`,
+                caption: `👋 ${mention}\n\n${mensaje}`,
                 mentions: [mentionId]
               });
             } else {
               const avatar = await loadImage(perfilURL);
-              const fondo = await loadImage("https://cdn.russellxz.click/e72cc417.jpeg");
+              const fondo = await loadImage("https://cdn.russellxz.click/7177383b.jpg");
               const canvas = createCanvas(1080, 720);
               const ctx = canvas.getContext("2d");
               ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
@@ -210,12 +230,11 @@ ${mensaje}`,
               ctx.restore();
               ctx.globalAlpha = 1.0;
 
+              // ✅ Buffer.from garantiza que sea un Buffer nativo para evitar crasheos
               await conn.sendMessage(chatId, {
-                image: canvas.toBuffer(),
-                caption: `👋 ${mention}
-
-${mensaje}`,
-                mentions: [participant]
+                image: Buffer.from(canvas.toBuffer("image/png")),
+                caption: `👋 ${mention}\n\n${mensaje}`,
+                mentions: [mentionId]
               });
             }
           }
@@ -228,17 +247,15 @@ ${mensaje}`,
             try {
               perfilURL = await conn.profilePictureUrl(chatId, "image");
             } catch {
-              perfilURL = "https://cdn.russellxz.click/e72cc417.jpeg";
+              perfilURL = "https://cdn.russellxz.click/7177383b.jpg";
             }
           }
 
           if (despedidaPersonalizada) {
             await conn.sendMessage(chatId, {
               image: { url: perfilURL },
-              caption: `👋 ${mention}
-
-${despedidaPersonalizada}`,
-              mentions: [participant]
+              caption: `👋 ${mention}\n\n${despedidaPersonalizada}`,
+              mentions: [mentionId]
             });
           } else {
             const mensaje = mensajesDespedida[Math.floor(Math.random() * mensajesDespedida.length)];
@@ -247,14 +264,12 @@ ${despedidaPersonalizada}`,
             if (modo === "video") {
               await conn.sendMessage(chatId, {
                 video: { url: "https://cdn.russellxz.click/6a4bd220.mp4" },
-                caption: `👋 ${mention}
-
-${mensaje}`,
-                mentions: [participant]
+                caption: `👋 ${mention}\n\n${mensaje}`,
+                mentions: [mentionId]
               });
             } else {
               const avatar = await loadImage(perfilURL);
-              const fondo = await loadImage("https://cdn.russellxz.click/86913470.jpeg");
+              const fondo = await loadImage("https://cdn.russellxz.click/bc842c44.jpg");
               const canvas = createCanvas(1080, 720);
               const ctx = canvas.getContext("2d");
               ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
@@ -268,26 +283,26 @@ ${mensaje}`,
               ctx.restore();
               ctx.globalAlpha = 1.0;
 
+              // ✅ Buffer.from garantiza que sea un Buffer nativo para evitar crasheos
               await conn.sendMessage(chatId, {
-                image: canvas.toBuffer(),
-                caption: `👋 ${mention}
-
-${mensaje}`,
-                mentions: [participant]
+                image: Buffer.from(canvas.toBuffer("image/png")),
+                caption: `👋 ${mention}\n\n${mensaje}`,
+                mentions: [mentionId]
               });
             }
           }
         }
       }
-//ok
-const newMeta = await conn.groupMetadata(chatId);
-adminCache[chatId] = new Set(
-  newMeta.participants
-    .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-    .map(p => p.id)
-);
-      //ok
-      
+
+      // Actualizar Cache de Admins Final
+      const newMeta = await conn.groupMetadata(chatId).catch(() => null);
+      if (newMeta) {
+        adminCache[chatId] = new Set(
+          newMeta.participants
+            .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+            .map(p => getJidStr(p))
+        );
+      }
       
     } catch (err) {
       console.error("❌ Error en lógica de grupo:", err);
