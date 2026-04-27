@@ -20,8 +20,21 @@ function isActive(value) {
     v === "true" ||
     v === "activar" ||
     v === "activado" ||
-    v === "enabled"
+    v === "enabled" ||
+    v === "enable" ||
+    v === "si" ||
+    v === "sí"
   );
+}
+
+function getConfigSafe(chatId, key, fallback = 0) {
+  try {
+    const value = getConfig(chatId, key);
+    return value ?? fallback;
+  } catch (e) {
+    console.log(`⚠️ Error leyendo config ${key} para ${chatId}:`, e.message);
+    return fallback;
+  }
 }
 
 function safeJsonRead(file, fallback = {}) {
@@ -408,9 +421,11 @@ const handler = async (conn) => {
         );
       }
 
-      const welcomeActive = await getConfig(chatId, "welcome").catch(() => 0);
-      const byeActive = await getConfig(chatId, "despedidas").catch(() => 0);
-      const antiArabe = await getConfig(chatId, "antiarabe").catch(() => 0);
+      // ✅ FIX IMPORTANTE:
+      // getConfig() en tu db.js es síncrono. No se puede usar .catch() directo.
+      const welcomeActive = getConfigSafe(chatId, "welcome", 0);
+      const byeActive = getConfigSafe(chatId, "despedidas", 0);
+      const antiArabe = getConfigSafe(chatId, "antiarabe", 0);
 
       console.log("⚙️ Config welcome:", welcomeActive);
       console.log("⚙️ Config despedidas:", byeActive);
