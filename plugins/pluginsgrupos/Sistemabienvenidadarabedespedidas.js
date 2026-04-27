@@ -77,7 +77,6 @@ function tryParseJsonObject(value) {
 }
 
 // ✅ Convierte cualquier cosa a texto JID seguro.
-// Soporta string, objeto de Baileys, JSON string, LID, JID real, pn, jid, id, phoneNumber, etc.
 function getJidStr(obj) {
   if (!obj) return "";
 
@@ -211,7 +210,6 @@ function resolveRealFromMeta(meta, anyJid) {
 
   const candidates = getParticipantCandidates(anyJid);
 
-  // Resolver directo por candidates
   for (const c of candidates) {
     if (c.endsWith("@s.whatsapp.net")) {
       out.realJid = cleanJid(c);
@@ -223,7 +221,6 @@ function resolveRealFromMeta(meta, anyJid) {
     }
   }
 
-  // Resolver usando global.lidMap si existe
   try {
     if (global.lidMap instanceof Map) {
       for (const c of candidates) {
@@ -237,7 +234,6 @@ function resolveRealFromMeta(meta, anyJid) {
     }
   } catch {}
 
-  // Buscar en metadata
   for (let i = 0; i < raw.length; i++) {
     const p = raw[i] || {};
     const rawIds = getParticipantCandidates(p);
@@ -285,7 +281,6 @@ function resolveRealFromMeta(meta, anyJid) {
     break;
   }
 
-  // Último fallback: extraer número de cualquier candidate
   if (!out.number) {
     for (const c of candidates) {
       const n = jidNumber(c);
@@ -601,7 +596,6 @@ async function handleGroupParticipantsUpdate(conn, update) {
 
     if (!metadata) return;
 
-    // Actualizar Cache de Admins Inicial
     if (!adminCache[chatId]) {
       adminCache[chatId] = new Set(
         metadata.participants
@@ -611,12 +605,17 @@ async function handleGroupParticipantsUpdate(conn, update) {
       );
     }
 
-    const welcomeActive = await getConfigSafe(chatId, "welcome", 0);
-    const byeActive = await getConfigSafe(chatId, "despedidas", 0);
+    // ✅ CAMBIO PRINCIPAL:
+    // Welcome y despedidas quedan SIEMPRE ACTIVOS.
+    // Ya no se revisa activos.db para welcome/despedidas.
+    const welcomeActive = true;
+    const byeActive = true;
+
+    // Antiárabe sí sigue respetando configuración.
     const antiArabe = await getConfigSafe(chatId, "antiarabe", 0);
 
-    console.log("⚙️ Config welcome:", welcomeActive);
-    console.log("⚙️ Config despedidas:", byeActive);
+    console.log("⚙️ Config welcome: FORZADO ON");
+    console.log("⚙️ Config despedidas: FORZADO ON");
     console.log("⚙️ Config antiarabe:", antiArabe);
 
     const setwelcomePath = path.resolve("setwelcome.json");
@@ -762,10 +761,7 @@ async function handleGroupParticipantsUpdate(conn, update) {
           }
         }
 
-        if (!isActive(welcomeActive)) {
-          console.log("ℹ️ Welcome apagado para:", chatId);
-          continue;
-        }
+        if (!welcomeActive) continue;
 
         const perfilURL = await getProfileUrl(
           conn,
@@ -805,10 +801,7 @@ async function handleGroupParticipantsUpdate(conn, update) {
       }
 
       if (action === "remove") {
-        if (!isActive(byeActive)) {
-          console.log("ℹ️ Despedidas apagado para:", chatId);
-          continue;
-        }
+        if (!byeActive) continue;
 
         const perfilURL = await getProfileUrl(
           conn,
@@ -899,6 +892,7 @@ const handler = async (conn) => {
   });
 
   console.log("✅ Listener viejo de bienvenidas/despedidas cargado correctamente.");
+  console.log("✅ Welcome y despedidas están FORZADOS ON.");
   console.log("✅ Fallback de eventos por messageStubType activado correctamente.");
 };
 
