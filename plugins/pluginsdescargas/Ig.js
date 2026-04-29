@@ -1,27 +1,30 @@
-// comandos/ig.js — Instagram video / imágenes con Neoxr API
+// comandos/ig.js — Instagram VIDEO / IMAGEN con Neoxr API
 // ✅ API: https://api.neoxr.eu/api/ig
-// ✅ Soporta video e imágenes
-// ✅ Botones directos: Normal / Documento / Todo / Todo Documento
-// ✅ Reacciones: 👍 normal / ❤️ documento / 📦 todo / 📁 todo documento
-// ✅ Respuestas: 1 normal / 2 documento / 3 todo / 4 todo documento
-// ✅ Multiuso: No se borra al instante, dura 10 min
+// ✅ Botones directos si activoss.json -> botones !== false
+// ✅ Si botones OFF: usa reacciones 👍 ❤️ o responde 1 / 2
+// ✅ Soporta imagen, video y carrusel
+// ✅ Branding La Suki Bot
 
 "use strict";
 
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { promisify } = require("util");
+const { pipeline } = require("stream");
+const streamPipe = promisify(pipeline);
 
-const NEOXR_API_BASE = "https://api.neoxr.eu/api";
-const NEOXR_API_KEY = "russellxz";
+const NEOXR_BASE = "https://api.neoxr.eu/api";
+const NEOXR_KEY = process.env.NEOXR_KEY || "russellxz";
 
 const MAX_MB = Number(process.env.MAX_MB || 200);
-const MAX_ITEMS = Number(process.env.IG_MAX_ITEMS || 10);
 const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 const pendingIG = Object.create(null);
 
-const mb = (n) => n / (1024 * 1024);
+function mb(n) {
+  return n / (1024 * 1024);
+}
 
 function isIG(u = "") {
   return /(instagram\.com|instagr\.am)/i.test(String(u || ""));
@@ -52,12 +55,14 @@ function safeFileName(name = "instagram") {
   );
 }
 
+function ensureTmp() {
+  const tmp = path.resolve("./tmp");
+  if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
+  return tmp;
+}
+
 function botonesActivos() {
-  const defaultCfg = {
-    botones: true,
-    updatedAt: null,
-    updatedBy: null
-  };
+  const defaultCfg = { botones: true, updatedAt: null, updatedBy: null };
 
   if (!fs.existsSync(ACTIVOSS_FILE)) {
     try {
@@ -76,210 +81,58 @@ function botonesActivos() {
 
 async function react(conn, chatId, key, emoji) {
   try {
-    await conn.sendMessage(chatId, {
-      react: {
-        text: emoji,
-        key
-      }
-    });
+    await conn.sendMessage(chatId, { react: { text: emoji, key } });
   } catch {}
 }
 
-function pickText(...values) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
+function guessType(url = "", mime = "") {
+  const u = String(url || "").toLowerCase();
+  const m = String(mime || "").toLowerCase();
+
+  if (m.startsWith("video/") || /\.(mp4|mov|webm)(\?|#|$)/i.test(u)) return "video";
+  if (m.startsWith("image/") || /\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(u)) return "image";
+
+  return "video";
 }
 
-function isInstagramPageUrl(url = "") {
-  const u = String(url || "");
-  return /instagram\.com\/(p|reel|tv|stories)\//i.test(u);
-}
-
-function detectType(url = "", hint = "") {
-  const h = String(hint || "").toLowerCase();
+function guessMime(type = "video", url = "") {
   const u = String(url || "").toLowerCase();
 
-  if (h.includes("video") || h.includes("mp4") || /\.mp4(\?|#|$)/i.test(u)) {
-    return "video";
+  if (type === "image") {
+    if (/\.png(\?|#|$)/i.test(u)) return "image/png";
+    if (/\.webp(\?|#|$)/i.test(u)) return "image/webp";
+    return "image/jpeg";
   }
 
-  if (
-    h.includes("image") ||
-    h.includes("photo") ||
-    h.includes("jpg") ||
-    h.includes("jpeg") ||
-    h.includes("png") ||
-    h.includes("webp") ||
-    /\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(u)
-  ) {
-    return "image";
-  }
-
-  return "media";
+  return "video/mp4";
 }
 
-function extFromMime(mimetype = "", type = "media", url = "") {
-  const m = String(mimetype || "").toLowerCase();
+function getExt(type = "video", mime = "", url = "") {
   const u = String(url || "").toLowerCase();
+  const m = String(mime || "").toLowerCase();
 
-  if (m.includes("video/mp4")) return "mp4";
-  if (m.includes("image/jpeg")) return "jpg";
-  if (m.includes("image/png")) return "png";
-  if (m.includes("image/webp")) return "webp";
-
-  const urlExt = u.match(/\.(mp4|jpg|jpeg|png|webp)(\?|#|$)/i);
-  if (urlExt) return urlExt[1].toLowerCase() === "jpeg" ? "jpg" : urlExt[1].toLowerCase();
-
-  if (type === "video") return "mp4";
-  if (type === "image") return "jpg";
-
-  return "bin";
-}
-
-function mimeFromType(type = "media", ext = "") {
-  const e = String(ext || "").toLowerCase();
-
-  if (type === "video" || e === "mp4") return "video/mp4";
-  if (e === "png") return "image/png";
-  if (e === "webp") return "image/webp";
-  if (type === "image" || e === "jpg" || e === "jpeg") return "image/jpeg";
-
-  return "application/octet-stream";
-}
-
-function addItem(out, item = {}) {
-  const url = pickText(
-    item.url,
-    item.download,
-    item.download_url,
-    item.dl,
-    item.link,
-    item.src,
-    item.source,
-    item.media,
-    item.video,
-    item.video_url,
-    item.image,
-    item.image_url
-  );
-
-  if (!url || !isUrl(url)) return;
-  if (isInstagramPageUrl(url)) return;
-
-  const type = detectType(
-    url,
-    pickText(item.type, item.mime, item.mimetype, item.media_type, item.kind)
-  );
-
-  const thumbnail = pickText(
-    item.thumbnail,
-    item.thumb,
-    item.cover,
-    item.preview,
-    item.image,
-    item.image_url
-  );
-
-  if (!out.some(x => x.url === url)) {
-    out.push({
-      url,
-      type,
-      thumbnail,
-      title: pickText(item.title, item.caption, item.description) || "Instagram"
-    });
-  }
-}
-
-function collectMediaItems(value, out = [], depth = 0) {
-  if (!value || depth > 8) return out;
-
-  if (typeof value === "string") {
-    if (isUrl(value) && !isInstagramPageUrl(value)) {
-      addItem(out, { url: value });
-    }
-    return out;
+  if (type === "image") {
+    if (m.includes("png") || /\.png(\?|#|$)/i.test(u)) return "png";
+    if (m.includes("webp") || /\.webp(\?|#|$)/i.test(u)) return "webp";
+    return "jpg";
   }
 
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectMediaItems(item, out, depth + 1);
-    }
-    return out;
-  }
-
-  if (typeof value === "object") {
-    addItem(out, value);
-
-    for (const key of Object.keys(value)) {
-      if (
-        [
-          "data",
-          "result",
-          "results",
-          "media",
-          "medias",
-          "items",
-          "item",
-          "post",
-          "posts",
-          "images",
-          "videos",
-          "carousel",
-          "resources",
-          "download",
-          "downloads"
-        ].includes(String(key).toLowerCase())
-      ) {
-        collectMediaItems(value[key], out, depth + 1);
-      }
-    }
-
-    for (const key of Object.keys(value)) {
-      const v = value[key];
-
-      if (typeof v === "object" && v !== null) {
-        collectMediaItems(v, out, depth + 1);
-      }
-    }
-  }
-
-  return out;
+  return "mp4";
 }
 
-function pickThumbnail(data, items = []) {
-  return (
-    pickText(
-      data?.thumbnail,
-      data?.thumb,
-      data?.cover,
-      data?.image,
-      data?.result?.thumbnail,
-      data?.result?.thumb,
-      data?.result?.cover,
-      data?.result?.image,
-      data?.data?.thumbnail,
-      data?.data?.thumb,
-      data?.data?.cover,
-      data?.data?.image
-    ) ||
-    items.find(x => x.thumbnail)?.thumbnail ||
-    items.find(x => x.type === "image")?.url ||
-    ""
-  );
-}
-
-// API Neoxr
+// ✅ API NEOXR
 async function callNeoxrInstagram(url) {
-  const r = await axios.get(`${NEOXR_API_BASE}/ig`, {
-    timeout: 120000,
+  const endpoint = `${NEOXR_BASE}/ig`;
+
+  const r = await axios.get(endpoint, {
     params: {
       url,
-      apikey: NEOXR_API_KEY
+      apikey: NEOXR_KEY
     },
+    timeout: 90000,
     headers: {
-      Accept: "application/json, */*"
+      Accept: "application/json, */*",
+      "User-Agent": "Mozilla/5.0"
     },
     validateStatus: () => true
   });
@@ -290,70 +143,195 @@ async function callNeoxrInstagram(url) {
     try {
       data = JSON.parse(data.trim());
     } catch {
-      throw new Error("Respuesta no JSON de Neoxr");
+      throw new Error("Respuesta no JSON del servidor");
     }
   }
 
-  if (!data || typeof data !== "object") {
-    throw new Error("Respuesta inválida de Neoxr");
-  }
-
   const ok =
-    data.status === true ||
-    data.status === "true" ||
-    data.ok === true ||
-    data.success === true ||
-    data.result ||
-    data.data;
+    data?.status === true ||
+    data?.status === "true" ||
+    data?.ok === true ||
+    data?.success === true ||
+    data?.code === 200;
 
   if (!ok) {
-    throw new Error(data.message || data.error || `HTTP ${r.status}`);
+    throw new Error(data?.message || data?.error || `HTTP ${r.status}`);
   }
 
-  const root = data.result || data.data || data;
-  const items = collectMediaItems(root, []);
-
-  if (!items.length) {
-    throw new Error("Neoxr no devolvió imágenes ni videos descargables");
-  }
-
-  const title =
-    pickText(
-      root.title,
-      root.caption,
-      root.description,
-      data.title,
-      data.caption,
-      data.description
-    ) || "Instagram";
-
-  const thumbnail = pickThumbnail(data, items);
-
-  return {
-    title,
-    thumbnail,
-    items: items.slice(0, MAX_ITEMS)
-  };
+  return data;
 }
 
-async function downloadMediaToTmp(srcUrl, filenameBase = "instagram", itemType = "media") {
-  const tmp = path.resolve("./tmp");
+function pushItem(out, value, fallbackType = "") {
+  if (!value) return;
 
-  if (!fs.existsSync(tmp)) {
-    fs.mkdirSync(tmp, { recursive: true });
+  if (typeof value === "string") {
+    if (!isUrl(value)) return;
+
+    const type = fallbackType || guessType(value);
+    const mime = guessMime(type, value);
+
+    out.push({
+      url: value,
+      type,
+      mime
+    });
+    return;
   }
 
-  const headers = {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-    Accept: "*/*",
-    Referer: "https://www.instagram.com/"
-  };
+  if (typeof value !== "object") return;
 
-  const res = await axios.get(srcUrl, {
+  const possibleUrl =
+    value.url ||
+    value.dl ||
+    value.link ||
+    value.download ||
+    value.downloadUrl ||
+    value.download_url ||
+    value.media ||
+    value.src ||
+    value.video ||
+    value.image ||
+    value.thumbnail ||
+    value.display_url ||
+    "";
+
+  if (!possibleUrl || !isUrl(possibleUrl)) return;
+
+  let type =
+    String(value.type || value.media_type || value.mime || "").toLowerCase();
+
+  if (type.includes("video")) type = "video";
+  else if (type.includes("image") || type.includes("photo")) type = "image";
+  else if (value.video) type = "video";
+  else if (value.image || value.display_url) type = "image";
+  else type = fallbackType || guessType(possibleUrl, value.mime);
+
+  const mime = value.mime || value.mimetype || guessMime(type, possibleUrl);
+
+  out.push({
+    url: possibleUrl,
+    type,
+    mime
+  });
+}
+
+function extractItems(apiData) {
+  const out = [];
+
+  const root =
+    apiData?.result ||
+    apiData?.data ||
+    apiData?.res ||
+    apiData;
+
+  const containers = [
+    root?.media,
+    root?.medias,
+    root?.items,
+    root?.urls,
+    root?.url,
+    root?.download,
+    root?.downloads,
+    root?.result,
+    root?.data,
+    root
+  ];
+
+  for (const c of containers) {
+    if (!c) continue;
+
+    if (Array.isArray(c)) {
+      for (const item of c) pushItem(out, item);
+      continue;
+    }
+
+    if (typeof c === "string") {
+      pushItem(out, c);
+      continue;
+    }
+
+    if (typeof c === "object") {
+      if (Array.isArray(c.items)) {
+        for (const item of c.items) pushItem(out, item);
+      }
+
+      if (Array.isArray(c.media)) {
+        for (const item of c.media) pushItem(out, item);
+      }
+
+      if (Array.isArray(c.medias)) {
+        for (const item of c.medias) pushItem(out, item);
+      }
+
+      pushItem(out, c);
+      pushItem(out, c.video, "video");
+      pushItem(out, c.image, "image");
+      pushItem(out, c.url);
+      pushItem(out, c.download);
+      pushItem(out, c.downloadUrl);
+      pushItem(out, c.download_url);
+    }
+  }
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const item of out) {
+    if (!item.url || seen.has(item.url)) continue;
+    seen.add(item.url);
+    unique.push(item);
+  }
+
+  return unique;
+}
+
+function getTitle(apiData) {
+  const root = apiData?.result || apiData?.data || apiData;
+
+  return (
+    root?.title ||
+    root?.caption ||
+    root?.description ||
+    root?.username ||
+    "Instagram"
+  );
+}
+
+function getThumbnail(apiData, items = []) {
+  const root = apiData?.result || apiData?.data || apiData;
+
+  const thumb =
+    root?.thumbnail ||
+    root?.thumb ||
+    root?.image ||
+    root?.cover ||
+    root?.display_url ||
+    "";
+
+  if (thumb && isUrl(thumb)) return thumb;
+
+  const firstImage = items.find(x => x.type === "image" && isUrl(x.url));
+  if (firstImage) return firstImage.url;
+
+  return "";
+}
+
+async function downloadToTmp(item, filenameBase = "instagram") {
+  const tmp = ensureTmp();
+
+  const type = item.type || guessType(item.url, item.mime);
+  const mime = item.mime || guessMime(type, item.url);
+  const ext = getExt(type, mime, item.url);
+
+  const filePath = path.join(tmp, `ig-${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`);
+
+  const res = await axios.get(item.url, {
     responseType: "stream",
     timeout: 180000,
-    headers,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "*/*"
+    },
     maxRedirects: 5,
     validateStatus: () => true
   });
@@ -362,72 +340,18 @@ async function downloadMediaToTmp(srcUrl, filenameBase = "instagram", itemType =
     throw new Error(`HTTP_${res.status}`);
   }
 
-  const mimetype = String(res.headers["content-type"] || "").split(";")[0].trim();
-  const finalType = detectType(srcUrl, mimetype || itemType);
-  const ext = extFromMime(mimetype, finalType, srcUrl);
-  const filePath = path.join(tmp, `ig-${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`);
-
-  await new Promise((resolve, reject) => {
-    const w = fs.createWriteStream(filePath);
-    res.data.pipe(w);
-    w.on("finish", resolve);
-    w.on("error", reject);
-    res.data.on("error", reject);
-  });
+  await streamPipe(res.data, fs.createWriteStream(filePath));
 
   return {
     filePath,
-    type: finalType,
-    mimetype: mimetype || mimeFromType(finalType, ext),
-    ext
+    type,
+    mime,
+    ext,
+    fileName: `${safeFileName(filenameBase)}.${ext}`
   };
 }
 
-function buildOptionsCaption(items = []) {
-  const total = items.length;
-  const videos = items.filter(x => x.type === "video").length;
-  const images = items.filter(x => x.type === "image").length;
-
-  return `
-╭━━━━━━━━━━━━━━━━╮
-   ⚡ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 ⚡
-╰━━━━━━━━━━━━━━━━╯
-
-📦 *Contenido detectado:* ${total}
-🎬 *Videos:* ${videos}
-🖼️ *Imágenes:* ${images}
-
-━━━━━━━━━━━━━━━━━━
- *📥 CÓMO DESCARGAR*
-━━━━━━━━━━━━━━━━━━
-
-🟢 *Botones*
-Toca una opción abajo:
-   🎬 Normal
-   📁 Documento
-   📦 Todo
-   🗂️ Todo Documento
-
-🟡 *Reacciones*
-   👍  →  Descargar primero normal
-   ❤️  →  Descargar primero como documento
-   📦  →  Descargar todo normal
-   📁  →  Descargar todo documento
-
-🔵 *Responder*
-   *1* → primero normal
-   *2* → primero documento
-   *3* → todo normal
-   *4* → todo documento
-
-━━━━━━━━━━━━━━━━
-🤖 *La Suki Bot*
-🔗 *API:* Neoxr API
-━━━━━━━━━━━━━━━━
-`.trim();
-}
-
-// MAIN
+// 3. HANDLER PRINCIPAL
 module.exports = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
@@ -442,8 +366,7 @@ module.exports = async (msg, { conn, args, command }) => {
 ${pref}${command} <enlace IG>
 
 Ej:
-${pref}${command} https://www.instagram.com/reel/XXXX/
-${pref}${command} https://www.instagram.com/p/XXXX/`
+${pref}${command} https://www.instagram.com/reel/XXXX/`
       },
       { quoted: msg }
     );
@@ -454,9 +377,7 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
   if (!isUrl(text) || !isIG(text)) {
     return conn.sendMessage(
       chatId,
-      {
-        text: `❌ Enlace inválido.\nUsa: ${pref}${command} <url de Instagram>`
-      },
+      { text: `❌ Enlace inválido.\nUsa: ${pref}${command} <url de Instagram>` },
       { quoted: msg }
     );
   }
@@ -464,77 +385,94 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
   try {
     await react(conn, chatId, msg.key, "⏳");
 
-    const result = await callNeoxrInstagram(text);
-    const items = result.items || [];
+    const apiData = await callNeoxrInstagram(text);
+    const items = extractItems(apiData);
 
     if (!items.length) {
       await react(conn, chatId, msg.key, "❌");
       return conn.sendMessage(
         chatId,
-        {
-          text: "🚫 Ese enlace no tiene contenido descargable."
-        },
+        { text: "🚫 No encontré imagen o video descargable en ese enlace." },
         { quoted: msg }
       );
     }
 
-    const title = result.title || "Instagram";
-    const thumb = result.thumbnail || "";
-    const caption = buildOptionsCaption(items);
+    const title = getTitle(apiData);
+    const thumb = getThumbnail(apiData, items);
     const usarBotones = botonesActivos();
 
-    const buttons = [
-      {
-        text: "🎬 Normal",
-        id: `${pref}ig_normal`
-      },
-      {
-        text: "📁 Documento",
-        id: `${pref}ig_doc`
-      },
-      {
-        text: "📦 Todo",
-        id: `${pref}ig_all`
-      },
-      {
-        text: "🗂️ Todo Doc",
-        id: `${pref}ig_alldoc`
-      }
+    const caption = usarBotones
+      ? `
+╭━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 ⚡
+╰━━━━━━━━━━━━━━━━╯
+
+━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━
+
+🟢 *OPCIÓN 1 — Botones*
+Toca un botón abajo del mensaje:
+
+🎬 *Normal*
+📄 *Documento*
+
+━━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+🔗 *API:* ${NEOXR_BASE}
+━━━━━━━━━━━━━━━━
+`.trim()
+      : `
+╭━━━━━━━━━━━━━━━━╮
+   ⚡ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 ⚡
+╰━━━━━━━━━━━━━━━━╯
+
+━━━━━━━━━━━━━━━━━━
+ *📥 CÓMO DESCARGAR*
+━━━━━━━━━━━━━━━━━━
+
+🟡 *OPCIÓN 1 — Reaccionar*
+👍  →  Enviar normal
+❤️  →  Enviar como documento
+
+🔵 *OPCIÓN 2 — Responder número*
+Cita este mensaje y escribe:
+
+*1* → Normal
+*2* → Documento
+
+━━━━━━━━━━━━━━━━
+🤖 *La Suki Bot*
+🔗 *API:* ${NEOXR_BASE}
+━━━━━━━━━━━━━━━━
+`.trim();
+
+    const nativeFlowButtons = [
+      { text: "🎬 Normal", id: `${pref}ig_normal` },
+      { text: "📄 Documento", id: `${pref}ig_doc` }
     ];
 
     let preview;
 
     if (usarBotones) {
       try {
-        const payload = thumb && isUrl(thumb)
-          ? {
-              image: { url: thumb },
-              caption,
-              footer: "❦ La Suki Bot — Selecciona una opción ❦",
-              buttons,
-              headerType: 4
-            }
-          : {
-              text: caption,
-              footer: "❦ La Suki Bot — Selecciona una opción ❦",
-              buttons,
-              headerType: 1
-            };
-
-        preview = await conn.sendMessage(chatId, payload, { quoted: msg });
-      } catch (e) {
-        console.log("[ig] botones fallaron, usando fallback:", e.message);
-
+        preview = await conn.sendMessage(
+          chatId,
+          {
+            image: thumb && isUrl(thumb) ? { url: thumb } : undefined,
+            caption,
+            footer: "❦ La Suki Bot — Selecciona una opción ❦",
+            buttons: nativeFlowButtons,
+            headerType: 4
+          },
+          { quoted: msg }
+        );
+      } catch {
         preview = await conn.sendMessage(
           chatId,
           thumb && isUrl(thumb)
-            ? {
-                image: { url: thumb },
-                caption
-              }
-            : {
-                text: caption
-              },
+            ? { image: { url: thumb }, caption }
+            : { text: caption },
           { quoted: msg }
         );
       }
@@ -542,23 +480,16 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
       preview = await conn.sendMessage(
         chatId,
         thumb && isUrl(thumb)
-          ? {
-              image: { url: thumb },
-              caption
-            }
-          : {
-              text: caption
-            },
+          ? { image: { url: thumb }, caption }
+          : { text: caption },
         { quoted: msg }
       );
     }
 
     pendingIG[preview.key.id] = {
       chatId,
-      sourceUrl: text,
-      title,
-      thumbnail: thumb,
       items,
+      title,
       quotedBase: msg,
       previewKey: preview.key,
       isBusy: false,
@@ -571,8 +502,8 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
 
     await react(conn, chatId, msg.key, "✅");
 
-    if (!conn._igNeoxrListener) {
-      conn._igNeoxrListener = true;
+    if (!conn._igListener) {
+      conn._igListener = true;
 
       conn.ev.on("messages.upsert", async (ev) => {
         for (const m of ev.messages || []) {
@@ -583,17 +514,11 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
               const job = pendingIG[reactKey.id];
 
               if (!job || job.chatId !== m.key.remoteJid) continue;
+              if (emoji !== "👍" && emoji !== "❤️") continue;
+              if (job.isBusy) continue;
 
-              if (emoji === "👍") {
-                await processSend(conn, job, "normal", m);
-              } else if (emoji === "❤️") {
-                await processSend(conn, job, "document", m);
-              } else if (emoji === "📦") {
-                await processSend(conn, job, "all", m);
-              } else if (emoji === "📁") {
-                await processSend(conn, job, "alldoc", m);
-              }
-
+              const asDoc = emoji === "❤️";
+              await processSend(conn, job, asDoc, m);
               continue;
             }
 
@@ -638,9 +563,16 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
                 if (jobsInChat.length > 0) job = jobsInChat[0][1];
               }
 
-              if (!job) continue;
+              if (!job || job.isBusy) continue;
 
-              await handleButtonSelection(conn, job, selectedId, m, pref);
+              if (selectedId.endsWith("ig_normal")) {
+                await processSend(conn, job, false, m);
+              }
+
+              if (selectedId.endsWith("ig_doc")) {
+                await processSend(conn, job, true, m);
+              }
+
               continue;
             }
 
@@ -650,8 +582,8 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
 
             if (replyTo && pendingIG[replyTo]) {
               const job = pendingIG[replyTo];
-
               if (job.chatId !== m.key.remoteJid) continue;
+              if (job.isBusy) continue;
 
               const body = String(
                 m.message?.conversation ||
@@ -659,15 +591,10 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
                 ""
               ).trim().toLowerCase();
 
-              if (["1", "normal", "video", "imagen", "media"].includes(body)) {
-                await processSend(conn, job, "normal", m);
-              } else if (["2", "doc", "documento"].includes(body)) {
-                await processSend(conn, job, "document", m);
-              } else if (["3", "todo", "all"].includes(body)) {
-                await processSend(conn, job, "all", m);
-              } else if (["4", "tododoc", "alldoc", "todo documento"].includes(body)) {
-                await processSend(conn, job, "alldoc", m);
-              }
+              if (body !== "1" && body !== "2") continue;
+
+              const asDoc = body === "2";
+              await processSend(conn, job, asDoc, m);
             }
           } catch (e) {
             console.error("IG listener error:", e);
@@ -678,168 +605,112 @@ ${pref}${command} https://www.instagram.com/p/XXXX/`
   } catch (err) {
     const s = String(err?.message || "");
     console.error("❌ IG error:", s);
-
-    await conn.sendMessage(
-      chatId,
-      {
-        text: `❌ Error: ${s}`
-      },
-      { quoted: msg }
-    );
-
+    await conn.sendMessage(chatId, { text: `❌ Error: ${s}` }, { quoted: msg });
     await react(conn, chatId, msg.key, "❌");
   }
 };
 
-async function handleButtonSelection(conn, job, selectedId, m, pref) {
-  const id = String(selectedId || "").trim();
-
-  if (id === `${pref}ig_normal` || id.endsWith("ig_normal")) {
-    return processSend(conn, job, "normal", m);
-  }
-
-  if (id === `${pref}ig_doc` || id.endsWith("ig_doc")) {
-    return processSend(conn, job, "document", m);
-  }
-
-  if (id === `${pref}ig_all` || id.endsWith("ig_all")) {
-    return processSend(conn, job, "all", m);
-  }
-
-  if (id === `${pref}ig_alldoc` || id.endsWith("ig_alldoc")) {
-    return processSend(conn, job, "alldoc", m);
-  }
-}
-
-async function sendSingleItem(conn, job, item, asDocument, quotedBase, index = 1, total = 1) {
-  const { chatId } = job;
-  const title = job.title || item.title || "instagram";
-
-  const downloaded = await downloadMediaToTmp(item.url, title, item.type);
-  const { filePath, type, mimetype, ext } = downloaded;
-
-  const sizeMB = mb(fs.statSync(filePath).size);
-
-  if (sizeMB > MAX_MB) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch {}
-
-    await conn.sendMessage(
-      chatId,
-      {
-        text: `❌ Archivo muy pesado (${sizeMB.toFixed(2)} MB). Límite ${MAX_MB} MB.`
-      },
-      { quoted: quotedBase }
-    );
-
-    return;
-  }
-
-  const buf = fs.readFileSync(filePath);
-  const tipoTexto = type === "video" ? "VIDEO" : type === "image" ? "IMAGEN" : "MEDIA";
-
-  const finalCaption =
-`╭━━━━━━━━━━━━━━━━╮
-   ✅ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 ${tipoTexto}
-╰━━━━━━━━━━━━━━━━╯
-
-📦 *Archivo:* ${index}/${total}
-📁 *Formato:* ${asDocument ? "Documento" : type === "video" ? "Video" : "Imagen"}
-💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
-
-━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
-🔗 *API:* Neoxr API
-━━━━━━━━━━━━━━━━`;
-
-  const fileName = `${safeFileName(title)}_${index}.${ext}`;
-
-  const payload = {};
-
-  if (asDocument) {
-    payload.document = buf;
-    payload.mimetype = mimetype || mimeFromType(type, ext);
-    payload.fileName = fileName;
-    payload.caption = finalCaption;
-  } else if (type === "video") {
-    payload.video = buf;
-    payload.mimetype = mimetype || "video/mp4";
-    payload.caption = finalCaption;
-  } else if (type === "image") {
-    payload.image = buf;
-    payload.caption = finalCaption;
-  } else {
-    payload.document = buf;
-    payload.mimetype = mimetype || "application/octet-stream";
-    payload.fileName = fileName;
-    payload.caption = finalCaption;
-  }
-
-  await conn.sendMessage(chatId, payload, { quoted: quotedBase });
-
-  try {
-    fs.unlinkSync(filePath);
-  } catch {}
-}
-
-async function processSend(conn, job, mode, triggerMsg) {
-  if (job.isBusy) return;
-
+async function processSend(conn, job, asDocument, triggerMsg) {
   job.isBusy = true;
 
-  const { chatId, quotedBase } = job;
+  const { chatId, items, quotedBase } = job;
+  const title = job.title || "instagram";
 
   try {
-    const asDocument = mode === "document" || mode === "alldoc";
-    const sendAll = mode === "all" || mode === "alldoc";
-
-    await react(conn, chatId, triggerMsg.key, asDocument ? "📁" : sendAll ? "📦" : "🎬");
+    await react(conn, chatId, triggerMsg.key, asDocument ? "📄" : "🎬");
 
     await conn.sendMessage(
       chatId,
       {
-        text: sendAll
-          ? `⏳ Espere, descargando ${job.items.length} archivos de Instagram...`
-          : "⏳ Espere, descargando su archivo de Instagram..."
+        text: asDocument
+          ? "⏳ Espere, descargando como documento..."
+          : "⏳ Espere, descargando su contenido..."
       },
       { quoted: quotedBase }
     );
 
-    const items = sendAll ? job.items.slice(0, MAX_ITEMS) : [job.items[0]];
-
-    if (!items.length) {
-      await conn.sendMessage(
-        chatId,
-        {
-          text: "❌ No hay archivos para descargar."
-        },
-        { quoted: quotedBase }
-      );
-      return;
-    }
+    let sent = 0;
 
     for (let i = 0; i < items.length; i++) {
-      await sendSingleItem(
-        conn,
-        job,
-        items[i],
-        asDocument,
-        quotedBase,
-        i + 1,
-        items.length
-      );
+      const item = items[i];
+
+      const fileData = await downloadToTmp(item, `${title}_${i + 1}`);
+      const sizeMB = mb(fs.statSync(fileData.filePath).size);
+
+      if (sizeMB > MAX_MB) {
+        try { fs.unlinkSync(fileData.filePath); } catch {}
+
+        await conn.sendMessage(
+          chatId,
+          {
+            text: `❌ Archivo muy pesado (${sizeMB.toFixed(2)} MB). Límite ${MAX_MB} MB.`
+          },
+          { quoted: quotedBase }
+        );
+
+        continue;
+      }
+
+      const buf = fs.readFileSync(fileData.filePath);
+
+      const finalCaption =
+`✅ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 𝗗𝗘𝗦𝗖𝗔𝗥𝗚𝗔𝗗𝗢
+
+📦 *Tipo:* ${fileData.type === "image" ? "Imagen" : "Video"}
+💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
+🤖 *Bot:* La Suki Bot
+🔗 *API:* ${NEOXR_BASE}`;
+
+      if (asDocument) {
+        await conn.sendMessage(
+          chatId,
+          {
+            document: buf,
+            mimetype: fileData.mime,
+            fileName: fileData.fileName,
+            caption: finalCaption
+          },
+          { quoted: quotedBase }
+        );
+      } else {
+        await conn.sendMessage(
+          chatId,
+          fileData.type === "image"
+            ? {
+                image: buf,
+                mimetype: fileData.mime,
+                caption: finalCaption
+              }
+            : {
+                video: buf,
+                mimetype: fileData.mime,
+                fileName: fileData.fileName,
+                caption: finalCaption
+              },
+          { quoted: quotedBase }
+        );
+      }
+
+      sent++;
+
+      try { fs.unlinkSync(fileData.filePath); } catch {}
     }
 
-    await react(conn, chatId, triggerMsg.key, "✅");
+    if (!sent) {
+      await conn.sendMessage(
+        chatId,
+        { text: "❌ No se pudo enviar ningún archivo." },
+        { quoted: quotedBase }
+      );
+    } else {
+      await react(conn, chatId, triggerMsg.key, "✅");
+    }
   } catch (e) {
     await react(conn, chatId, triggerMsg.key, "❌");
 
     await conn.sendMessage(
       chatId,
-      {
-        text: `❌ Error enviando: ${e?.message || "unknown"}`
-      },
+      { text: `❌ Error enviando: ${e?.message || "unknown"}` },
       { quoted: quotedBase }
     );
   } finally {
