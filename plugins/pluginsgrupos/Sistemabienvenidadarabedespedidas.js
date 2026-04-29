@@ -38,7 +38,11 @@ function safeJson(obj) {
   try {
     return JSON.stringify(obj, null, 2);
   } catch (e) {
-    return String(obj);
+    try {
+      return String(obj);
+    } catch {
+      return "[NO_JSON]";
+    }
   }
 }
 
@@ -97,7 +101,7 @@ function normalizeRawParticipant(raw) {
         const obj = JSON.parse(raw);
         return normalizeRawParticipant(obj);
       } catch (e) {
-        warn("No se pudo parsear participante JSON string:", e);
+        warn("No se pudo parsear participante JSON string:", e.message || e);
       }
     }
 
@@ -205,7 +209,7 @@ async function getPnFromLid(conn, lid) {
       log("conn.signalRepository.lidMapping.getPNForLID no existe en este conn");
     }
   } catch (e) {
-    warn("Error resolviendo LID desde signalRepository:", e);
+    warn("Error resolviendo LID desde signalRepository:", e.message || e);
   }
 
   if (global.lidMap instanceof Map) {
@@ -334,6 +338,239 @@ async function sendSafe(conn, chatId, content, label) {
   }
 }
 
+// ============================================================
+// FALLBACK BAILEYS NUEVO:
+// Maneja mensajes stub desde messages.upsert dentro de este plugin.
+// No usa require("@whiskeysockets/baileys").
+// ============================================================
+
+const GROUP_STUB_ACTIONS = {
+  28: "add",
+  29: "remove",
+  30: "promote",
+  31: "demote",
+  32: "add",
+  33: "remove",
+  71: "add"
+};
+
+function getActionFromStubType(stubType) {
+  const n = Number(stubType);
+  if (GROUP_STUB_ACTIONS[n]) return GROUP_STUB_ACTIONS[n];
+
+  const s = String(stubType || "").toUpperCase();
+
+  if (s.includes("GROUP_PARTICIPANT_ADD_REQUEST_JOIN")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_ADD")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_INVITE")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_REMOVE")) return "remove";
+  if (s.includes("GROUP_PARTICIPANT_LEAVE")) return "remove";
+  if (s.includes("GROUP_PARTICIPANT_PROMOTE")) return "promote";
+  if (s.includes("GROUP_PARTICIPANT_DEMOTE")) return "demote";
+
+  return null;
+}
+
+function parseStubParticipant(param) {
+  if (!param) return null;
+
+  if (typeof param === "object") return param;
+
+  const text = String(param || "").trim();
+
+  if (!text || text === "[object Object]") {
+    warn("[STUB] Parámetro corrupto o inútil:", text);
+    return null;
+  }
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      warn("[STUB] No se pudo parsear JSON:", text, e.message || e);
+    }
+  }
+
+  return text;
+}
+
+function participantKeyForFingerprint(p) {
+  if (!p) return "";
+
+  let parsed = p;
+
+  if (typeof p === "string") {
+    const t = p.trim();
+
+    if (t === "[object Object]") return "";
+
+    if (t.startsWith("{") || t.startsWith("[")) {
+      try {
+        parsed = JSON.parse(t);
+      } catch (e) {
+        return fixJid(t);
+      }
+    } else {
+      return fixJid(t);
+    }
+  }
+
+  if (parsed && typeof parsed === "object") {
+    return fixJid(
+      parsed.phoneNumber ||
+      parsed.pn ||
+      parsed.jid ||
+      parsed.id ||
+      parsed.lid ||
+      parsed.participant ||
+      ""
+    );
+  }
+
+  return fixJid(String(parsed || ""));
+}
+
+function fingerprintGroupUpdate(update) {
+  try {
+    const chatId = update && update.id ? update.id : "";
+    const action = update && update.action ? update.action : "";
+    const participants = Array.isArray(update && update.participants)
+      ? update.participants
+      : [];
+
+    const keys = participants
+      .map(participantKeyForFingerprint)
+      .filter(Boolean)
+      .sort()
+      .join(",");
+
+    if (!chatId || !action || !keys) return "";
+
+    return chatId + "|" + action + "|" + keys;
+  } catch (e) {
+    return "";
+  }
+}
+
+function isBrokenObjectStringParticipants(update) {
+  const participants = Array.isArray(update && update.participants)
+    ? update.participants
+    : [];
+
+  if (!participants.length) return false;
+
+  return participants.every(function (p) {
+    return String(p) === "[object Object]";
+  });
+}
+
+function markAndCheckDuplicateGroupUpdate(conn, update) {
+  if (!conn.__sukiProcessedGroupUpdates) {
+    conn.__sukiProcessedGroupUpdates = new Set();
+  }
+
+  const fp = fingerprintGroupUpdate(update);
+
+  if (!fp) return false;
+
+  if (conn.__sukiProcessedGroupUpdates.has(fp)) {
+    warn("[DEDUP] Evento duplicado ignorado:", fp);
+    return true;
+  }
+
+  conn.__sukiProcessedGroupUpdates.add(fp);
+
+  setTimeout(function () {
+    try {
+      conn.__sukiProcessedGroupUpdates.delete(fp);
+    } catch (e) {}
+  }, 20000);
+
+  return false;
+}
+
+function registerMessageStubFallback(conn) {
+  if (conn.__sukiMessageStubFallback) {
+    log("[STUB] messages.upsert fallback ya estaba registrado");
+    return;
+  }
+
+  conn.__sukiMessageStubFallback = true;
+
+  log("[STUB] Registrando fallback messages.upsert para eventos de grupo");
+
+  conn.ev.on("messages.upsert", async function (ev) {
+    try {
+      const messages = Array.isArray(ev && ev.messages) ? ev.messages : [];
+
+      for (const m of messages) {
+        if (!m || !m.key) continue;
+
+        const chatId = m.key.remoteJid;
+        const stubType = m.messageStubType;
+
+        if (!isGroupJid(chatId)) continue;
+        if (!stubType) continue;
+
+        const action = getActionFromStubType(stubType);
+
+        log("[STUB] Mensaje stub detectado:", safeJson({
+          type: ev.type,
+          chatId,
+          stubType,
+          action,
+          params: m.messageStubParameters,
+          participant: m.key.participant,
+          participantAlt: m.key.participantAlt,
+          participantUsername: m.key.participantUsername,
+          messageId: m.key.id
+        }));
+
+        if (!action) {
+          warn("[STUB] StubType no mapeado para welcome:", stubType);
+          continue;
+        }
+
+        const participants = (m.messageStubParameters || [])
+          .map(parseStubParticipant)
+          .filter(Boolean);
+
+        if (!participants.length) {
+          warn("[STUB] No pude sacar participantes del stub:", safeJson({
+            chatId,
+            stubType,
+            params: m.messageStubParameters
+          }));
+          continue;
+        }
+
+        const syntheticUpdate = {
+          id: chatId,
+          author: m.key.participant || m.participant || "",
+          authorPn: m.key.participantAlt || "",
+          authorUsername: m.key.participantUsername || "",
+          participants,
+          action,
+          __fromMessagesUpsert: true
+        };
+
+        log("[STUB] Update sintético creado:", safeJson(syntheticUpdate));
+
+        setTimeout(function () {
+          try {
+            log("[STUB] Emitiendo group-participants.update manual:", safeJson(syntheticUpdate));
+            conn.ev.emit("group-participants.update", syntheticUpdate);
+          } catch (e) {
+            error("[STUB] Error emitiendo update manual:", e);
+          }
+        }, 900);
+      }
+    } catch (e) {
+      error("[STUB] Error en messages.upsert fallback:", e);
+    }
+  });
+}
+
 log("Archivo welcome.js cargado correctamente");
 
 var handler = async function (conn) {
@@ -348,6 +585,8 @@ var handler = async function (conn) {
     error("conn.ev.on no existe. Este handler no puede escuchar eventos.");
     return;
   }
+
+  registerMessageStubFallback(conn);
 
   if (!conn.__sukiLidMappingListener) {
     conn.__sukiLidMappingListener = true;
@@ -368,7 +607,7 @@ var handler = async function (conn) {
           log("LID guardado en global.lidMap:", lid, "=>", pn);
         }
       } catch (e) {
-        warn("Error en lid-mapping.update:", e);
+        warn("Error en lid-mapping.update:", e.message || e);
       }
     });
   } else {
@@ -388,6 +627,16 @@ var handler = async function (conn) {
     log("==============================================");
     log("EVENTO group-participants.update RECIBIDO");
     log("UPDATE COMPLETO:", safeJson(update));
+    log("VIENE DESDE FALLBACK messages.upsert:", !!update.__fromMessagesUpsert);
+
+    if (isBrokenObjectStringParticipants(update)) {
+      warn("Evento group-participants.update vino corrupto con [object Object]. Se ignora para que trabaje el fallback messages.upsert.");
+      return;
+    }
+
+    if (markAndCheckDuplicateGroupUpdate(conn, update)) {
+      return;
+    }
 
     try {
       const chatId = update.id;
@@ -467,7 +716,7 @@ var handler = async function (conn) {
           personalizados = swData[chatId] || {};
           log("Personalizados encontrados:", safeJson(personalizados));
         } catch (e) {
-          warn("Error leyendo setwelcome.json:", e);
+          warn("Error leyendo setwelcome.json:", e.message || e);
           personalizados = {};
         }
       }
