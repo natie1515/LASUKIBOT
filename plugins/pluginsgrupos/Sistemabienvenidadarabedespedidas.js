@@ -3,7 +3,21 @@ const path = require("path");
 const { createCanvas, loadImage } = require("canvas");
 const { getConfig } = requireFromRoot("db");
 
-// OJO: antes tenías /D/g y eso está mal. Debe ser /\D/g
+const DEBUG_WELCOME = true;
+
+function log() {
+  if (!DEBUG_WELCOME) return;
+  console.log("[WELCOME-DEBUG]", ...arguments);
+}
+
+function warn() {
+  console.warn("[WELCOME-WARN]", ...arguments);
+}
+
+function error() {
+  console.error("[WELCOME-ERROR]", ...arguments);
+}
+
 const DIGITS = function (s) {
   return String(s || "").replace(/\D/g, "");
 };
@@ -20,11 +34,18 @@ function isGroupJid(j) {
   return typeof j === "string" && j.endsWith("@g.us");
 }
 
+function safeJson(obj) {
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch (e) {
+    return String(obj);
+  }
+}
+
 function fixJid(jid) {
   if (!jid) return "";
   jid = String(jid);
 
-  // quitar device/agent: 12345:99@s.whatsapp.net => 12345@s.whatsapp.net
   if (jid.includes("@")) {
     const parts = jid.split("@");
     const user = parts[0].split(":")[0];
@@ -58,10 +79,11 @@ function sameUser(a, b) {
 }
 
 function normalizeRawParticipant(raw) {
-  // Baileys viejo puede mandar string
+  log("Normalizando participante RAW:", safeJson(raw));
+
   if (typeof raw === "string") {
-    // En algunos builds rotos llega "[object Object]"; eso no sirve.
     if (raw === "[object Object]") {
+      warn("Participante llegó como string '[object Object]', eso no sirve:", raw);
       return {
         id: "",
         phoneNumber: "",
@@ -70,12 +92,13 @@ function normalizeRawParticipant(raw) {
       };
     }
 
-    // Si llega JSON stringificado
     if (raw.trim().startsWith("{")) {
       try {
         const obj = JSON.parse(raw);
         return normalizeRawParticipant(obj);
-      } catch (e) {}
+      } catch (e) {
+        warn("No se pudo parsear participante JSON string:", e);
+      }
     }
 
     return {
@@ -86,7 +109,6 @@ function normalizeRawParticipant(raw) {
     };
   }
 
-  // Baileys nuevo manda objeto GroupParticipant / Contact
   if (raw && typeof raw === "object") {
     const id = fixJid(
       raw.id ||
@@ -109,7 +131,7 @@ function normalizeRawParticipant(raw) {
     if (id && isUserJid(id) && !phoneNumber) phoneNumber = id;
     if (id && isLidJid(id) && !lid) lid = id;
 
-    return {
+    const result = {
       id,
       phoneNumber,
       lid,
@@ -121,7 +143,12 @@ function normalizeRawParticipant(raw) {
       name: raw.name || "",
       raw
     };
+
+    log("Participante normalizado básico:", safeJson(result));
+    return result;
   }
+
+  warn("Participante inválido o vacío:", raw);
 
   return {
     id: "",
@@ -134,7 +161,7 @@ function normalizeRawParticipant(raw) {
 function findInMeta(info, metaParticipants) {
   if (!Array.isArray(metaParticipants)) return null;
 
-  return metaParticipants.find(function (p) {
+  const found = metaParticipants.find(function (p) {
     if (!p) return false;
 
     const pId = fixJid(p.id || "");
@@ -153,9 +180,14 @@ function findInMeta(info, metaParticipants) {
       sameUser(pLid, info.lid)
     );
   }) || null;
+
+  log("Resultado búsqueda en metadata:", found ? safeJson(found) : "NO ENCONTRADO");
+  return found;
 }
 
 async function getPnFromLid(conn, lid) {
+  log("Intentando resolver LID:", lid);
+
   if (!lid || !isLidJid(lid)) return "";
 
   try {
@@ -166,13 +198,23 @@ async function getPnFromLid(conn, lid) {
       typeof conn.signalRepository.lidMapping.getPNForLID === "function"
     ) {
       const pn = await conn.signalRepository.lidMapping.getPNForLID(lid);
+      log("Resultado getPNForLID:", pn);
+
       if (pn && isUserJid(pn)) return fixJid(pn);
+    } else {
+      log("conn.signalRepository.lidMapping.getPNForLID no existe en este conn");
     }
-  } catch (e) {}
+  } catch (e) {
+    warn("Error resolviendo LID desde signalRepository:", e);
+  }
 
   if (global.lidMap instanceof Map) {
     const pn = global.lidMap.get(lid);
+    log("Resultado global.lidMap:", pn);
+
     if (pn && isUserJid(pn)) return fixJid(pn);
+  } else {
+    log("global.lidMap no existe o no es Map");
   }
 
   return "";
@@ -196,7 +238,6 @@ async function normalizeParticipant(conn, raw, metaParticipants) {
     if (!info.isSuperAdmin && fromMeta.isSuperAdmin) info.isSuperAdmin = fromMeta.isSuperAdmin;
   }
 
-  // Si viene LID, intenta resolver PN usando el store oficial de Baileys o global.lidMap
   if (!info.phoneNumber && info.lid) {
     const pn = await getPnFromLid(conn, info.lid);
     if (pn) info.phoneNumber = pn;
@@ -205,13 +246,8 @@ async function normalizeParticipant(conn, raw, metaParticipants) {
   if (!info.lid && info.id && isLidJid(info.id)) info.lid = info.id;
   if (!info.phoneNumber && info.id && isUserJid(info.id)) info.phoneNumber = info.id;
 
-  // Para mencionar, mejor usar PN si existe; si no, usar LID/id
   info.mentionJid = info.phoneNumber || info.id || info.lid;
-
-  // Para operaciones de grupo, usar el ID real que vino del evento primero
   info.groupJid = info.id || info.lid || info.phoneNumber || info.mentionJid;
-
-  // Número visible: preferir PN. Si solo hay LID, mostrará los dígitos del LID.
   info.number = jidNumber(info.phoneNumber || info.mentionJid || info.groupJid);
   info.tag = info.number ? "@" + info.number : "@usuario";
 
@@ -221,51 +257,107 @@ async function normalizeParticipant(conn, raw, metaParticipants) {
     info.isAdmin === true ||
     info.isSuperAdmin === true;
 
+  log("Participante FINAL:", safeJson({
+    id: info.id,
+    phoneNumber: info.phoneNumber,
+    lid: info.lid,
+    mentionJid: info.mentionJid,
+    groupJid: info.groupJid,
+    number: info.number,
+    tag: info.tag,
+    admin: info.admin,
+    isAdminFinal: info.isAdminFinal
+  }));
+
   return info;
 }
 
 async function normalizeActor(conn, update, metaParticipants) {
-  const actorRaw = update.author || update.authorPn || update.authorUsername || "";
+  log("Normalizando actor:", safeJson({
+    author: update.author,
+    authorPn: update.authorPn,
+    authorUsername: update.authorUsername
+  }));
+
   const actorInfo = await normalizeParticipant(conn, {
     id: update.author || "",
     phoneNumber: update.authorPn || "",
     username: update.authorUsername || ""
   }, metaParticipants);
 
-  if (!actorInfo.mentionJid && actorRaw) {
-    actorInfo.mentionJid = actorRaw;
-  }
-
   return actorInfo;
 }
 
 async function safeProfilePicture(conn, jid, chatId) {
-  try {
-    if (jid) return await conn.profilePictureUrl(jid, "image");
-  } catch (e) {}
+  log("Buscando foto de perfil:", jid);
 
   try {
-    return await conn.profilePictureUrl(chatId, "image");
-  } catch (e) {}
+    if (jid) {
+      const url = await conn.profilePictureUrl(jid, "image");
+      log("Foto encontrada del usuario:", url);
+      return url;
+    }
+  } catch (e) {
+    warn("No se pudo obtener foto del usuario:", jid, e.message || e);
+  }
 
+  try {
+    const url = await conn.profilePictureUrl(chatId, "image");
+    log("Usando foto del grupo:", url);
+    return url;
+  } catch (e) {
+    warn("No se pudo obtener foto del grupo:", e.message || e);
+  }
+
+  log("Usando imagen fallback");
   return "https://cdn.russellxz.click/e72cc417.jpeg";
 }
 
-async function sendSafe(conn, chatId, content) {
+async function sendSafe(conn, chatId, content, label) {
   try {
-    await conn.sendMessage(chatId, content);
+    log("Intentando enviar mensaje:", label || "sin-label", safeJson({
+      chatId,
+      keys: Object.keys(content || {}),
+      mentions: content && content.mentions ? content.mentions : []
+    }));
+
+    const res = await conn.sendMessage(chatId, content);
+
+    log("Mensaje enviado OK:", label || "sin-label", safeJson({
+      key: res && res.key ? res.key : null
+    }));
+
+    return res;
   } catch (e) {
-    console.error("[welcome] Error enviando mensaje:", e);
+    error("Error enviando mensaje:", label || "sin-label", e);
+    return null;
   }
 }
 
+log("Archivo welcome.js cargado correctamente");
+
 var handler = async function (conn) {
-  // Guarda mappings LID <-> PN cuando Baileys los reporte
+  log("handler welcome ejecutado. Conn existe:", !!conn);
+
+  if (!conn) {
+    error("No llegó conn al handler");
+    return;
+  }
+
+  if (!conn.ev || typeof conn.ev.on !== "function") {
+    error("conn.ev.on no existe. Este handler no puede escuchar eventos.");
+    return;
+  }
+
   if (!conn.__sukiLidMappingListener) {
     conn.__sukiLidMappingListener = true;
 
+    log("Registrando listener lid-mapping.update");
+
     conn.ev.on("lid-mapping.update", function (data) {
       try {
+        log("EVENTO lid-mapping.update recibido:", safeJson(data));
+
         if (!global.lidMap) global.lidMap = new Map();
 
         const lid = fixJid(data && (data.lid || data.id || ""));
@@ -273,29 +365,62 @@ var handler = async function (conn) {
 
         if (lid && pn && isLidJid(lid) && isUserJid(pn)) {
           global.lidMap.set(lid, pn);
+          log("LID guardado en global.lidMap:", lid, "=>", pn);
         }
-      } catch (e) {}
+      } catch (e) {
+        warn("Error en lid-mapping.update:", e);
+      }
     });
+  } else {
+    log("Listener lid-mapping.update ya estaba registrado");
   }
 
-  if (conn.__sukiWelcomeListener) return;
+  if (conn.__sukiWelcomeListener) {
+    warn("Listener group-participants.update ya estaba registrado. No se registra doble.");
+    return;
+  }
+
   conn.__sukiWelcomeListener = true;
 
+  log("Registrando listener group-participants.update");
+
   conn.ev.on("group-participants.update", async function (update) {
+    log("==============================================");
+    log("EVENTO group-participants.update RECIBIDO");
+    log("UPDATE COMPLETO:", safeJson(update));
+
     try {
       const chatId = update.id;
-      if (!isGroupJid(chatId)) return;
+      log("chatId:", chatId);
+
+      if (!isGroupJid(chatId)) {
+        warn("Evento ignorado porque no es grupo:", chatId);
+        return;
+      }
 
       const action = update.action;
       const rawParticipants = Array.isArray(update.participants) ? update.participants : [];
 
-      if (!rawParticipants.length) return;
+      log("action:", action);
+      log("participants length:", rawParticipants.length);
+      log("participants raw:", safeJson(rawParticipants));
+
+      if (!rawParticipants.length) {
+        warn("Evento sin participantes. No hago nada.");
+        return;
+      }
 
       let metadata;
       try {
+        log("Solicitando metadata del grupo:", chatId);
         metadata = await conn.groupMetadata(chatId);
+        log("Metadata obtenida:", safeJson({
+          id: metadata && metadata.id,
+          subject: metadata && metadata.subject,
+          participantsCount: metadata && metadata.participants ? metadata.participants.length : 0
+        }));
       } catch (e) {
-        console.error("[welcome] No se pudo obtener metadata:", e);
+        error("No se pudo obtener metadata:", e);
         return;
       }
 
@@ -303,18 +428,46 @@ var handler = async function (conn) {
         ? metadata.participants
         : [];
 
-      const welcomeActive = await getConfig(chatId, "welcome");
-      const byeActive = await getConfig(chatId, "despedidas");
-      const antiArabe = await getConfig(chatId, "antiarabe");
+      log("metaParts length:", metaParts.length);
+      log("Primeros metaParts:", safeJson(metaParts.slice(0, 5)));
+
+      let welcomeActive;
+      let byeActive;
+      let antiArabe;
+
+      try {
+        welcomeActive = await getConfig(chatId, "welcome");
+        byeActive = await getConfig(chatId, "despedidas");
+        antiArabe = await getConfig(chatId, "antiarabe");
+
+        log("CONFIG:", safeJson({
+          welcome: welcomeActive,
+          despedidas: byeActive,
+          antiarabe: antiArabe,
+          types: {
+            welcome: typeof welcomeActive,
+            despedidas: typeof byeActive,
+            antiarabe: typeof antiArabe
+          }
+        }));
+      } catch (e) {
+        error("Error leyendo getConfig:", e);
+        return;
+      }
 
       const setwelcomePath = path.resolve("setwelcome.json");
       let personalizados = {};
+
+      log("setwelcomePath:", setwelcomePath);
+      log("Existe setwelcome.json:", fs.existsSync(setwelcomePath));
 
       if (fs.existsSync(setwelcomePath)) {
         try {
           const swData = JSON.parse(fs.readFileSync(setwelcomePath, "utf-8"));
           personalizados = swData[chatId] || {};
+          log("Personalizados encontrados:", safeJson(personalizados));
         } catch (e) {
+          warn("Error leyendo setwelcome.json:", e);
           personalizados = {};
         }
       }
@@ -347,13 +500,27 @@ var handler = async function (conn) {
 
       const actorInfo = await normalizeActor(conn, update, metaParts);
 
+      log("Actor final:", safeJson({
+        mentionJid: actorInfo.mentionJid,
+        number: actorInfo.number,
+        tag: actorInfo.tag
+      }));
+
       // ============================================================
-      // PROMOTE: alguien fue ascendido a admin
+      // PROMOTE
       // ============================================================
       if (action === "promote") {
+        log("Entrando en PROMOTE");
+
         for (let i = 0; i < rawParticipants.length; i++) {
+          log("Procesando promote participante index:", i);
+
           const targetInfo = await normalizeParticipant(conn, rawParticipants[i], metaParts);
-          if (!targetInfo.mentionJid) continue;
+
+          if (!targetInfo.mentionJid) {
+            warn("Promote sin mentionJid. Saltando participante:", safeJson(targetInfo));
+            continue;
+          }
 
           const mentions = [targetInfo.mentionJid];
           if (actorInfo.mentionJid) mentions.push(actorInfo.mentionJid);
@@ -367,19 +534,28 @@ var handler = async function (conn) {
           await sendSafe(conn, chatId, {
             text: texto,
             mentions
-          });
+          }, "PROMOTE");
         }
 
+        log("Fin PROMOTE");
         return;
       }
 
       // ============================================================
-      // DEMOTE: alguien fue removido como admin
+      // DEMOTE
       // ============================================================
       if (action === "demote") {
+        log("Entrando en DEMOTE");
+
         for (let i = 0; i < rawParticipants.length; i++) {
+          log("Procesando demote participante index:", i);
+
           const targetInfo = await normalizeParticipant(conn, rawParticipants[i], metaParts);
-          if (!targetInfo.mentionJid) continue;
+
+          if (!targetInfo.mentionJid) {
+            warn("Demote sin mentionJid. Saltando participante:", safeJson(targetInfo));
+            continue;
+          }
 
           const mentions = [targetInfo.mentionJid];
           if (actorInfo.mentionJid) mentions.push(actorInfo.mentionJid);
@@ -393,28 +569,61 @@ var handler = async function (conn) {
           await sendSafe(conn, chatId, {
             text: texto,
             mentions
-          });
+          }, "DEMOTE");
         }
 
+        log("Fin DEMOTE");
         return;
       }
 
       // ============================================================
       // ADD / REMOVE
       // ============================================================
+      log("Entrando en ADD/REMOVE. action:", action);
+
       for (let i = 0; i < rawParticipants.length; i++) {
+        log("Procesando participante index:", i);
+
         const info = await normalizeParticipant(conn, rawParticipants[i], metaParts);
-        if (!info.mentionJid) continue;
+
+        if (!info.mentionJid) {
+          warn("Participante sin mentionJid. Saltando:", safeJson(info));
+          continue;
+        }
 
         const mentionJid = info.mentionJid;
         const number = info.number;
         const mention = info.tag;
 
+        log("Participante listo:", safeJson({
+          action,
+          mentionJid,
+          number,
+          mention,
+          groupJid: info.groupJid,
+          phoneNumber: info.phoneNumber,
+          lid: info.lid
+        }));
+
         // ── ANTIARABE ──────────────────────────────────────────────
+        if (action === "add") {
+          log("Check antiarabe:", safeJson({
+            antiArabe,
+            number,
+            phoneNumber: info.phoneNumber
+          }));
+        }
+
         if (action === "add" && antiArabe == 1 && number && info.phoneNumber) {
           const isArabic = arabes.some(function (cc) {
             return number.startsWith(cc);
           });
+
+          log("Resultado antiarabe:", safeJson({
+            number,
+            isArabic,
+            isAdmin: info.isAdminFinal
+          }));
 
           if (isArabic) {
             const isAdminP = info.isAdminFinal;
@@ -425,16 +634,23 @@ var handler = async function (conn) {
               global.isOwner(info.lid)
             );
 
+            log("Antiarabe owner/admin:", safeJson({
+              isAdminP,
+              isOwnerP
+            }));
+
             if (!isAdminP && !isOwnerP) {
               await sendSafe(conn, chatId, {
                 text: "🚫 " + mention + " tiene un prefijo prohibido y será eliminado.",
                 mentions: [mentionJid]
-              });
+              }, "ANTIARABE AVISO");
 
               try {
+                log("Intentando eliminar antiarabe:", info.groupJid);
                 await conn.groupParticipantsUpdate(chatId, [info.groupJid], "remove");
+                log("Antiarabe eliminado OK");
               } catch (e) {
-                console.error("[welcome] No se pudo eliminar antiarabe:", e);
+                error("No se pudo eliminar antiarabe:", e);
               }
 
               continue;
@@ -444,16 +660,23 @@ var handler = async function (conn) {
 
         // ── BIENVENIDA ─────────────────────────────────────────────
         if (action === "add") {
-          if (welcomeActive != 1) continue;
+          log("Entrando en ADD. welcomeActive:", welcomeActive);
+
+          if (welcomeActive != 1) {
+            warn("Bienvenida apagada por config. welcomeActive =", welcomeActive);
+            continue;
+          }
 
           const perfilURL = await safeProfilePicture(conn, mentionJid, chatId);
 
           if (bienvenidaPersonalizada) {
+            log("Enviando bienvenida personalizada");
+
             await sendSafe(conn, chatId, {
               image: { url: perfilURL },
               caption: "👋 " + mention + "\n\n" + bienvenidaPersonalizada,
               mentions: [mentionJid]
-            });
+            }, "BIENVENIDA PERSONALIZADA");
 
             continue;
           }
@@ -461,17 +684,25 @@ var handler = async function (conn) {
           const msgBien = mensajesBienvenida[Math.floor(Math.random() * mensajesBienvenida.length)];
           const modo = Math.random() < 0.5 ? "video" : "imagen";
 
+          log("Bienvenida default:", safeJson({
+            modo,
+            msgBien,
+            perfilURL
+          }));
+
           if (modo === "video") {
             await sendSafe(conn, chatId, {
               video: { url: "https://cdn.russellxz.click/8e968c1d.mp4" },
               caption: "👋 " + mention + "\n\n" + msgBien,
               mentions: [mentionJid]
-            });
+            }, "BIENVENIDA VIDEO");
 
             continue;
           }
 
           try {
+            log("Creando canvas bienvenida");
+
             const avatar = await loadImage(perfilURL);
             const fondo = await loadImage("https://cdn.russellxz.click/e72cc417.jpeg");
 
@@ -495,13 +726,15 @@ var handler = async function (conn) {
               image: canvas.toBuffer(),
               caption: "👋 " + mention + "\n\n" + msgBien,
               mentions: [mentionJid]
-            });
+            }, "BIENVENIDA CANVAS");
           } catch (canvasErr) {
+            error("Error canvas bienvenida, mando imagen directa:", canvasErr);
+
             await sendSafe(conn, chatId, {
               image: { url: perfilURL },
               caption: "👋 " + mention + "\n\n" + msgBien,
               mentions: [mentionJid]
-            });
+            }, "BIENVENIDA FALLBACK");
           }
 
           continue;
@@ -509,16 +742,23 @@ var handler = async function (conn) {
 
         // ── DESPEDIDA ──────────────────────────────────────────────
         if (action === "remove") {
-          if (byeActive != 1) continue;
+          log("Entrando en REMOVE. byeActive:", byeActive);
+
+          if (byeActive != 1) {
+            warn("Despedida apagada por config. byeActive =", byeActive);
+            continue;
+          }
 
           const perfilURL2 = await safeProfilePicture(conn, mentionJid, chatId);
 
           if (despedidaPersonalizada) {
+            log("Enviando despedida personalizada");
+
             await sendSafe(conn, chatId, {
               image: { url: perfilURL2 },
               caption: "👋 " + mention + "\n\n" + despedidaPersonalizada,
               mentions: [mentionJid]
-            });
+            }, "DESPEDIDA PERSONALIZADA");
 
             continue;
           }
@@ -526,17 +766,25 @@ var handler = async function (conn) {
           const msgBye = mensajesDespedida[Math.floor(Math.random() * mensajesDespedida.length)];
           const modo2 = Math.random() < 0.5 ? "video" : "imagen";
 
+          log("Despedida default:", safeJson({
+            modo2,
+            msgBye,
+            perfilURL2
+          }));
+
           if (modo2 === "video") {
             await sendSafe(conn, chatId, {
               video: { url: "https://cdn.russellxz.click/6a4bd220.mp4" },
               caption: "👋 " + mention + "\n\n" + msgBye,
               mentions: [mentionJid]
-            });
+            }, "DESPEDIDA VIDEO");
 
             continue;
           }
 
           try {
+            log("Creando canvas despedida");
+
             const avatar2 = await loadImage(perfilURL2);
             const fondo2 = await loadImage("https://cdn.russellxz.click/86913470.jpeg");
 
@@ -560,20 +808,31 @@ var handler = async function (conn) {
               image: canvas2.toBuffer(),
               caption: "👋 " + mention + "\n\n" + msgBye,
               mentions: [mentionJid]
-            });
+            }, "DESPEDIDA CANVAS");
           } catch (canvasErr2) {
+            error("Error canvas despedida, mando imagen directa:", canvasErr2);
+
             await sendSafe(conn, chatId, {
               image: { url: perfilURL2 },
               caption: "👋 " + mention + "\n\n" + msgBye,
               mentions: [mentionJid]
-            });
+            }, "DESPEDIDA FALLBACK");
           }
+
+          continue;
         }
+
+        warn("Action no reconocida para este handler:", action);
       }
+
+      log("FIN EVENTO group-participants.update");
+      log("==============================================");
     } catch (err) {
-      console.error("❌ Error en lógica de grupo:", err);
+      error("Error general en lógica de grupo:", err);
     }
   });
+
+  log("Listener group-participants.update registrado correctamente");
 };
 
 handler.run = handler;
