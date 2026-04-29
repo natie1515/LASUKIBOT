@@ -1,27 +1,37 @@
 "use strict";
 
 /*
-  LA SUKI BOT - Sistema automático de:
+  LA SUKI BOT - Sistema SIEMPRE ACTIVO:
   ✅ Bienvenidas
   ✅ Despedidas
   ✅ Aviso cuando dan admin
   ✅ Aviso cuando quitan admin
 
-  Carpeta recomendada:
-  plugins/eventos/bienvenidas.js
+  Archivo: plugins/Sistemabienvenidatest.js
 
-  No necesita comando.
-  Siempre queda activo cuando inicia el bot.
+  Esta versión escucha:
+  1) group-participants.update
+  2) fallback por messages.upsert cuando Baileys manda los cambios como messageStub
+
+  No necesita comando ni configuración.
 */
 
-const DEBUG = false;
-const DEDUPE_TTL = 12_000;
+const DEBUG = true;
+const DEDUPE_TTL = 20_000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const DIGITS = (s = "") => String(s || "").replace(/\D/g, "");
 
 function log(...args) {
   if (DEBUG) console.log("[SUKI-WELCOME]", ...args);
+}
+
+function warn(...args) {
+  console.warn("[SUKI-WELCOME-WARN]", ...args);
+}
+
+function error(...args) {
+  console.error("[SUKI-WELCOME-ERROR]", ...args);
 }
 
 function isGroupJid(jid) {
@@ -36,32 +46,106 @@ function isLidJid(jid) {
   return typeof jid === "string" && jid.endsWith("@lid");
 }
 
-function normalizeJid(input) {
-  if (!input) return "";
+function fixJid(jid) {
+  if (!jid) return "";
 
-  if (typeof input === "object") {
-    input =
-      input.jid ||
-      input.id ||
-      input.lid ||
-      input.pn ||
-      input.phoneNumber ||
-      "";
-  }
-
-  let jid = String(input || "").trim();
+  jid = String(jid || "").trim();
   if (!jid) return "";
 
   if (jid.includes("@")) {
     const [left, domain] = jid.split("@");
-    return `${left.split(":")[0]}@${domain}`;
+    return `${String(left || "").split(":")[0]}@${domain}`;
   }
 
   return jid;
 }
 
+function safeStringify(obj) {
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return String(obj);
+  }
+}
+
+function safeParseMaybeJson(value) {
+  if (typeof value !== "string") return value;
+
+  const t = value.trim();
+  if (!t || t === "[object Object]") return t;
+
+  if (t.startsWith("{") || t.startsWith("[")) {
+    try {
+      return JSON.parse(t);
+    } catch {}
+  }
+
+  return t;
+}
+
 function jidNumber(jid) {
-  return DIGITS(String(normalizeJid(jid)).split("@")[0]);
+  return DIGITS(String(fixJid(jid)).split("@")[0].split(":")[0]);
+}
+
+function pnFromNumber(num) {
+  const n = DIGITS(num);
+  return n ? `${n}@s.whatsapp.net` : "";
+}
+
+function bestJidFromObject(obj) {
+  if (!obj || typeof obj !== "object") return "";
+
+  const values = [
+    obj.phoneNumber,
+    obj.pn,
+    obj.jid,
+    obj.participantPn,
+    obj.senderPn,
+    obj.participantAlt,
+    obj.senderAlt,
+    obj.id,
+    obj.participant,
+    obj.lid,
+    obj.participantLid,
+    obj.senderLid,
+  ].map(fixJid).filter(Boolean);
+
+  const pn = values.find(isPnJid);
+  if (pn) return pn;
+
+  const lid = values.find(isLidJid);
+  if (lid) return lid;
+
+  const any = values.find((x) => x.includes("@"));
+  if (any) return any;
+
+  const n = values.map(DIGITS).find(Boolean);
+  return n ? pnFromNumber(n) : "";
+}
+
+function normalizeJid(input) {
+  if (!input) return "";
+
+  input = safeParseMaybeJson(input);
+
+  if (typeof input === "object") {
+    return bestJidFromObject(input);
+  }
+
+  const jid = fixJid(input);
+  if (!jid || jid === "[object Object]") return "";
+
+  if (!jid.includes("@"). && DIGITS(jid)) return pnFromNumber(jid);
+
+  return jid;
+}
+
+function normalizeJidSafe(input) {
+  try {
+    return normalizeJid(input);
+  } catch {
+    return "";
+  }
 }
 
 function mentionTag(jid) {
@@ -74,8 +158,8 @@ function unique(arr = []) {
 }
 
 function sameUser(a, b) {
-  const aj = normalizeJid(a);
-  const bj = normalizeJid(b);
+  const aj = normalizeJidSafe(a);
+  const bj = normalizeJidSafe(b);
 
   if (!aj || !bj) return false;
   if (aj === bj) return true;
@@ -86,8 +170,8 @@ function sameUser(a, b) {
   return !!an && !!bn && an === bn;
 }
 
-async function resolveRealJid(conn, jid) {
-  const raw = normalizeJid(jid);
+async function resolveRealJid(conn, input) {
+  const raw = normalizeJidSafe(input);
   if (!raw) return "";
 
   if (isPnJid(raw) || isGroupJid(raw)) return raw;
@@ -96,33 +180,27 @@ async function resolveRealJid(conn, jid) {
 
   try {
     if (typeof global.resolveRealJidAsync === "function") {
-      const resolved = normalizeJid(await global.resolveRealJidAsync(raw));
+      const resolved = normalizeJidSafe(await global.resolveRealJidAsync(raw));
       if (isPnJid(resolved)) return resolved;
     }
   } catch {}
 
   try {
     if (global.lidMap instanceof Map) {
-      const mapped =
-        normalizeJid(global.lidMap.get(raw)) ||
-        normalizeJid(global.lidMap.get(normalizeJid(raw)));
-
+      const mapped = normalizeJidSafe(global.lidMap.get(raw));
       if (isPnJid(mapped)) return mapped;
     }
   } catch {}
 
   try {
-    const pn = normalizeJid(
+    const pn = normalizeJidSafe(
       await conn.signalRepository?.lidMapping?.getPNForLID?.(raw)
     );
 
     if (isPnJid(pn)) {
-      try {
-        global.lidMap = global.lidMap || new Map();
-        global.lidMap.set(raw, pn);
-        global.lidMap.set(pn, raw);
-      } catch {}
-
+      global.lidMap = global.lidMap || new Map();
+      global.lidMap.set(raw, pn);
+      global.lidMap.set(pn, raw);
       return pn;
     }
   } catch {}
@@ -130,36 +208,11 @@ async function resolveRealJid(conn, jid) {
   return raw;
 }
 
-async function getGroupInfo(conn, chatId) {
-  try {
-    const meta = await conn.groupMetadata(chatId);
-
-    return {
-      subject: meta?.subject || "este grupo",
-      size: Array.isArray(meta?.participants) ? meta.participants.length : null,
-    };
-  } catch {
-    return {
-      subject: "este grupo",
-      size: null,
-    };
-  }
-}
-
-async function getProfilePic(conn, jid) {
-  try {
-    const pic = await conn.profilePictureUrl(jid, "image");
-    return pic || null;
-  } catch {
-    return null;
-  }
-}
-
 function dedupe(key) {
-  global._sukiGroupEventDedupe = global._sukiGroupEventDedupe || new Map();
+  global._sukiWelcomeDedupe = global._sukiWelcomeDedupe || new Map();
 
   const now = Date.now();
-  const map = global._sukiGroupEventDedupe;
+  const map = global._sukiWelcomeDedupe;
 
   for (const [k, t] of map.entries()) {
     if (now - t > DEDUPE_TTL) map.delete(k);
@@ -173,11 +226,43 @@ function dedupe(key) {
   return false;
 }
 
+async function getGroupInfo(conn, chatId) {
+  try {
+    const meta = await conn.groupMetadata(chatId);
+
+    return {
+      subject: meta?.subject || "este grupo",
+      size: Array.isArray(meta?.participants) ? meta.participants.length : null,
+      participants: Array.isArray(meta?.participants) ? meta.participants : [],
+    };
+  } catch (e) {
+    warn("No pude leer metadata:", e.message || e);
+    return {
+      subject: "este grupo",
+      size: null,
+      participants: [],
+    };
+  }
+}
+
+async function getProfilePic(conn, jid, chatId) {
+  const tries = unique([jid, chatId].map(normalizeJidSafe));
+
+  for (const x of tries) {
+    try {
+      const pic = await conn.profilePictureUrl(x, "image");
+      if (pic) return pic;
+    } catch {}
+  }
+
+  return null;
+}
+
 async function sendEvent(conn, chatId, text, mentions = [], imageJid = "") {
-  const cleanMentions = unique(mentions.map(normalizeJid));
+  const cleanMentions = unique(mentions.map(normalizeJidSafe));
 
   if (imageJid) {
-    const pic = await getProfilePic(conn, imageJid);
+    const pic = await getProfilePic(conn, imageJid, chatId);
 
     if (pic) {
       try {
@@ -187,7 +272,9 @@ async function sendEvent(conn, chatId, text, mentions = [], imageJid = "") {
           mentions: cleanMentions,
         });
         return;
-      } catch {}
+      } catch (e) {
+        warn("Falló enviar con foto, mando texto:", e.message || e);
+      }
     }
   }
 
@@ -199,30 +286,26 @@ async function sendEvent(conn, chatId, text, mentions = [], imageJid = "") {
 
 function getTargets(update) {
   if (Array.isArray(update?.participants)) {
-    return update.participants.map(normalizeJid).filter(Boolean);
+    return update.participants.map(normalizeJidSafe).filter(Boolean);
   }
 
-  if (update?.participant) {
-    return [normalizeJid(update.participant)].filter(Boolean);
-  }
-
-  return [];
+  const single = normalizeJidSafe(update?.participant || update?.target || update?.user);
+  return single ? [single] : [];
 }
 
 function getActor(update) {
-  return normalizeJid(
+  return normalizeJidSafe(
     update?.author ||
     update?.actor ||
     update?.changedBy ||
     update?.by ||
+    update?.sender ||
     ""
   );
 }
 
 function buildWelcomeText(target, group) {
-  const count = group.size
-    ? `\n│ 👥 Ahora somos *${group.size}* miembros.`
-    : "";
+  const count = group.size ? `\n│ 👥 Ahora somos *${group.size}* miembros.` : "";
 
   return `
 ╭─「 👑 LA SUKI BOT 👑 」
@@ -238,14 +321,8 @@ function buildWelcomeText(target, group) {
 
 function buildGoodbyeText(target, actor, group) {
   const kicked = actor && !sameUser(actor, target);
-
-  const count = group.size
-    ? `\n│ 👥 Ahora somos *${group.size}* miembros.`
-    : "";
-
-  const actorLine = kicked
-    ? `\n│ 👤 Acción hecha por ${mentionTag(actor)}`
-    : "";
+  const count = group.size ? `\n│ 👥 Ahora somos *${group.size}* miembros.` : "";
+  const actorLine = kicked ? `\n│ 👤 Acción hecha por ${mentionTag(actor)}` : "";
 
   return `
 ╭─「 🚪 DESPEDIDA 」
@@ -290,85 +367,222 @@ function buildDemoteText(target, actor, group) {
 `.trim();
 }
 
+const STUB_ACTION_BY_NUMBER = {
+  28: "add",
+  29: "remove",
+  30: "promote",
+  31: "demote",
+  32: "add",
+  33: "remove",
+  71: "add",
+};
+
+function getActionFromStubType(stubType) {
+  const num = Number(stubType);
+  if (STUB_ACTION_BY_NUMBER[num]) return STUB_ACTION_BY_NUMBER[num];
+
+  const s = String(stubType || "").toUpperCase();
+
+  if (s.includes("GROUP_PARTICIPANT_ADD_REQUEST_JOIN")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_ADD")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_INVITE")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_JOIN")) return "add";
+  if (s.includes("GROUP_PARTICIPANT_REMOVE")) return "remove";
+  if (s.includes("GROUP_PARTICIPANT_LEAVE")) return "remove";
+  if (s.includes("GROUP_PARTICIPANT_PROMOTE")) return "promote";
+  if (s.includes("GROUP_PARTICIPANT_DEMOTE")) return "demote";
+
+  return null;
+}
+
+function extractStubParticipants(m, action) {
+  const params = Array.isArray(m?.messageStubParameters) ? m.messageStubParameters : [];
+
+  const parsed = params
+    .map(safeParseMaybeJson)
+    .map(normalizeJidSafe)
+    .filter(Boolean)
+    .filter((jid) => !isGroupJid(jid));
+
+  if (parsed.length) return unique(parsed);
+
+  const fallback = normalizeJidSafe(
+    m?.key?.participantPn ||
+    m?.key?.participantAlt ||
+    m?.key?.participant ||
+    m?.participant ||
+    ""
+  );
+
+  if (fallback && !isGroupJid(fallback)) return [fallback];
+
+  return [];
+}
+
+function extractStubActor(m) {
+  return normalizeJidSafe(
+    m?.key?.participantPn ||
+    m?.key?.participantAlt ||
+    m?.key?.participant ||
+    m?.participant ||
+    m?.sender ||
+    ""
+  );
+}
+
+async function handleGroupUpdate(conn, update, source = "group-participants.update") {
+  const chatId = normalizeJidSafe(update?.id || update?.jid || update?.groupId || update?.chatId);
+  const action = String(update?.action || "").toLowerCase();
+
+  log("Evento recibido:", safeStringify({ source, chatId, action, update }));
+
+  if (!isGroupJid(chatId)) return;
+
+  const validActions = ["add", "remove", "promote", "demote"];
+  if (!validActions.includes(action)) {
+    warn("Acción ignorada:", action);
+    return;
+  }
+
+  const rawTargets = getTargets(update);
+  if (!rawTargets.length) {
+    warn("Evento sin targets:", safeStringify(update));
+    return;
+  }
+
+  const group = await getGroupInfo(conn, chatId);
+  const rawActor = getActor(update);
+  const actor = rawActor ? await resolveRealJid(conn, rawActor) : "";
+
+  for (const rawTarget of rawTargets) {
+    const target = await resolveRealJid(conn, rawTarget);
+    if (!target) continue;
+
+    const key = `${chatId}:${action}:${jidNumber(target) || target}:${jidNumber(actor) || actor}`;
+
+    if (dedupe(key)) {
+      log("Duplicado ignorado:", key);
+      continue;
+    }
+
+    let text = "";
+    let imageJid = "";
+    const mentions = [target];
+
+    if (actor && !sameUser(actor, target)) mentions.push(actor);
+
+    if (action === "add") {
+      text = buildWelcomeText(target, group);
+      imageJid = target;
+    } else if (action === "remove") {
+      text = buildGoodbyeText(target, actor, group);
+      imageJid = target;
+    } else if (action === "promote") {
+      text = buildPromoteText(target, actor, group);
+    } else if (action === "demote") {
+      text = buildDemoteText(target, actor, group);
+    }
+
+    if (!text) continue;
+
+    await sendEvent(conn, chatId, text, mentions, imageJid);
+    await sleep(700);
+  }
+}
+
+function registerLidMapping(conn) {
+  if (conn.__sukiWelcomeLidMapping) return;
+  conn.__sukiWelcomeLidMapping = true;
+
+  conn.ev.on("lid-mapping.update", (data) => {
+    try {
+      global.lidMap = global.lidMap || new Map();
+
+      const lid = normalizeJidSafe(data?.lid || data?.id || data?.participantLid || "");
+      const pn = normalizeJidSafe(data?.pn || data?.phoneNumber || data?.jid || data?.participantPn || "");
+
+      if (isLidJid(lid) && isPnJid(pn)) {
+        global.lidMap.set(lid, pn);
+        global.lidMap.set(pn, lid);
+        log("LID guardado:", lid, "=>", pn);
+      }
+    } catch (e) {
+      warn("Error lid-mapping.update:", e.message || e);
+    }
+  });
+}
+
+function registerStubFallback(conn) {
+  if (conn.__sukiWelcomeStubFallback) return;
+  conn.__sukiWelcomeStubFallback = true;
+
+  conn.ev.on("messages.upsert", async (ev) => {
+    try {
+      const messages = Array.isArray(ev?.messages) ? ev.messages : [];
+
+      for (const m of messages) {
+        const chatId = normalizeJidSafe(m?.key?.remoteJid || "");
+        if (!isGroupJid(chatId)) continue;
+
+        const stubType = m?.messageStubType;
+        if (!stubType) continue;
+
+        const action = getActionFromStubType(stubType);
+        if (!action) continue;
+
+        const participants = extractStubParticipants(m, action);
+        if (!participants.length) {
+          warn("Stub sin participantes:", safeStringify({ stubType, params: m?.messageStubParameters }));
+          continue;
+        }
+
+        const syntheticUpdate = {
+          id: chatId,
+          action,
+          participants,
+          author: extractStubActor(m),
+          __source: "messages.upsert.stub",
+          __messageStubType: stubType,
+        };
+
+        log("Fallback stub creado:", safeStringify(syntheticUpdate));
+
+        setTimeout(() => {
+          handleGroupUpdate(conn, syntheticUpdate, "messages.upsert.stub").catch((e) => {
+            error("Error procesando fallback stub:", e);
+          });
+        }, 900);
+      }
+    } catch (e) {
+      error("Error en messages.upsert fallback:", e);
+    }
+  });
+}
+
 module.exports = {
   name: "suki-welcome-goodbye-admin-events",
 
   async run(conn) {
-    if (!conn || !conn.ev) return;
-
-    if (conn._sukiWelcomeGoodbyeAdminEvents) {
-      log("Listener ya estaba conectado.");
+    if (!conn || !conn.ev || typeof conn.ev.on !== "function") {
+      error("No llegó conn.ev válido al sistema de bienvenida.");
       return;
     }
 
-    conn._sukiWelcomeGoodbyeAdminEvents = true;
+    registerLidMapping(conn);
+    registerStubFallback(conn);
 
-    conn.ev.on("group-participants.update", async (update) => {
-      try {
-        const chatId = normalizeJid(update?.id || update?.jid || update?.groupId);
-        const action = String(update?.action || "").toLowerCase();
+    if (!conn.__sukiWelcomeGroupParticipantsListener) {
+      conn.__sukiWelcomeGroupParticipantsListener = true;
 
-        if (!isGroupJid(chatId)) return;
-
-        const validActions = ["add", "remove", "promote", "demote"];
-        if (!validActions.includes(action)) return;
-
-        const rawTargets = getTargets(update);
-        if (!rawTargets.length) return;
-
-        const group = await getGroupInfo(conn, chatId);
-        const rawActor = getActor(update);
-        const actor = rawActor ? await resolveRealJid(conn, rawActor) : "";
-
-        for (const rawTarget of rawTargets) {
-          const target = await resolveRealJid(conn, rawTarget);
-
-          if (!target) continue;
-
-          const key = `${chatId}:${action}:${normalizeJid(rawTarget)}:${normalizeJid(rawActor)}`;
-
-          if (dedupe(key)) {
-            log("Evento duplicado ignorado:", key);
-            continue;
-          }
-
-          let text = "";
-          let imageJid = "";
-          let mentions = [target];
-
-          if (actor && !sameUser(actor, target)) {
-            mentions.push(actor);
-          }
-
-          if (action === "add") {
-            text = buildWelcomeText(target, group);
-            imageJid = target;
-          }
-
-          if (action === "remove") {
-            text = buildGoodbyeText(target, actor, group);
-            imageJid = target;
-          }
-
-          if (action === "promote") {
-            text = buildPromoteText(target, actor, group);
-          }
-
-          if (action === "demote") {
-            text = buildDemoteText(target, actor, group);
-          }
-
-          if (!text) continue;
-
-          await sendEvent(conn, chatId, text, mentions, imageJid);
-
-          await sleep(700);
+      conn.ev.on("group-participants.update", async (update) => {
+        try {
+          await handleGroupUpdate(conn, update, "group-participants.update");
+        } catch (e) {
+          error("Error en group-participants.update:", e);
         }
-      } catch (e) {
-        console.error("❌ Error en sistema bienvenida/despedida/admin:", e);
-      }
-    });
+      });
+    }
 
-    console.log("✅ Sistema de bienvenidas/despedidas/admin conectado.");
+    console.log("✅ Sistema de bienvenidas/despedidas/admin conectado con fallback messages.upsert.");
   },
 };
