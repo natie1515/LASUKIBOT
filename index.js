@@ -518,7 +518,7 @@ try {
           const axios = require("axios");
 
           const SUKI_IA_WEB_URL =
-            "https://suki-ia.ultraplus.click/w/74699832-c7a1-460d-a556-f21e642620bd/c/c25d8f7f-6dd9-4120-ad5a-e1dda45a68b5";
+            "https://suki-ia.ultraplus.click";
 
           const SUKI_IA_BASE = new URL(SUKI_IA_WEB_URL).origin.replace(/\/+$/, "");
 
