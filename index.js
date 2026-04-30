@@ -470,17 +470,16 @@ try {
 /* === FIN STICKER → COMANDO === */
 
   
-// === 🤖 INICIO LÓGICA IA NATURAL (SUKI / BOT) + AUDIO PTT ===
-// Se activa cuando alguien menciona "suki" o "bot" en cualquier parte del mensaje
-// (como palabra separada, no dentro de otras palabras como "sukiyaki" o "robot").
-// Ignora mensajes con prefijo de comando (.suki, #bot, etc).
-// Mantiene historial de conversación por chat (últimos 10 mensajes) inyectándolo en el prompt.
-// Descarga el MP3 de la API y lo convierte a OGG/Opus con ffmpeg para que WhatsApp lo reproduzca como nota de voz.
-// Si el audio falla, cae en fallback y envía texto normal.
+// === 🤖 INICIO LÓGICA IA NATURAL SUKI/BOT — SOLO TEXTO ===
+// Se activa cuando alguien menciona "suki" o "bot".
+// Ignora comandos con prefijo.
+// Usa la nueva API de Suki IA.
+// Sin audio, sin ffmpeg, sin notas de voz.
+
 try {
   const chatId = m.key.remoteJid;
   const senderId = m.key.participant || m.key.remoteJid;
-  const fromMe = m.key.fromMe;
+  const fromMe = !!m.key.fromMe;
 
   const textoIA = (
     m.message?.conversation ||
@@ -490,227 +489,230 @@ try {
     ""
   ).trim();
 
-  const tienePrefijo = textoIA && global.prefixes.some(p => textoIA.startsWith(p));
+  const prefixes = Array.isArray(global.prefixes)
+    ? global.prefixes
+    : [global.prefix || "."];
+
+  const tienePrefijo = textoIA && prefixes.some(p => p && textoIA.startsWith(String(p)));
 
   if (!fromMe && textoIA && !tienePrefijo) {
-    // 🎯 Detecta "suki" o "bot" como palabra separada (no dentro de otras)
     const regexSuki = /\b(suki|bot)\b/i;
 
     if (regexSuki.test(textoIA)) {
-      // 🚦 Anti-spam: mínimo 3 segundos entre respuestas al mismo usuario
       global._sukiIACooldown = global._sukiIACooldown || {};
+
       const cdKey = `${chatId}:${senderId}`;
       const lastTime = global._sukiIACooldown[cdKey] || 0;
       const now = Date.now();
 
+      // Anti-spam: 3 segundos por usuario/chat
       if (now - lastTime >= 3000) {
         global._sukiIACooldown[cdKey] = now;
 
-        // 💾 Historial por chat (últimos 10 mensajes)
         global._sukiIAHist = global._sukiIAHist || {};
         if (!Array.isArray(global._sukiIAHist[chatId])) {
           global._sukiIAHist[chatId] = [];
         }
 
         (async () => {
-          const fsLocal = require("fs");
-          const pathLocal = require("path");
-          const CryptoLocal = require("crypto");
-          const ffmpegLocal = require("fluent-ffmpeg");
+          const axios = require("axios");
 
-          const tmpDir = pathLocal.resolve("./tmp");
-          if (!fsLocal.existsSync(tmpDir)) fsLocal.mkdirSync(tmpDir, { recursive: true });
+          const SUKI_IA_WEB_URL =
+            "https://suki-ia.ultraplus.click/w/74699832-c7a1-460d-a556-f21e642620bd/c/c25d8f7f-6dd9-4120-ad5a-e1dda45a68b5";
 
-          const rid = CryptoLocal.randomBytes(6).toString("hex");
-          const mp3Path = pathLocal.join(tmpDir, `suki_${rid}.mp3`);
-          const oggPath = pathLocal.join(tmpDir, `suki_${rid}.ogg`);
+          const SUKI_IA_BASE = new URL(SUKI_IA_WEB_URL).origin.replace(/\/+$/, "");
 
-          try {
-            try { await sock.sendPresenceUpdate("composing", chatId); } catch {}
+          const SUKI_IA_KEY =
+            process.env.SUKI_IA_KEY ||
+            "sk-7623dfc192584d20bb1ae4df6b08be53";
 
-            const axios = require("axios");
-            const API_KEY = "mk-668eddd56d17442cec5c740c2f4471e3a547d197a760717f";
+          // Si quieres forzar un modelo específico, ponlo en env:
+          // SUKI_IA_MODEL="nombre-del-modelo"
+          const SUKI_IA_MODEL_ENV = process.env.SUKI_IA_MODEL || "";
 
-            // 📚 Armar el "prompt" con el historial reciente para mantener contexto
-            // (el endpoint /api/ia es de consulta rápida con prompt único)
-            const historialPrev = global._sukiIAHist[chatId].slice(-10);
-            let promptCompleto = "";
-            if (historialPrev.length > 0) {
-              promptCompleto += "Conversación previa:\n";
-              for (const msg of historialPrev) {
-                const rol = msg.role === "user" ? "Usuario" : "Suki";
-                promptCompleto += `${rol}: ${msg.content}\n`;
-              }
-              promptCompleto += `\nUsuario: ${textoIA}`;
-            } else {
-              promptCompleto = textoIA;
+          async function getSukiIAModel() {
+            if (SUKI_IA_MODEL_ENV) return SUKI_IA_MODEL_ENV;
+
+            if (global._sukiIAOpenWebUIModel) {
+              return global._sukiIAOpenWebUIModel;
             }
 
-            const systemPrompt = "Eres Suki, una asistente de WhatsApp amigable, divertida y natural. Respondes en español, con mensajes cortos y claros (máximo 2-3 oraciones). Nunca digas que eres una IA ni menciones tu modelo. Actúa como una amiga cercana.";
+            const res = await axios.get(`${SUKI_IA_BASE}/api/models`, {
+              timeout: 30000,
+              headers: {
+                Authorization: `Bearer ${SUKI_IA_KEY}`,
+                Accept: "application/json"
+              },
+              validateStatus: () => true
+            });
 
-            // 🧠 Llamada a /api/ia con prompt + system
-            const chatRes = await axios.post(
-              "https://devmatrixs.lat/api/ia",
+            if (res.status >= 400) {
+              throw new Error(`No pude leer modelos de Suki IA: HTTP ${res.status}`);
+            }
+
+            const raw = res.data;
+            const models = Array.isArray(raw?.data)
+              ? raw.data
+              : Array.isArray(raw?.models)
+                ? raw.models
+                : Array.isArray(raw)
+                  ? raw
+                  : [];
+
+            const first = models[0] || {};
+            const model =
+              first.id ||
+              first.name ||
+              first.model ||
+              first.model_id ||
+              "";
+
+            if (!model) {
+              throw new Error("No se pudo detectar ningún modelo en Suki IA. Define SUKI_IA_MODEL en env.");
+            }
+
+            global._sukiIAOpenWebUIModel = model;
+            return model;
+          }
+
+          function extraerRespuesta(data) {
+            if (!data) return "";
+
+            if (typeof data === "string") {
+              return data.trim();
+            }
+
+            return (
+              data?.choices?.[0]?.message?.content ||
+              data?.choices?.[0]?.delta?.content ||
+              data?.choices?.[0]?.text ||
+              data?.message?.content ||
+              data?.message ||
+              data?.response ||
+              data?.reply ||
+              data?.respuesta ||
+              data?.content ||
+              data?.text ||
+              data?.data?.message ||
+              data?.data?.response ||
+              data?.data?.reply ||
+              data?.data?.respuesta ||
+              data?.data?.content ||
+              ""
+            ).toString().trim();
+          }
+
+          try {
+            try {
+              await sock.sendPresenceUpdate("composing", chatId);
+            } catch {}
+
+            const historialPrev = global._sukiIAHist[chatId].slice(-10);
+
+            const systemPrompt =
+              "Eres Suki, una asistente de WhatsApp divertida, inteligente y natural. Responde en español, con mensajes cortos, claros y útiles. No digas que eres una IA ni menciones modelos. Actúa como La Suki Bot.";
+
+            const messages = [
               {
-                model: "minimax",
-                prompt: promptCompleto,
-                system: systemPrompt
+                role: "system",
+                content: systemPrompt
+              },
+              ...historialPrev.map(item => ({
+                role: item.role === "assistant" ? "assistant" : "user",
+                content: String(item.content || "")
+              })),
+              {
+                role: "user",
+                content: textoIA
+              }
+            ];
+
+            const model = await getSukiIAModel();
+
+            const chatRes = await axios.post(
+              `${SUKI_IA_BASE}/api/chat/completions`,
+              {
+                model,
+                messages,
+                stream: false
               },
               {
+                timeout: 60000,
                 headers: {
+                  Authorization: `Bearer ${SUKI_IA_KEY}`,
                   "Content-Type": "application/json",
-                  "x-api-key": API_KEY
+                  Accept: "application/json"
                 },
-                timeout: 30000,
                 validateStatus: () => true
               }
             );
 
-            const cd = chatRes.data || {};
-            const respuestaTexto = (
-              cd?.respuesta ||
-              cd?.reply ||
-              cd?.response ||
-              cd?.message ||
-              cd?.content ||
-              cd?.result ||
-              cd?.text ||
-              cd?.data?.respuesta ||
-              cd?.data?.reply ||
-              cd?.data?.response ||
-              cd?.data?.message ||
-              cd?.data?.content ||
-              cd?.choices?.[0]?.message?.content ||
-              ""
-            ).toString().trim();
+            if (chatRes.status >= 400) {
+              throw new Error(`Suki IA respondió HTTP ${chatRes.status}`);
+            }
+
+            const respuestaTexto = extraerRespuesta(chatRes.data);
 
             if (!respuestaTexto) {
-              try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-              console.log("[SukiIA] ⚠️ Respuesta vacía:", JSON.stringify(cd).slice(0, 300));
+              console.log("[SukiIA] ⚠️ Respuesta vacía:", JSON.stringify(chatRes.data).slice(0, 500));
+              try {
+                await sock.sendPresenceUpdate("paused", chatId);
+              } catch {}
               return;
             }
 
-            // 💾 Guardar en historial
-            global._sukiIAHist[chatId].push({ role: "user", content: textoIA });
-            global._sukiIAHist[chatId].push({ role: "assistant", content: respuestaTexto });
+            global._sukiIAHist[chatId].push({
+              role: "user",
+              content: textoIA
+            });
+
+            global._sukiIAHist[chatId].push({
+              role: "assistant",
+              content: respuestaTexto
+            });
+
             if (global._sukiIAHist[chatId].length > 10) {
               global._sukiIAHist[chatId] = global._sukiIAHist[chatId].slice(-10);
             }
 
-            // Reaccionar
             try {
-              await sock.sendMessage(chatId, { react: { text: "💬", key: m.key } });
+              await sock.sendMessage(chatId, {
+                react: {
+                  text: "💬",
+                  key: m.key
+                }
+              });
             } catch {}
 
-            // Cambiar presencia a "grabando audio"
-            try { await sock.sendPresenceUpdate("recording", chatId); } catch {}
-
-            // 🎤 Pedir URL del audio a /api/audio con voz nova
-            const textoParaAudio = respuestaTexto.slice(0, 500);
-            let audioUrl = "";
-
             try {
-              const audioRes = await axios.get(
-                "https://devmatrixs.lat/api/audio",
-                {
-                  params: {
-                    text: textoParaAudio,
-                    voice: "nova"
-                  },
-                  headers: {
-                    "x-api-key": API_KEY
-                  },
-                  timeout: 30000,
-                  validateStatus: () => true
-                }
-              );
+              await sock.sendPresenceUpdate("paused", chatId);
+            } catch {}
 
-              const ad = audioRes.data || {};
-              audioUrl = ad?.url || ad?.data?.url || ad?.audio || ad?.data?.audio || "";
-            } catch (audioErr) {
-              console.log("[SukiIA] ⚠️ Error obteniendo URL del audio:", audioErr.message);
-            }
-
-            if (audioUrl) {
-              try {
-                // 1) Descargar el MP3
-                const audioFile = await axios.get(audioUrl, {
-                  responseType: "arraybuffer",
-                  timeout: 30000
-                });
-                const mp3Buffer = Buffer.from(audioFile.data);
-                fsLocal.writeFileSync(mp3Path, mp3Buffer);
-
-                // 2) Convertir MP3 → OGG/Opus (formato correcto para PTT de WhatsApp)
-                await new Promise((resolve, reject) => {
-                  ffmpegLocal(mp3Path)
-                    .audioCodec("libopus")
-                    .audioChannels(1)
-                    .audioFrequency(48000)
-                    .audioBitrate("64k")
-                    .outputOptions([
-                      "-avoid_negative_ts", "make_zero",
-                      "-application", "voip"
-                    ])
-                    .format("ogg")
-                    .on("end", resolve)
-                    .on("error", reject)
-                    .save(oggPath);
-                });
-
-                // 3) Leer el OGG y enviarlo como nota de voz
-                const oggBuffer = fsLocal.readFileSync(oggPath);
-
-                try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-
-                await sock.sendMessage(
-                  chatId,
-                  {
-                    audio: oggBuffer,
-                    mimetype: "audio/ogg; codecs=opus",
-                    ptt: true
-                  },
-                  { quoted: m }
-                );
-
-                // Limpiar archivos temporales
-                try { fsLocal.unlinkSync(mp3Path); } catch {}
-                try { fsLocal.unlinkSync(oggPath); } catch {}
-                return; // ✅ Audio enviado correctamente
-
-              } catch (convErr) {
-                console.log("[SukiIA] ⚠️ Error convirtiendo audio, envío texto:", convErr.message);
-                try { fsLocal.unlinkSync(mp3Path); } catch {}
-                try { fsLocal.unlinkSync(oggPath); } catch {}
-              }
-            }
-
-            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-
-            // 📝 Fallback: si el audio falla, enviar texto
             await sock.sendMessage(
               chatId,
-              { text: respuestaTexto },
-              { quoted: m }
+              {
+                text: respuestaTexto
+              },
+              {
+                quoted: m
+              }
             );
 
           } catch (err) {
-            console.error("[SukiIA] ❌ Error general:", err.message);
-            try { await sock.sendPresenceUpdate("paused", chatId); } catch {}
-            try { fsLocal.unlinkSync(mp3Path); } catch {}
-            try { fsLocal.unlinkSync(oggPath); } catch {}
+            console.error("[SukiIA] ❌ Error:", err.message);
+
+            try {
+              await sock.sendPresenceUpdate("paused", chatId);
+            } catch {}
           }
         })();
       }
     }
   }
 } catch (e) {
-  console.error("❌ Error en lógica IA natural (SukiIA):", e);
+  console.error("❌ Error en lógica IA natural SukiIA:", e);
 }
-// === 🤖 FIN LÓGICA IA NATURAL ===
-              
-            
-
+// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SOLO TEXTO ===
   
   //fin de la logica modo admins         
 // ——— Presentación automática (solo una vez por grupo) ———
