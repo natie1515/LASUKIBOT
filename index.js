@@ -468,13 +468,13 @@ try {
   console.error("❌ Sticker→cmd error:", e);
 }
 /* === FIN STICKER → COMANDO === */
+        
 
-  
-// === 🤖 INICIO LÓGICA IA NATURAL SUKI/BOT — SOLO TEXTO ===
+// === 🤖 INICIO LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===
 // Se activa cuando alguien menciona "suki" o "bot".
 // Ignora comandos con prefijo.
-// Usa la nueva API de Suki IA.
-// Sin audio, sin ffmpeg, sin notas de voz.
+// Usa /api/v1/chat con Bearer Token.
+// Sin audio, sin ffmpeg, sin nota de voz.
 
 try {
   const chatId = m.key.remoteJid;
@@ -509,95 +509,30 @@ try {
       if (now - lastTime >= 3000) {
         global._sukiIACooldown[cdKey] = now;
 
-        global._sukiIAHist = global._sukiIAHist || {};
-        if (!Array.isArray(global._sukiIAHist[chatId])) {
-          global._sukiIAHist[chatId] = [];
-        }
-
         (async () => {
           const axios = require("axios");
 
-          const SUKI_IA_WEB_URL =
-            "https://suki-ia.ultraplus.click";
-
-          const SUKI_IA_BASE = new URL(SUKI_IA_WEB_URL).origin.replace(/\/+$/, "");
-
-          const SUKI_IA_KEY =
+          const SUKI_IA_BASE_URL = "https://suki-ia.ultraplus.click";
+          const SUKI_IA_API_KEY =
             process.env.SUKI_IA_KEY ||
             "sk-7623dfc192584d20bb1ae4df6b08be53";
 
-          // Si quieres forzar un modelo específico, ponlo en env:
-          // SUKI_IA_MODEL="nombre-del-modelo"
-          const SUKI_IA_MODEL_ENV = process.env.SUKI_IA_MODEL || "";
-
-          async function getSukiIAModel() {
-            if (SUKI_IA_MODEL_ENV) return SUKI_IA_MODEL_ENV;
-
-            if (global._sukiIAOpenWebUIModel) {
-              return global._sukiIAOpenWebUIModel;
-            }
-
-            const res = await axios.get(`${SUKI_IA_BASE}/api/models`, {
-              timeout: 30000,
-              headers: {
-                Authorization: `Bearer ${SUKI_IA_KEY}`,
-                Accept: "application/json"
-              },
-              validateStatus: () => true
-            });
-
-            if (res.status >= 400) {
-              throw new Error(`No pude leer modelos de Suki IA: HTTP ${res.status}`);
-            }
-
-            const raw = res.data;
-            const models = Array.isArray(raw?.data)
-              ? raw.data
-              : Array.isArray(raw?.models)
-                ? raw.models
-                : Array.isArray(raw)
-                  ? raw
-                  : [];
-
-            const first = models[0] || {};
-            const model =
-              first.id ||
-              first.name ||
-              first.model ||
-              first.model_id ||
-              "";
-
-            if (!model) {
-              throw new Error("No se pudo detectar ningún modelo en Suki IA. Define SUKI_IA_MODEL en env.");
-            }
-
-            global._sukiIAOpenWebUIModel = model;
-            return model;
+          function cleanChatId(id = "") {
+            return String(id || "")
+              .replace(/[^a-zA-Z0-9_-]/g, "_")
+              .slice(0, 120);
           }
 
-          function extraerRespuesta(data) {
-            if (!data) return "";
-
-            if (typeof data === "string") {
-              return data.trim();
-            }
-
+          function extractResponse(data) {
             return (
-              data?.choices?.[0]?.message?.content ||
-              data?.choices?.[0]?.delta?.content ||
-              data?.choices?.[0]?.text ||
-              data?.message?.content ||
-              data?.message ||
+              data?.content ||
               data?.response ||
               data?.reply ||
-              data?.respuesta ||
-              data?.content ||
+              data?.message ||
               data?.text ||
-              data?.data?.message ||
+              data?.data?.content ||
               data?.data?.response ||
               data?.data?.reply ||
-              data?.data?.respuesta ||
-              data?.data?.content ||
               ""
             ).toString().trim();
           }
@@ -607,72 +542,45 @@ try {
               await sock.sendPresenceUpdate("composing", chatId);
             } catch {}
 
-            const historialPrev = global._sukiIAHist[chatId].slice(-10);
+            // Chat fijo por grupo/privado para que Suki-AI mantenga memoria
+            const sukiChatId = `whatsapp_${cleanChatId(chatId)}`;
 
-            const systemPrompt =
-              "Eres Suki, una asistente de WhatsApp divertida, inteligente y natural. Responde en español, con mensajes cortos, claros y útiles. No digas que eres una IA ni menciones modelos. Actúa como La Suki Bot.";
-
-            const messages = [
+            const res = await axios.post(
+              `${SUKI_IA_BASE_URL}/api/v1/chat`,
               {
-                role: "system",
-                content: systemPrompt
-              },
-              ...historialPrev.map(item => ({
-                role: item.role === "assistant" ? "assistant" : "user",
-                content: String(item.content || "")
-              })),
-              {
-                role: "user",
-                content: textoIA
-              }
-            ];
-
-            const model = await getSukiIAModel();
-
-            const chatRes = await axios.post(
-              `${SUKI_IA_BASE}/api/chat/completions`,
-              {
-                model,
-                messages,
+                message: textoIA,
+                chatId: sukiChatId,
                 stream: false
               },
               {
                 timeout: 60000,
                 headers: {
-                  Authorization: `Bearer ${SUKI_IA_KEY}`,
                   "Content-Type": "application/json",
-                  Accept: "application/json"
+                  Authorization: `Bearer ${SUKI_IA_API_KEY}`
                 },
                 validateStatus: () => true
               }
             );
 
-            if (chatRes.status >= 400) {
-              throw new Error(`Suki IA respondió HTTP ${chatRes.status}`);
+            if (res.status < 200 || res.status >= 300) {
+              const errorMsg =
+                res.data?.error ||
+                res.data?.message ||
+                `HTTP ${res.status}`;
+
+              throw new Error(`Suki-AI API Error: ${errorMsg}`);
             }
 
-            const respuestaTexto = extraerRespuesta(chatRes.data);
+            const respuestaTexto = extractResponse(res.data);
 
             if (!respuestaTexto) {
-              console.log("[SukiIA] ⚠️ Respuesta vacía:", JSON.stringify(chatRes.data).slice(0, 500));
+              console.log("[SukiIA] ⚠️ Respuesta vacía:", JSON.stringify(res.data).slice(0, 500));
+
               try {
                 await sock.sendPresenceUpdate("paused", chatId);
               } catch {}
+
               return;
-            }
-
-            global._sukiIAHist[chatId].push({
-              role: "user",
-              content: textoIA
-            });
-
-            global._sukiIAHist[chatId].push({
-              role: "assistant",
-              content: respuestaTexto
-            });
-
-            if (global._sukiIAHist[chatId].length > 10) {
-              global._sukiIAHist[chatId] = global._sukiIAHist[chatId].slice(-10);
             }
 
             try {
@@ -704,6 +612,16 @@ try {
             try {
               await sock.sendPresenceUpdate("paused", chatId);
             } catch {}
+
+            await sock.sendMessage(
+              chatId,
+              {
+                text: "❌ Suki-AI no respondió bien ahora mismo. Revisa la API key o el servidor."
+              },
+              {
+                quoted: m
+              }
+            ).catch(() => {});
           }
         })();
       }
@@ -712,7 +630,8 @@ try {
 } catch (e) {
   console.error("❌ Error en lógica IA natural SukiIA:", e);
 }
-// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SOLO TEXTO ===
+// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===         
+
   
   //fin de la logica modo admins         
 // ——— Presentación automática (solo una vez por grupo) ———
