@@ -515,7 +515,7 @@ try {
           const SUKI_IA_BASE_URL = "https://suki-ia.ultraplus.click";
           const SUKI_IA_API_KEY =
             process.env.SUKI_IA_KEY ||
-            "sk-582c2b9048534cb6b2b20c7237bc0f11";
+            "sk-39260921012647a0b6ab2401436204b3";
 
           function cleanChatId(id = "") {
             return String(id || "")
