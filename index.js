@@ -223,33 +223,7 @@ try {
 
 sock.ev.on("messages.upsert", async ({ messages }) => {
   const m = messages[0];
-
-  // ✅ Antes estaba:
-  // if (!m || !m.message) return;
-  //
-  // Eso mata eventos de Baileys que pueden venir sin m.message,
-  // como algunos stubs de entrada/salida/promote/demote.
-  if (!m) return;
-
-  // ✅ Guardar debug global aunque sea evento stub/sistema
-  global.mActual = m;
-
-  // ✅ Si llega un evento sin m.message, NO seguimos con la lógica normal de mensajes.
-  // Pero al menos no lo matamos junto con !m.
-  // Tus plugins externos siguen escuchando messages.upsert aparte.
-  if (!m.message) {
-    console.log("🧩 messages.upsert sin m.message detectado:", {
-      remoteJid: m.key?.remoteJid,
-      participant: m.key?.participant,
-      participantPn: m.key?.participantPn,
-      participantLid: m.key?.participantLid,
-      messageStubType: m.messageStubType,
-      messageStubParameters: m.messageStubParameters,
-      type: m.type
-    });
-
-    return;
-  }
+  if (!m || !m.message) return;
 
   // 🔎 Normalización PROFUNDA: convierte LIDs a números reales en TODO el mensaje,
   // incluyendo chats PRIVADOS (consulta al signalRepository cuando hace falta).
@@ -259,7 +233,7 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     const isLid  = (j) => typeof j === "string" && j.endsWith("@lid");
 
     // 🧠 Mapa global LID ↔ PN (se va llenando con cada mensaje)
-    global.lidMap = global.lidMap instanceof Map ? global.lidMap : new Map();
+    global.lidMap = global.lidMap || new Map();
 
     // 🔄 Resolver LID → PN (usa mapa local primero, luego consulta a Baileys)
     const toRealJid = async (jid) => {
@@ -274,7 +248,6 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       try {
         if (sock.signalRepository?.lidMapping?.getPNForLID) {
           const pn = await sock.signalRepository.lidMapping.getPNForLID(jid);
-
           if (pn && isUser(pn)) {
             global.lidMap.set(jid, pn);   // cachear para futuras llamadas
             global.lidMap.set(pn, jid);
@@ -325,7 +298,6 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     // 🆕 PRIVADOS: si no tenemos PN pero SÍ tenemos un LID, consultar a Baileys
     if (!realJidOfSender && lidOfSender) {
       const resolved = await toRealJid(lidOfSender);
-
       if (resolved && isUser(resolved)) {
         realJidOfSender = resolved;
       }
@@ -374,7 +346,6 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
       if (ctx.participant) {
         ctx.participant = await toRealJid(ctx.participant);
       }
-
       if (ctx.participantPn && isUser(ctx.participantPn)) {
         ctx.participant = ctx.participantPn;
       }
@@ -417,14 +388,13 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     m.message?.imageMessage?.caption ||
     m.message?.videoMessage?.caption ||
     "";
-    
 
-      
 
   console.log(chalk.yellow(`\n📩 Nuevo mensaje recibido`));
   console.log(chalk.green(`📨 De: ${fromMe ? "[Tú]" : "[Usuario]"} ${chalk.bold(sender)}`));
   console.log(chalk.cyan(`💬 Tipo: ${Object.keys(m.message)[0]}`));
   console.log(chalk.cyan(`💬 Texto: ${chalk.bold(messageContent || "📂 (Multimedia)")}`));
+
 
 
 /* === STICKER → COMANDO (GLOBAL) usando ./comandos.json — para Suki === */
@@ -545,7 +515,7 @@ try {
           const SUKI_IA_BASE_URL = "https://suki-ia.ultraplus.click";
           const SUKI_IA_API_KEY =
             process.env.SUKI_IA_KEY ||
-            "sk-3b6271ac48a440cb8832a612313d505f";
+            "sk-9f4486baca184958b050ddc82d381cbb";
 
           function cleanChatId(id = "") {
             return String(id || "")
@@ -660,7 +630,9 @@ try {
 } catch (e) {
   console.error("❌ Error en lógica IA natural SukiIA:", e);
 }
-// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===         
+// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===
+              
+
 
   
   //fin de la logica modo admins         
