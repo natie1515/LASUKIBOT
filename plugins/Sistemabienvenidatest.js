@@ -10,6 +10,11 @@ const adminCache = {};
 const recentEvents = new Map();
 const RECENT_EVENT_TTL_MS = 8000;
 
+// Mapa global LID <-> PN
+if (!(global.lidMap instanceof Map)) {
+  global.lidMap = new Map();
+}
+
 // ==== HELPERS LID/REAL ====
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
@@ -77,6 +82,7 @@ function tryParseJsonObject(value) {
 }
 
 // ✅ Convierte cualquier cosa a texto JID seguro.
+// Soporta string, objeto de Baileys, JSON string, LID, JID real, pn, jid, id, phoneNumber, etc.
 function getJidStr(obj) {
   if (!obj) return "";
 
@@ -99,6 +105,8 @@ function getJidStr(obj) {
       obj.id ||
       obj.lid ||
       obj.participant ||
+      obj.participantPn ||
+      obj.participantLid ||
       obj.user ||
       obj._serialized ||
       ""
@@ -118,6 +126,11 @@ function cleanJid(jid = "") {
     return num ? `${num}@s.whatsapp.net` : jid;
   }
 
+  if (jid.includes(":") && jid.includes("@lid")) {
+    const num = jid.split(":")[0].replace(/[^0-9]/g, "");
+    return num ? `${num}@lid` : jid;
+  }
+
   return jid;
 }
 
@@ -129,6 +142,78 @@ function jidNumber(jid = "") {
 function makeRealJid(number = "") {
   const n = DIGITS(number);
   return n ? `${n}@s.whatsapp.net` : "";
+}
+
+function normalizePhoneJid(value = "") {
+  const text = cleanJid(value);
+  if (!text) return "";
+
+  if (text.endsWith("@s.whatsapp.net")) return text;
+
+  const n = DIGITS(text);
+  return n ? `${n}@s.whatsapp.net` : "";
+}
+
+function normalizeLidJid(value = "") {
+  const text = cleanJid(value);
+  if (!text) return "";
+
+  if (text.endsWith("@lid")) return text;
+
+  return "";
+}
+
+function rememberLidPn(lid, pn) {
+  lid = cleanJid(lid || "");
+  pn = cleanJid(pn || "");
+
+  if (!lid || !pn) return;
+  if (!lid.endsWith("@lid")) return;
+  if (!pn.endsWith("@s.whatsapp.net")) return;
+
+  global.lidMap.set(lid, pn);
+  global.lidMap.set(pn, lid);
+}
+
+function rememberFromAnyParticipant(p) {
+  if (!p || typeof p !== "object") return;
+
+  const lid =
+    normalizeLidJid(p.lid) ||
+    normalizeLidJid(p.id) ||
+    normalizeLidJid(p.participantLid);
+
+  const pn =
+    normalizePhoneJid(p.phoneNumber) ||
+    normalizePhoneJid(p.jid) ||
+    normalizePhoneJid(p.pn) ||
+    normalizePhoneJid(p.participantPn);
+
+  if (lid && pn) rememberLidPn(lid, pn);
+}
+
+function sameJid(a, b) {
+  a = cleanJid(a);
+  b = cleanJid(b);
+
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  if (a.endsWith("@s.whatsapp.net") && b.endsWith("@s.whatsapp.net")) {
+    return jidNumber(a) === jidNumber(b);
+  }
+
+  return false;
+}
+
+function candidatesMatch(a = [], b = []) {
+  for (const x of a) {
+    for (const y of b) {
+      if (sameJid(x, y)) return true;
+    }
+  }
+
+  return false;
 }
 
 function getParticipantCandidates(value) {
@@ -164,10 +249,20 @@ function getParticipantCandidates(value) {
     add(value.id);
     add(value.lid);
     add(value.participant);
+    add(value.participantPn);
+    add(value.participantLid);
     add(value.user);
     add(value._serialized);
 
-    const n = DIGITS(value.phoneNumber || value.pn || value.user || "");
+    const n = DIGITS(
+      value.phoneNumber ||
+      value.pn ||
+      value.jid ||
+      value.participantPn ||
+      value.user ||
+      ""
+    );
+
     if (n) add(makeRealJid(n));
   }
 
@@ -177,21 +272,31 @@ function getParticipantCandidates(value) {
 /** Si id es @lid y existe .jid o .phoneNumber real, usa el real */
 function lidParser(participants = []) {
   try {
-    return participants.map(v => ({
-      id: (
-        typeof v?.id === "string" &&
-        v.id.endsWith("@lid") &&
-        (
-          typeof v?.jid === "string" ||
-          typeof v?.phoneNumber === "string" ||
-          typeof v?.pn === "string"
+    return participants.map(v => {
+      if (typeof v === "string") {
+        return {
+          id: cleanJid(v),
+          admin: null,
+          raw: v
+        };
+      }
+
+      return {
+        id: (
+          typeof v?.id === "string" &&
+          v.id.endsWith("@lid") &&
+          (
+            typeof v?.jid === "string" ||
+            typeof v?.phoneNumber === "string" ||
+            typeof v?.pn === "string"
+          )
         )
-      )
-        ? cleanJid(v.jid || v.phoneNumber || v.pn)
-        : cleanJid(getJidStr(v)),
-      admin: v?.admin ?? null,
-      raw: v
-    }));
+          ? cleanJid(v.jid || v.phoneNumber || v.pn)
+          : cleanJid(getJidStr(v)),
+        admin: v?.admin ?? null,
+        raw: v
+      };
+    });
   } catch {
     return participants || [];
   }
@@ -210,6 +315,7 @@ function resolveRealFromMeta(meta, anyJid) {
 
   const candidates = getParticipantCandidates(anyJid);
 
+  // Resolver directo por candidates
   for (const c of candidates) {
     if (c.endsWith("@s.whatsapp.net")) {
       out.realJid = cleanJid(c);
@@ -221,6 +327,7 @@ function resolveRealFromMeta(meta, anyJid) {
     }
   }
 
+  // Resolver usando global.lidMap si existe
   try {
     if (global.lidMap instanceof Map) {
       for (const c of candidates) {
@@ -230,10 +337,15 @@ function resolveRealFromMeta(meta, anyJid) {
           out.realJid = cleanJid(resolved);
           out.number = jidNumber(resolved);
         }
+
+        if (resolved && String(resolved).endsWith("@lid")) {
+          out.lidJid = cleanJid(resolved);
+        }
       }
     }
   } catch {}
 
+  // Buscar en metadata
   for (let i = 0; i < raw.length; i++) {
     const p = raw[i] || {};
     const rawIds = getParticipantCandidates(p);
@@ -244,7 +356,7 @@ function resolveRealFromMeta(meta, anyJid) {
       normId
     ].filter(Boolean);
 
-    const match = candidates.some(c => allIds.includes(c));
+    const match = candidatesMatch(candidates, allIds);
 
     if (!match) continue;
 
@@ -278,9 +390,12 @@ function resolveRealFromMeta(meta, anyJid) {
       out.lidJid = p.id;
     }
 
+    rememberFromAnyParticipant(p);
+
     break;
   }
 
+  // Último fallback: extraer número de cualquier candidate
   if (!out.number) {
     for (const c of candidates) {
       const n = jidNumber(c);
@@ -307,12 +422,166 @@ function findParticipantInfo(meta, anyJid) {
   for (const p of raw) {
     const ids = getParticipantCandidates(p);
 
-    if (candidates.some(c => ids.includes(c))) {
+    if (candidatesMatch(candidates, ids)) {
       return p;
     }
   }
 
   return null;
+}
+
+async function getPnForLidSafe(conn, lid) {
+  lid = normalizeLidJid(lid);
+  if (!lid) return "";
+
+  try {
+    const cached = global.lidMap instanceof Map ? global.lidMap.get(lid) : "";
+    if (cached && String(cached).endsWith("@s.whatsapp.net")) {
+      return cleanJid(cached);
+    }
+  } catch {}
+
+  try {
+    const pn = await conn?.signalRepository?.lidMapping?.getPNForLID?.(lid);
+    const real = normalizePhoneJid(pn);
+    if (real) rememberLidPn(lid, real);
+    return real;
+  } catch {}
+
+  return "";
+}
+
+async function getLidForPnSafe(conn, pn) {
+  pn = normalizePhoneJid(pn);
+  if (!pn) return "";
+
+  try {
+    const cached = global.lidMap instanceof Map ? global.lidMap.get(pn) : "";
+    if (cached && String(cached).endsWith("@lid")) {
+      return cleanJid(cached);
+    }
+  } catch {}
+
+  try {
+    const lid = await conn?.signalRepository?.lidMapping?.getLIDForPN?.(pn);
+    const lidJid = normalizeLidJid(lid);
+    if (lidJid) rememberLidPn(lidJid, pn);
+    return lidJid;
+  } catch {}
+
+  return "";
+}
+
+async function resolveParticipant(conn, meta, anyJid) {
+  const rawParticipants = Array.isArray(meta?.participants) ? meta.participants : [];
+
+  for (const x of rawParticipants) {
+    rememberFromAnyParticipant(x);
+  }
+
+  rememberFromAnyParticipant(anyJid);
+
+  const candidates = getParticipantCandidates(anyJid);
+
+  const out = {
+    raw: anyJid,
+    candidates: [...candidates],
+    id: cleanJid(getJidStr(anyJid)),
+    realJid: "",
+    lidJid: "",
+    number: "",
+    numberTrusted: false,
+    mentionJid: "",
+    tag: "@usuario",
+    info: null
+  };
+
+  for (const c of candidates) {
+    if (c.endsWith("@s.whatsapp.net")) {
+      out.realJid = normalizePhoneJid(c);
+      out.number = jidNumber(out.realJid);
+      out.numberTrusted = true;
+    }
+
+    if (c.endsWith("@lid")) {
+      out.lidJid = normalizeLidJid(c);
+    }
+  }
+
+  // Buscar match exacto en metadata
+  for (const p of rawParticipants) {
+    const pCandidates = getParticipantCandidates(p);
+
+    if (!candidatesMatch(candidates, pCandidates)) continue;
+
+    out.info = p;
+
+    for (const c of pCandidates) {
+      if (c.endsWith("@s.whatsapp.net")) {
+        out.realJid = normalizePhoneJid(c);
+        out.number = jidNumber(out.realJid);
+        out.numberTrusted = true;
+      }
+
+      if (c.endsWith("@lid")) {
+        out.lidJid = normalizeLidJid(c);
+      }
+    }
+
+    rememberFromAnyParticipant(p);
+    break;
+  }
+
+  // Resolver por mapa global
+  try {
+    if (global.lidMap instanceof Map) {
+      if (!out.realJid && out.lidJid) {
+        const pn = global.lidMap.get(out.lidJid);
+        if (pn) {
+          out.realJid = normalizePhoneJid(pn);
+          out.number = jidNumber(out.realJid);
+          out.numberTrusted = !!out.number;
+        }
+      }
+
+      if (!out.lidJid && out.realJid) {
+        const lid = global.lidMap.get(out.realJid);
+        if (lid) out.lidJid = normalizeLidJid(lid);
+      }
+    }
+  } catch {}
+
+  // Resolver usando signalRepository si existe
+  if (!out.realJid && out.lidJid) {
+    const pn = await getPnForLidSafe(conn, out.lidJid);
+    if (pn) {
+      out.realJid = pn;
+      out.number = jidNumber(pn);
+      out.numberTrusted = !!out.number;
+    }
+  }
+
+  if (!out.lidJid && out.realJid) {
+    const lid = await getLidForPnSafe(conn, out.realJid);
+    if (lid) out.lidJid = lid;
+  }
+
+  out.mentionJid =
+    out.realJid ||
+    out.lidJid ||
+    candidates.find(x => x.endsWith("@s.whatsapp.net")) ||
+    candidates.find(x => x.endsWith("@lid")) ||
+    out.id ||
+    "";
+
+  if (out.numberTrusted && out.number) {
+    out.tag = `@${out.number}`;
+  } else {
+    const fakeNum = DIGITS(out.mentionJid);
+    out.tag = fakeNum ? `@${fakeNum}` : "@usuario";
+  }
+
+  return out;
 }
 
 function isOwnerNumber(number) {
@@ -451,126 +720,124 @@ function parseStubParticipantParam(value) {
   return cleanJid(value);
 }
 
-function getStubType(m = {}) {
-  return (
-    m.messageStubType ??
-    m.message?.messageStubType ??
-    m.message?.protocolMessage?.messageStubType ??
-    null
-  );
-}
-
-function getStubRawType(m = {}) {
-  return String(
-    m.type ||
-    m.messageStubType ||
-    m.message?.type ||
-    ""
-  );
-}
-
-function getStubParams(m = {}) {
-  const params =
-    m.messageStubParameters ||
-    m.message?.messageStubParameters ||
-    m.message?.protocolMessage?.messageStubParameters ||
-    [];
-
-  return Array.isArray(params) ? params : [];
-}
-
 function stubActionToGroupAction(stubType, type = "") {
   const n = Number(stubType);
   const s = String(type || stubType || "").toLowerCase();
 
-  // En algunas versiones de Baileys:
-  // 27 / 31 = add
-  // 28 / 32 = remove
-  // 29 = promote
-  // 30 = demote
-  if (n === 27 || n === 31 || s.includes("group_participant_add")) return "add";
-  if (n === 28 || n === 32 || s.includes("group_participant_remove")) return "remove";
-  if (n === 29 || s.includes("group_participant_promote")) return "promote";
-  if (n === 30 || s.includes("group_participant_demote")) return "demote";
+  if (
+    n === 27 ||
+    s.includes("group_participant_add") ||
+    s.includes("participant_add")
+  ) return "add";
+
+  if (
+    n === 28 ||
+    n === 32 ||
+    s.includes("group_participant_remove") ||
+    s.includes("group_participant_leave") ||
+    s.includes("participant_remove") ||
+    s.includes("participant_leave")
+  ) return "remove";
+
+  if (
+    n === 29 ||
+    s.includes("group_participant_promote") ||
+    s.includes("participant_promote")
+  ) return "promote";
+
+  if (
+    n === 30 ||
+    s.includes("group_participant_demote") ||
+    s.includes("participant_demote")
+  ) return "demote";
 
   return "";
 }
 
 function buildUpdateFromStubMessage(m = {}) {
-  const chatId = cleanJid(m.key?.remoteJid || m.chat || m.remoteJid || "");
+  const chatId = cleanJid(m.key?.remoteJid || "");
   if (!chatId || !chatId.endsWith("@g.us")) return null;
 
-  const stubType = getStubType(m);
-  const rawType = getStubRawType(m);
-  const action = stubActionToGroupAction(stubType, rawType);
-
+  const action = stubActionToGroupAction(m.messageStubType, m.type);
   if (!action) return null;
 
-  const params = getStubParams(m);
+  const params = Array.isArray(m.messageStubParameters)
+    ? m.messageStubParameters
+    : [];
 
-  const participants = params
+  let participants = params
     .map(parseStubParticipantParam)
     .filter(Boolean)
     .filter(x => {
-      if (typeof x === "string") {
-        return x.endsWith("@s.whatsapp.net") || x.endsWith("@lid");
-      }
-
-      return (
-        String(x.id || "").endsWith("@lid") ||
-        String(x.lid || "").endsWith("@lid") ||
-        String(x.jid || "").endsWith("@s.whatsapp.net") ||
-        String(x.phoneNumber || "").endsWith("@s.whatsapp.net")
+      const ids = getParticipantCandidates(x);
+      return ids.some(id =>
+        id.endsWith("@s.whatsapp.net") ||
+        id.endsWith("@lid")
       );
     });
 
+  // Fallback extra por si el stub viene raro y no trae params bien
+  if (!participants.length) {
+    const possible = [
+      m.participant,
+      m.key?.participant,
+      m.key?.participantPn,
+      m.key?.participantLid
+    ]
+      .map(parseStubParticipantParam)
+      .filter(Boolean);
+
+    participants = possible.filter(x => {
+      const ids = getParticipantCandidates(x);
+      return ids.some(id =>
+        id.endsWith("@s.whatsapp.net") ||
+        id.endsWith("@lid")
+      );
+    });
+  }
+
   if (!participants.length) return null;
 
-  const author = cleanJid(
-    m.key?.participantPn ||
-    m.key?.senderPn ||
-    m.key?.participant ||
-    m.participant ||
-    m.key?.participantLid ||
-    m.key?.senderLid ||
-    ""
-  );
+  const author =
+    cleanJid(m.key?.participant || m.participant || m.key?.participantLid || "") ||
+    "";
+
+  const authorPn =
+    cleanJid(m.key?.participantPn || "") ||
+    "";
 
   return {
     id: chatId,
     action,
     participants,
     author,
+    authorPn,
     fromStub: true,
-    stubType,
-    stubRawType: rawType
+    stubType: m.messageStubType,
+    stubRawType: m.type || ""
   };
 }
 
-function makeEventDedupKey(update = {}) {
-  const chatId = cleanJid(update?.id || "");
-  const action = String(update?.action || "").toLowerCase();
+function makeResolvedDedupKey(chatId, action, resolvedParticipants = []) {
+  const ids = resolvedParticipants
+    .map(u => {
+      return (
+        u.realJid ||
+        u.lidJid ||
+        u.mentionJid ||
+        u.id ||
+        JSON.stringify(u.raw || "")
+      );
+    })
+    .map(cleanJid)
+    .filter(Boolean)
+    .sort();
 
-  const participants = Array.isArray(update?.participants)
-    ? update.participants
-    : [];
-
-  const ids = participants.map(p => {
-    const candidates = getParticipantCandidates(p);
-    const preferred =
-      candidates.find(x => x.endsWith("@s.whatsapp.net")) ||
-      candidates.find(x => x.endsWith("@lid")) ||
-      cleanJid(getJidStr(p)) ||
-      JSON.stringify(p);
-
-    return preferred;
-  }).sort();
-
-  return `${chatId}|${action}|${ids.join(",")}`;
+  return `${cleanJid(chatId)}|${String(action).toLowerCase()}|${ids.join(",")}`;
 }
 
-function shouldSkipDuplicate(update = {}) {
-  const key = makeEventDedupKey(update);
+function shouldSkipDuplicateResolved(chatId, action, resolvedParticipants = []) {
+  const key = makeResolvedDedupKey(chatId, action, resolvedParticipants);
   const now = Date.now();
 
   for (const [k, t] of recentEvents.entries()) {
@@ -579,11 +846,33 @@ function shouldSkipDuplicate(update = {}) {
     }
   }
 
-  if (recentEvents.has(key)) {
-    return true;
-  }
+  if (recentEvents.has(key)) return true;
 
   recentEvents.set(key, now);
+  return false;
+}
+
+async function removeParticipantSmart(conn, chatId, user) {
+  const tries = [
+    user.realJid,
+    user.lidJid,
+    user.mentionJid,
+    user.id,
+    ...(Array.isArray(user.candidates) ? user.candidates : [])
+  ]
+    .map(cleanJid)
+    .filter(Boolean)
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+
+  for (const jid of tries) {
+    try {
+      await conn.groupParticipantsUpdate(chatId, [jid], "remove");
+      return true;
+    } catch (e) {
+      console.log("⚠️ Falló expulsión con:", jid, e.message);
+    }
+  }
+
   return false;
 }
 
@@ -609,11 +898,6 @@ async function handleGroupParticipantsUpdate(conn, update) {
       return;
     }
 
-    if (shouldSkipDuplicate(update)) {
-      console.log("♻️ Evento duplicado ignorado:", action, chatId);
-      return;
-    }
-
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(update?.fromStub ? "🧩 EVENTO DE PARTICIPANTES POR STUB" : "👥 EVENTO DE PARTICIPANTES");
     console.log("➡️ Grupo:", chatId);
@@ -632,14 +916,44 @@ async function handleGroupParticipantsUpdate(conn, update) {
 
     if (!metadata) return;
 
-    if (!adminCache[chatId]) {
-      adminCache[chatId] = new Set(
-        metadata.participants
-          .filter(p => p.admin === "admin" || p.admin === "superadmin")
-          .map(p => cleanJid(getJidStr(p)))
-          .filter(Boolean)
-      );
+    const resolvedParticipants = [];
+
+    for (const pRaw of participants) {
+      const resolved = await resolveParticipant(conn, metadata, pRaw);
+
+      if (!resolved.mentionJid) {
+        console.log("⚠️ Participante sin JID válido. Ignorado:", pRaw);
+        continue;
+      }
+
+      resolvedParticipants.push(resolved);
     }
+
+    if (!resolvedParticipants.length) {
+      console.log("⚠️ No se pudo resolver ningún participante:", participants);
+      return;
+    }
+
+    // Deduplicar DESPUÉS de resolver PN/LID
+    if (shouldSkipDuplicateResolved(chatId, action, resolvedParticipants)) {
+      console.log("♻️ Evento duplicado ignorado:", action, chatId);
+      return;
+    }
+
+    // Actualizar cache de admins con metadata actual
+    adminCache[chatId] = new Set(
+      metadata.participants
+        .filter(p => p.admin === "admin" || p.admin === "superadmin")
+        .map(p => {
+          const ids = getParticipantCandidates(p);
+          return (
+            ids.find(x => x.endsWith("@s.whatsapp.net")) ||
+            ids.find(x => x.endsWith("@lid")) ||
+            cleanJid(getJidStr(p))
+          );
+        })
+        .filter(Boolean)
+    );
 
     const welcomeActive = await getConfigSafe(chatId, "welcome", 0);
     const byeActive = await getConfigSafe(chatId, "despedidas", 0);
@@ -681,31 +995,26 @@ async function handleGroupParticipantsUpdate(conn, update) {
 
     // 🔰 SISTEMA DE AVISO DE CAMBIOS DE ADMIN
     if (action === "promote" || action === "demote") {
-      const actorRaw = update?.author || update?.authorPn || update?.authorLid || "";
-      const actorResolved = resolveRealFromMeta(metadata, actorRaw);
+      const actorRaw = {
+        id: update?.author || "",
+        jid: update?.authorPn || "",
+        phoneNumber: update?.authorPn || "",
+        pn: update?.authorPn || "",
+        lid: update?.author || ""
+      };
 
-      const actorMention =
-        actorResolved.realJid ||
-        actorResolved.lidJid ||
-        cleanJid(actorRaw) ||
-        null;
+      const actor = await resolveParticipant(conn, metadata, actorRaw);
 
+      const actorMention = actor.mentionJid || null;
       const actorNum =
-        actorResolved.number ||
-        jidNumber(actorMention) ||
+        actor.number ||
+        jidNumber(actorMention || "") ||
         "Desconocido";
 
-      for (const targetRaw of participants) {
-        const target = cleanJid(getJidStr(targetRaw));
-        const resolved = resolveRealFromMeta(metadata, targetRaw);
-
-        const targetMention =
-          resolved.realJid ||
-          resolved.lidJid ||
-          target;
-
+      for (const target of resolvedParticipants) {
+        const targetMention = target.mentionJid;
         const targetNum =
-          resolved.number ||
+          target.number ||
           jidNumber(targetMention) ||
           "Desconocido";
 
@@ -747,30 +1056,39 @@ async function handleGroupParticipantsUpdate(conn, update) {
         }
       }
 
+      const newMeta = await conn.groupMetadata(chatId).catch(() => null);
+
+      if (newMeta) {
+        adminCache[chatId] = new Set(
+          newMeta.participants
+            .filter(p => p.admin === "admin" || p.admin === "superadmin")
+            .map(p => {
+              const ids = getParticipantCandidates(p);
+              return (
+                ids.find(x => x.endsWith("@s.whatsapp.net")) ||
+                ids.find(x => x.endsWith("@lid")) ||
+                cleanJid(getJidStr(p))
+              );
+            })
+            .filter(Boolean)
+        );
+      }
+
       return;
     }
 
     // 🔄 SISTEMA DE BIENVENIDAS, DESPEDIDAS Y ANTIÁRABE
-    for (const pRaw of participants) {
-      const participant = cleanJid(getJidStr(pRaw));
-      const resolved = resolveRealFromMeta(metadata, pRaw);
-
-      const mentionId = String(
-        resolved.realJid ||
-        resolved.lidJid ||
-        participant ||
-        ""
-      );
+    for (const user of resolvedParticipants) {
+      const mentionId = String(user.mentionJid || "");
 
       if (!mentionId) {
-        console.log("⚠️ Participante sin JID válido. Ignorado:", pRaw);
+        console.log("⚠️ Participante sin JID válido. Ignorado:", user.raw);
         continue;
       }
 
       const phoneForMention =
-        resolved.number ||
+        user.number ||
         jidNumber(mentionId) ||
-        DIGITS(participant) ||
         "usuario";
 
       const mention = phoneForMention === "usuario"
@@ -780,13 +1098,21 @@ async function handleGroupParticipantsUpdate(conn, update) {
       if (action === "add") {
         const isArabic =
           isActive(antiArabe) &&
-          resolved.number &&
-          arabes.some(cc => resolved.number.startsWith(cc));
+          user.numberTrusted &&
+          user.number &&
+          arabes.some(cc => user.number.startsWith(cc));
+
+        if (isActive(antiArabe) && !user.numberTrusted) {
+          console.log("⚪ Antiárabe no pudo verificar prefijo porque solo llegó LID:", {
+            lid: user.lidJid,
+            mention: user.mentionJid
+          });
+        }
 
         if (isArabic) {
-          const info = findParticipantInfo(metadata, pRaw);
+          const info = user.info || findParticipantInfo(metadata, user.raw);
           const isAdmin = info?.admin === "admin" || info?.admin === "superadmin";
-          const isOwner = isOwnerNumber(resolved.number);
+          const isOwner = isOwnerNumber(user.number);
 
           if (!isAdmin && !isOwner) {
             await conn.sendMessage(chatId, {
@@ -794,16 +1120,10 @@ async function handleGroupParticipantsUpdate(conn, update) {
               mentions: [mentionId]
             });
 
-            try {
-              await conn.groupParticipantsUpdate(chatId, [mentionId], "remove");
-            } catch (e1) {
-              try {
-                if (participant && participant !== mentionId) {
-                  await conn.groupParticipantsUpdate(chatId, [participant], "remove");
-                }
-              } catch (e2) {
-                console.log("⚠️ No se pudo expulsar antiárabe:", e2.message);
-              }
+            const removed = await removeParticipantSmart(conn, chatId, user);
+
+            if (!removed) {
+              console.log("⚠️ No se pudo expulsar antiárabe:", user);
             }
 
             continue;
@@ -817,7 +1137,7 @@ async function handleGroupParticipantsUpdate(conn, update) {
 
         const perfilURL = await getProfileUrl(
           conn,
-          resolved.realJid || mentionId,
+          user.realJid || user.lidJid || mentionId,
           chatId,
           "https://cdn.russellxz.click/e72cc417.jpeg"
         );
@@ -860,7 +1180,7 @@ async function handleGroupParticipantsUpdate(conn, update) {
 
         const perfilURL = await getProfileUrl(
           conn,
-          resolved.realJid || mentionId,
+          user.realJid || user.lidJid || mentionId,
           chatId,
           "https://cdn.russellxz.click/7177383b.jpg"
         );
@@ -896,13 +1216,21 @@ async function handleGroupParticipantsUpdate(conn, update) {
       }
     }
 
+    // Actualizar Cache de Admins Final
     const newMeta = await conn.groupMetadata(chatId).catch(() => null);
 
     if (newMeta) {
       adminCache[chatId] = new Set(
         newMeta.participants
           .filter(p => p.admin === "admin" || p.admin === "superadmin")
-          .map(p => cleanJid(getJidStr(p)))
+          .map(p => {
+            const ids = getParticipantCandidates(p);
+            return (
+              ids.find(x => x.endsWith("@s.whatsapp.net")) ||
+              ids.find(x => x.endsWith("@lid")) ||
+              cleanJid(getJidStr(p))
+            );
+          })
           .filter(Boolean)
       );
     }
@@ -918,6 +1246,7 @@ const handler = async (conn) => {
     return;
   }
 
+  // Evita registrar el listener muchas veces si el loader recarga plugins
   if (conn.__sukiWelcomeOldListenerStarted) {
     console.log("♻️ Listener viejo de bienvenidas/despedidas ya estaba activo.");
     return;
@@ -925,13 +1254,31 @@ const handler = async (conn) => {
 
   conn.__sukiWelcomeOldListenerStarted = true;
 
+  // Guarda mappings LID ↔ PN cuando Baileys los mande
+  conn.ev.on("lid-mapping.update", async (mapping) => {
+    try {
+      const list = Array.isArray(mapping) ? mapping : [mapping];
+
+      for (const item of list) {
+        const lid = cleanJid(item?.lid || item?.id || "");
+        const pn = cleanJid(item?.pn || item?.jid || item?.phoneNumber || "");
+
+        if (lid && pn) {
+          rememberLidPn(lid, pn);
+          console.log("🔗 LID mapping guardado:", lid, "=>", pn);
+        }
+      }
+    } catch (e) {
+      console.log("⚠️ Error guardando lid-mapping.update:", e.message);
+    }
+  });
+
   // Listener normal de Baileys
   conn.ev.on("group-participants.update", async (update) => {
     await handleGroupParticipantsUpdate(conn, update);
   });
 
-  // Fallback por messageStubType.
-  // IMPORTANTE: este listener NO revisa m.message, porque muchos stubs vienen sin m.message.
+  // Fallback nuevo: algunos Baileys ahora mandan add/remove/promote/demote como messageStubType en messages.upsert
   conn.ev.on("messages.upsert", async ({ messages }) => {
     try {
       for (const m of messages || []) {
@@ -946,7 +1293,8 @@ const handler = async (conn) => {
   });
 
   console.log("✅ Listener viejo de bienvenidas/despedidas cargado correctamente.");
-  console.log("✅ Fallback messageStubType 27/28/29/30/31/32 activado correctamente.");
+  console.log("✅ Fallback de eventos por messageStubType activado correctamente.");
+  console.log("✅ Compatibilidad LID/PN para Baileys nueva activada correctamente.");
 };
 
 handler.run = handler;
