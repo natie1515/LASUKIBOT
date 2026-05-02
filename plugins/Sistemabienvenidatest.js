@@ -515,7 +515,7 @@ try {
           const SUKI_IA_BASE_URL = "https://suki-ia.ultraplus.click";
           const SUKI_IA_API_KEY =
             process.env.SUKI_IA_KEY ||
-            "sk-5da7f2ffca8c44238f65cd024fd4faee";
+            "sk-a71ffea8a41e4b76849e18517babe37e";
 
           function cleanChatId(id = "") {
             return String(id || "")
@@ -630,7 +630,9 @@ try {
 } catch (e) {
   console.error("❌ Error en lógica IA natural SukiIA:", e);
 }
-// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===         
+// === 🤖 FIN LÓGICA IA NATURAL SUKI/BOT — SUKI-AI API SOLO TEXTO ===
+              
+
 
   
   //fin de la logica modo admins         
