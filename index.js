@@ -395,7 +395,254 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
   console.log(chalk.cyan(`💬 Tipo: ${Object.keys(m.message)[0]}`));
   console.log(chalk.cyan(`💬 Texto: ${chalk.bold(messageContent || "📂 (Multimedia)")}`));
 
+// === TEST: BIENVENIDA / DESPEDIDA / PROMOTE / DEMOTE POR messages.upsert ===
+try {
+  const chatId = String(m.key?.remoteJid || "");
 
+  if (chatId.endsWith("@g.us")) {
+    global.lidMap = global.lidMap instanceof Map ? global.lidMap : new Map();
+    global._testGroupEvents = global._testGroupEvents || new Map();
+
+    const cleanJid = (jid = "") => {
+      jid = String(jid || "").trim();
+
+      if (jid.includes(":") && jid.includes("@s.whatsapp.net")) {
+        const n = jid.split(":")[0].replace(/[^0-9]/g, "");
+        return n ? `${n}@s.whatsapp.net` : jid;
+      }
+
+      if (jid.includes(":") && jid.includes("@lid")) {
+        const n = jid.split(":")[0].replace(/[^0-9]/g, "");
+        return n ? `${n}@lid` : jid;
+      }
+
+      return jid;
+    };
+
+    const digits = (s = "") => String(s || "").replace(/[^0-9]/g, "");
+    const isUser = (jid = "") => String(jid || "").endsWith("@s.whatsapp.net");
+    const isLid = (jid = "") => String(jid || "").endsWith("@lid");
+
+    const rememberMap = (lid, pn) => {
+      lid = cleanJid(lid);
+      pn = cleanJid(pn);
+
+      if (isLid(lid) && isUser(pn)) {
+        global.lidMap.set(lid, pn);
+        global.lidMap.set(pn, lid);
+      }
+    };
+
+    const parseParam = (value) => {
+      if (!value) return null;
+
+      if (typeof value === "string") {
+        const txt = value.trim();
+
+        if (txt.startsWith("{") && txt.endsWith("}")) {
+          try {
+            const obj = JSON.parse(txt);
+            return obj;
+          } catch {}
+        }
+
+        return {
+          id: cleanJid(txt)
+        };
+      }
+
+      if (typeof value === "object") return value;
+
+      return {
+        id: cleanJid(value)
+      };
+    };
+
+    const getCandidates = (obj) => {
+      const out = [];
+
+      const add = (x) => {
+        const jid = cleanJid(x);
+        if (jid && !out.includes(jid)) out.push(jid);
+      };
+
+      if (!obj) return out;
+
+      if (typeof obj === "string") {
+        add(obj);
+        return out;
+      }
+
+      if (typeof obj === "object") {
+        add(obj.id);
+        add(obj.jid);
+        add(obj.phoneNumber);
+        add(obj.pn);
+        add(obj.lid);
+        add(obj.participant);
+        add(obj.participantPn);
+        add(obj.participantLid);
+      }
+
+      return out;
+    };
+
+    const resolveJid = async (raw) => {
+      const obj = parseParam(raw);
+      const candidates = getCandidates(obj);
+
+      let realJid = candidates.find(isUser) || "";
+      let lidJid = candidates.find(isLid) || "";
+
+      if (!realJid && lidJid && global.lidMap.has(lidJid)) {
+        const mapped = global.lidMap.get(lidJid);
+        if (isUser(mapped)) realJid = mapped;
+      }
+
+      if (!lidJid && realJid && global.lidMap.has(realJid)) {
+        const mapped = global.lidMap.get(realJid);
+        if (isLid(mapped)) lidJid = mapped;
+      }
+
+      if (!realJid && lidJid) {
+        try {
+          const pn = await sock.signalRepository?.lidMapping?.getPNForLID?.(lidJid);
+          if (isUser(pn)) {
+            realJid = cleanJid(pn);
+            rememberMap(lidJid, realJid);
+          }
+        } catch {}
+      }
+
+      if (!lidJid && realJid) {
+        try {
+          const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(realJid);
+          if (isLid(lid)) {
+            lidJid = cleanJid(lid);
+            rememberMap(lidJid, realJid);
+          }
+        } catch {}
+      }
+
+      const mentionJid =
+        realJid ||
+        lidJid ||
+        candidates[0] ||
+        "";
+
+      const number =
+        realJid ? digits(realJid) :
+        lidJid ? digits(lidJid) :
+        digits(mentionJid);
+
+      return {
+        raw,
+        realJid,
+        lidJid,
+        mentionJid,
+        number: number || "usuario"
+      };
+    };
+
+    const getStubAction = () => {
+      const n = Number(m.messageStubType);
+      const s = String(m.messageStubType || m.type || "").toLowerCase();
+
+      if (n === 27 || s.includes("add")) return "add";
+      if (n === 28 || n === 32 || s.includes("remove") || s.includes("leave")) return "remove";
+      if (n === 29 || s.includes("promote")) return "promote";
+      if (n === 30 || s.includes("demote")) return "demote";
+
+      return "";
+    };
+
+    const action = getStubAction();
+
+    if (action) {
+      const params = Array.isArray(m.messageStubParameters)
+        ? m.messageStubParameters
+        : [];
+
+      const targetsRaw = params
+        .map(parseParam)
+        .filter(Boolean);
+
+      if (targetsRaw.length) {
+        const resolvedTargets = [];
+
+        for (const target of targetsRaw) {
+          const user = await resolveJid(target);
+          if (user.mentionJid) resolvedTargets.push(user);
+        }
+
+        if (resolvedTargets.length) {
+          const dedupKey = `${chatId}|${action}|${resolvedTargets.map(x => x.mentionJid).sort().join(",")}`;
+          const now = Date.now();
+
+          for (const [k, t] of global._testGroupEvents.entries()) {
+            if (now - t > 8000) global._testGroupEvents.delete(k);
+          }
+
+          if (!global._testGroupEvents.has(dedupKey)) {
+            global._testGroupEvents.set(dedupKey, now);
+
+            const actorRaw = {
+              id: m.key?.participant || m.participant || m.key?.participantLid || "",
+              jid: m.key?.participantPn || "",
+              phoneNumber: m.key?.participantPn || "",
+              lid: m.key?.participantLid || m.key?.participant || ""
+            };
+
+            const actor = await resolveJid(actorRaw);
+
+            for (const user of resolvedTargets) {
+              if (action === "add") {
+                await sock.sendMessage(chatId, {
+                  text: `👋 Bienvenido @${user.number}\n\n✅ Test de bienvenida funcionando.`,
+                  mentions: [user.mentionJid]
+                });
+              }
+
+              if (action === "remove") {
+                await sock.sendMessage(chatId, {
+                  text: `👋 Se fue @${user.number}\n\n✅ Test de despedida funcionando.`,
+                  mentions: [user.mentionJid]
+                });
+              }
+
+              if (action === "promote") {
+                await sock.sendMessage(chatId, {
+                  text:
+`╭──『 👑 NUEVO ADMIN 』─◆
+│ 👤 Usuario: @${user.number}
+│ ✅ Ascendido por: @${actor.number}
+╰────────────────────◆`,
+                  mentions: [user.mentionJid, actor.mentionJid].filter(Boolean)
+                });
+              }
+
+              if (action === "demote") {
+                await sock.sendMessage(chatId, {
+                  text:
+`╭──『 📉 ADMIN QUITADO 』─◆
+│ 👤 Usuario: @${user.number}
+│ ❌ Quitado por: @${actor.number}
+╰────────────────────◆`,
+                  mentions: [user.mentionJid, actor.mentionJid].filter(Boolean)
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} catch (e) {
+  console.error("❌ Error en TEST group events:", e);
+}
+// === FIN TEST ===
+
+if (!m.message) return;
 
 /* === STICKER → COMANDO (GLOBAL) usando ./comandos.json — para Suki === */
 try {
