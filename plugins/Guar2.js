@@ -212,5 +212,5 @@ const handler = async (msg, { conn, args, wa }) => {
   }
 };
 
-handler.command = ["guar"];
+handler.command = ["guar2"];
 module.exports = handler;
