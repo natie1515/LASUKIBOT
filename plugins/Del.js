@@ -4,6 +4,29 @@ const path = require("path");
 const RUTA_VIEJA = path.resolve("./guar.json");       // legacy (base64)
 const RUTA_NUEVA = path.resolve("./guar_files.json"); // nuevo (rutas)
 
+function getPaqueteCandidates(paquete) {
+  const clean = String(paquete || "").trim().toLowerCase();
+  const withoutDot = clean.replace(/^\.+/, "");
+
+  if (!clean) return [];
+
+  if (clean.startsWith(".")) {
+    return [...new Set([clean, withoutDot])];
+  }
+
+  return [...new Set([clean, `.${clean}`])];
+}
+
+function resolveKey(db, paquete) {
+  const candidates = getPaqueteCandidates(paquete);
+
+  for (const key of candidates) {
+    if (Array.isArray(db[key])) return key;
+  }
+
+  return paquete;
+}
+
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const sender = (msg.key.participant || msg.key.remoteJid).replace(/\D/g, "");
@@ -15,7 +38,8 @@ const handler = async (msg, { conn, args }) => {
   // ====== Parsear argumentos: último = número, el resto = palabra clave ======
   // Ejemplos:
   //   .del hola 2           → paquete="hola", index=2
-  //   .del hola fino 3      → paquete="hola fino", index=3
+  //   .del .hola 2          → paquete=".hola", index=2
+  //   .del guar 1           → también busca ".guar"
   //   .del mi saludo 1      → paquete="mi saludo", index=1
   const argsArr = Array.isArray(args) ? args : [];
   const lastArg = argsArr[argsArr.length - 1];
@@ -25,7 +49,7 @@ const handler = async (msg, { conn, args }) => {
   if (!paquete || isNaN(index) || argsArr.length < 2) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: `❗ Usa correctamente:\n*${pref}del <paquete> <número>*\n\nEjemplos:\n• ${pref}del hola 2\n• ${pref}del hola fino 1\n• ${pref}del mi saludo 3`,
+      text: `❗ Usa correctamente:\n*${pref}del <paquete> <número>*\n\nEjemplos:\n• ${pref}del hola 2\n• ${pref}del .hola 1\n• ${pref}del guar 1\n• ${pref}del .guar 1`,
     }, { quoted: msg });
   }
 
@@ -36,18 +60,26 @@ const handler = async (msg, { conn, args }) => {
   if (fs.existsSync(RUTA_VIEJA)) {
     try { dbVieja = JSON.parse(fs.readFileSync(RUTA_VIEJA, "utf-8")); } catch { dbVieja = {}; }
   }
+
   if (fs.existsSync(RUTA_NUEVA)) {
     try { dbNueva = JSON.parse(fs.readFileSync(RUTA_NUEVA, "utf-8")); } catch { dbNueva = {}; }
   }
 
-  const itemsViejos = Array.isArray(dbVieja[paquete]) ? dbVieja[paquete] : [];
-  const itemsNuevos = Array.isArray(dbNueva[paquete]) ? dbNueva[paquete] : [];
+  // NUEVO:
+  // Permite borrar paquetes guardados con punto.
+  // Si pones ".del guar 1" y existe ".guar", lo encuentra.
+  // Si pones ".del .guar 1", también lo encuentra.
+  const paqueteViejoReal = resolveKey(dbVieja, paquete);
+  const paqueteNuevoReal = resolveKey(dbNueva, paquete);
+
+  const itemsViejos = Array.isArray(dbVieja[paqueteViejoReal]) ? dbVieja[paqueteViejoReal] : [];
+  const itemsNuevos = Array.isArray(dbNueva[paqueteNuevoReal]) ? dbNueva[paqueteNuevoReal] : [];
   const total = itemsViejos.length + itemsNuevos.length;
 
   if (total === 0) {
     await conn.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     return conn.sendMessage(chatId, {
-      text: `⚠️ No existe el paquete *"${paquete}"*.`,
+      text: `⚠️ No existe el paquete *"${paquete}"*.\nTambién busqué si estaba guardado como *".${paquete.replace(/^\.+/, "")}"*.`,
     }, { quoted: msg });
   }
 
@@ -102,12 +134,20 @@ const handler = async (msg, { conn, args }) => {
   // ====== Eliminar del archivo correcto ======
   try {
     if (origen === "vieja") {
-      dbVieja[paquete].splice(idxLocal, 1);
-      if (dbVieja[paquete].length === 0) delete dbVieja[paquete];
+      dbVieja[paqueteViejoReal].splice(idxLocal, 1);
+
+      if (dbVieja[paqueteViejoReal].length === 0) {
+        delete dbVieja[paqueteViejoReal];
+      }
+
       fs.writeFileSync(RUTA_VIEJA, JSON.stringify(dbVieja, null, 2));
     } else {
-      const eliminado = dbNueva[paquete].splice(idxLocal, 1)[0];
-      if (dbNueva[paquete].length === 0) delete dbNueva[paquete];
+      const eliminado = dbNueva[paqueteNuevoReal].splice(idxLocal, 1)[0];
+
+      if (dbNueva[paqueteNuevoReal].length === 0) {
+        delete dbNueva[paqueteNuevoReal];
+      }
+
       fs.writeFileSync(RUTA_NUEVA, JSON.stringify(dbNueva, null, 2));
 
       // También borrar el archivo físico de la carpeta guar_media/
@@ -128,8 +168,10 @@ const handler = async (msg, { conn, args }) => {
 
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
+  const paqueteReal = origen === "vieja" ? paqueteViejoReal : paqueteNuevoReal;
+
   return conn.sendMessage(chatId, {
-    text: `✅ Archivo número *${index}* eliminado del paquete: *${paquete}*`
+    text: `✅ Archivo número *${index}* eliminado del paquete: *${paqueteReal}*`
   }, { quoted: msg });
 };
 
