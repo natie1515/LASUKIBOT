@@ -1,7 +1,7 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 const DB_PATH = path.resolve("./ventas365.json");
 
 const handler = async (msg, { conn }) => {
@@ -31,4 +31,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["diamantes"];
-module.exports = handler;
+export default handler;

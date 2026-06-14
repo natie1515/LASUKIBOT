@@ -51,4 +51,4 @@ const handler = async (conn) => {
 };
 
 handler.run = handler;
-module.exports = handler;
+export default handler;

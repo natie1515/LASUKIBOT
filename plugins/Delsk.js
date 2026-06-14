@@ -4,8 +4,8 @@
 //   .dels memes 2              → elimina el sticker #2 del paquete "memes"
 //   .dels hola fino 1          → elimina el #1 de "hola fino"
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const PACKS_DB = path.resolve("./guars_packs.json");
 
@@ -133,4 +133,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["delsk"];
-module.exports = handler;
+export default handler;

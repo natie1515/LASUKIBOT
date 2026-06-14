@@ -1,13 +1,16 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/tovideo.js — ESM-safe: sticker (.webp) → .mp4 con fallback a API
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
-const axios = require("axios");
-const FormData = require("form-data");
-const { spawn } = require("child_process");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import FormData from 'form-data';
+import { spawn } from 'child_process';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipeline = promisify(pipeline);
 
 const CDN_ENDPOINT = "https://cdn.russellxz.click";
@@ -156,4 +159,4 @@ handler.help     = ["tovideo"];
 handler.tags     = ["tools"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

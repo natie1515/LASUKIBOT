@@ -1,6 +1,6 @@
-const Database = require("better-sqlite3");
-const path = require("path");
-const fs = require("fs");
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
 
 const db = new Database(path.resolve("activos.db"));
 
@@ -113,7 +113,7 @@ function saveAntideleteDB(data) {
   fs.writeFileSync(antideletePath, JSON.stringify(data, null, 2));
 }
 
-module.exports = {
+export {
   setConfig,
   getConfig,
   deleteConfig,

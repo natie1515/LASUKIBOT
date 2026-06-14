@@ -4,8 +4,8 @@
 // Reacciona al usar el comando y responde citando el mensaje original.
 // Nota: el bot está alojado en "Sky Ultra Plus" (informativo).
 
-const os = require("os");
-const { exec } = require("child_process");
+import os from 'os';
+import { exec } from 'child_process';
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return "—";
@@ -86,7 +86,7 @@ function getDisksInfo() {
   });
 }
 
-module.exports = async (msg, { conn }) => {
+const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
 
   // Reacción inicial
@@ -170,4 +170,6 @@ module.exports = async (msg, { conn }) => {
   await conn.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 };
 
-module.exports.command = ["p"];
+handler.command = ["p"];
+
+export default handler;

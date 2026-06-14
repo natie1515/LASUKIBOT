@@ -33,4 +33,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ['lidreal'];
-module.exports = handler;
+export default handler;

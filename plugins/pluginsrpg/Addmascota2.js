@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const PAUSA_MS = 3000;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -147,4 +147,4 @@ const handler = async (msg, { conn, args, command }) => {
 };
 
 handler.command = ["addmascota2", "addmas2"];
-module.exports = handler;
+export default handler;

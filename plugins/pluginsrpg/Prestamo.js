@@ -1,7 +1,7 @@
 // plugins/prestamo.js
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 const MAX_PRESTAMO = 250000; // Tope acumulado por préstamo activo
 
@@ -277,4 +277,4 @@ ${restante > 0 ? `👉 Aún puedes solicitar hasta *${restante}* créditos.` : "
 };
 
 handler.command = ["prestamo"];
-module.exports = handler;
+export default handler;

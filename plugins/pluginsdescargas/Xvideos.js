@@ -6,7 +6,7 @@
 
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 // === Config API ===
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
@@ -369,4 +369,4 @@ handler.help = ["xvideos <url> [hd]", "xv <url> [hd]"];
 handler.tags = ["nsfw", "dl"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

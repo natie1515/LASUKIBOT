@@ -1,6 +1,6 @@
 // plugins/gouser.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000;
 const EDIT_DELAY = 1500;
@@ -243,4 +243,4 @@ const handler = async (msg, { conn, command }) => {
 };
 
 handler.command = ["gouser"];
-module.exports = handler;
+export default handler;

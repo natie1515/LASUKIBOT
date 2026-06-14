@@ -1,7 +1,7 @@
 // plugins/antis.js
-const fs = require("fs");
-const path = require("path");
-const { setConfig } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import { setConfig } from '../../db.js';
 
 // ✅ Patrón seguro para extraer solo números
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
@@ -120,4 +120,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["antis"];
-module.exports = handler;
+export default handler;

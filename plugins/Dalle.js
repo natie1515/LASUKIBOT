@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 
 const handler = async (msg, { conn, text, args, command }) => {
   const chatId = msg.key.remoteJid;
@@ -51,4 +51,4 @@ handler.help = ['dalle <prompt>'];
 handler.tags = ['ia'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

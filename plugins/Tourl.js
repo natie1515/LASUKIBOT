@@ -1,9 +1,12 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/tourl.js
-const fs = require('fs');
-const path = require('path');
-const FormData = require('form-data');
-const axios = require('axios');
-const ffmpeg = require('fluent-ffmpeg');
+import fs from 'fs';
+import path from 'path';
+import FormData from 'form-data';
+import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
 
 // ——— Utils ———
 function unwrapMessage(m) {
@@ -175,4 +178,4 @@ handler.help     = ['tourl'];
 handler.tags     = ['herramientas'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

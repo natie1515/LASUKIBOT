@@ -12,11 +12,11 @@
 
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
-const Crypto = require("crypto");
-const ffmpeg = require("fluent-ffmpeg");
-const webp = require("node-webpmux");
+import fs from 'fs';
+import path from 'path';
+import Crypto from 'crypto';
+import ffmpeg from 'fluent-ffmpeg';
+import webp from 'node-webpmux';
 
 const TMP_DIR = path.resolve("./tmp");
 const ACTIVOSS_FILE = path.resolve("./activoss.json");
@@ -767,4 +767,4 @@ ${listaNumerada}
 handler.command = ["sks"];
 handler.help = ["sks"];
 handler.tags = ["stickers"];
-module.exports = handler;
+export default handler;

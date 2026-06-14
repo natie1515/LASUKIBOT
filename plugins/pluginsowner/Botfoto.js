@@ -1,6 +1,6 @@
 // plugins/botfoto.js — ESM-safe + wa.download
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // Desencapsula view-once / efímeros
 function unwrapMessage(m) {
@@ -88,4 +88,4 @@ const handler = async (msg, { conn, wa }) => {
 };
 
 handler.command = ["botfoto"];
-module.exports = handler;
+export default handler;

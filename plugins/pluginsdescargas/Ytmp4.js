@@ -1,3 +1,6 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // comandos/ytmp4.js — YouTube MP4 (URL)
 // ✅ Mensaje de opciones: solo explicación de descarga
 // ✅ Info del video: va con el archivo descargado
@@ -6,12 +9,12 @@
 
 "use strict";
 
-const axios = require("axios");
-const yts = require("yt-search");
-const fs = require("fs");
-const path = require("path");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import yts from 'yt-search';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== CONFIG DE TU API ====
@@ -141,7 +144,7 @@ async function callYoutubeResolveVideo(videoUrl, quality) {
 }
 
 // ---------- main ----------
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const pref = global.prefixes?.[0] || ".";
   const url = (args[0] || "").trim();
 
@@ -534,7 +537,9 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   try { fs.unlinkSync(file); } catch {}
 }
 
-module.exports.command = ["ytmp4", "ytv", "yt4"];
-module.exports.help = ["ytmp4 <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["ytmp4", "ytv", "yt4"];
+handler.help = ["ytmp4 <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

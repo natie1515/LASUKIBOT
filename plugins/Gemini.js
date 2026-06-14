@@ -1,5 +1,5 @@
 //--> Hecho por Ado para Suki :D
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 const gemini = {
   getNewCookie: async function () {
@@ -113,4 +113,4 @@ handler.command = ['gemini'];
 handler.tags = ['ai'];
 handler.help = ['gemini'];
 
-module.exports = handler;
+export default handler;

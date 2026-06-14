@@ -1,6 +1,6 @@
 // plugins/bc.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ——— helpers ESM-safe + quoted ———
 function unwrapMessage(m) {
@@ -145,4 +145,4 @@ handler.tags = ["owner"];
 handler.help = ["bc (respondiendo a un mensaje)"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

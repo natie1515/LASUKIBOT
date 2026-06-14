@@ -1,6 +1,6 @@
 // plugins/modoadmins.js
-const path = require("path");
-const { getConfig, setConfig, deleteConfig } = requireFromRoot("db");
+import path from 'path';
+import { getConfig, setConfig, deleteConfig } from '../../db.js';
 
 const DIGITS = function(s) { return String(s || "").replace(/[^0-9]/g, ""); };
 
@@ -113,4 +113,4 @@ const handler = async function(msg, opts) {
 };
 
 handler.command = ["modoadmins"];
-module.exports = handler;
+export default handler;

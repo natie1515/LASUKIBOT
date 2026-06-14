@@ -112,4 +112,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['16vs16'];
-module.exports = handler;
+export default handler;

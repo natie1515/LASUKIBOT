@@ -2,8 +2,8 @@
 // Comando: .pasarlider @usuario
 // Solo el líder actual puede usarlo para transferir el liderazgo a otro miembro del clan.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p) { return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}; }
 function saveDB(p, o) { fs.writeFileSync(p, JSON.stringify(o, null, 2)); }
@@ -78,4 +78,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["pasarlider"];
-module.exports = handler;
+export default handler;

@@ -2,8 +2,8 @@
 // Lista los paquetes multimedia guardados en el NUEVO formato (guar_files.json + ./guar_media/)
 // Soporta también el formato viejo (guar.json) por compatibilidad: si existen ambos, los combina.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const FILES_DB = path.resolve("./guar_files.json");
 const OLD_DB = path.resolve("./guar.json");
@@ -121,4 +121,4 @@ handler.help = ["menuaudio"];
 handler.tags = ["menu"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

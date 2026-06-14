@@ -139,4 +139,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['sorteo'];
-module.exports = handler;
+export default handler;

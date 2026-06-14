@@ -1,7 +1,7 @@
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
-const { getConfig } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
+import { getConfig } from '../../db.js';
 
 // Cache global de admins por chat
 const adminCache = {};
@@ -903,4 +903,4 @@ const handler = async (conn) => {
 };
 
 handler.run = handler;
-module.exports = handler;
+export default handler;

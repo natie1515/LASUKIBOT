@@ -1,6 +1,6 @@
 // plugins/superpoder.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 horas
 const NIVEL_MINIMO = 20;
@@ -140,4 +140,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["superpoder"];
-module.exports = handler;
+export default handler;

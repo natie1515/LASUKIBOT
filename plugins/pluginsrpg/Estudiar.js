@@ -1,6 +1,6 @@
 // plugins/estudiar.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000; // 7 minutos
 const XP_NIVEL_BASE = 100;
@@ -168,4 +168,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["estudiar"];
-module.exports = handler;
+export default handler;

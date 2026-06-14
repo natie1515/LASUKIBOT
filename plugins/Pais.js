@@ -1,4 +1,4 @@
-const fs = require("fs");
+import fs from 'fs';
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
@@ -58,4 +58,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["pais"];
-module.exports = handler;
+export default handler;

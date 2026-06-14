@@ -2,8 +2,8 @@
 // Comando: .tiendaesclavos / .tiendaes
 // Muestra información de ganancias, esclavos reclamados (agrupados por dueño) y esclavos disponibles.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const MENU_URL = "https://cdn.russellxz.click/27293a78.jpeg";
 
@@ -161,4 +161,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["tiendaesclavos", "tiendaes"];
-module.exports = handler;
+export default handler;

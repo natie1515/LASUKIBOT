@@ -3,8 +3,8 @@
 // Paga internamente por tick y actualiza totales para que .veres lo muestre en tiempo real.
 // Además: cuando hay evento NEGATIVO (5%), se NOTIFICA en el chat (agrupado por dueño).
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // === Config (modo TEST) ===
 const INTERVALO_MS    = 15 * 1000;     // cada cuánto revisa la DB
@@ -250,4 +250,4 @@ const handler = async (conn) => {
 };
 
 handler.run = handler;
-module.exports = handler;
+export default handler;

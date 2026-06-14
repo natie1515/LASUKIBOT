@@ -1,7 +1,7 @@
 
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 // ==== CONFIG API ====
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
@@ -92,7 +92,7 @@ async function callPinterestImages(q) {
 }
 
 // ---- command ----
-module.exports = async (msg, { conn, text }) => {
+const handler = async (msg, { conn, text }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
@@ -171,4 +171,6 @@ module.exports = async (msg, { conn, text }) => {
   }
 };
 
-module.exports.command = ["pinterestimg", "pinterest", "pimg"];
+handler.command = ["pinterestimg", "pinterest", "pimg"];
+
+export default handler;

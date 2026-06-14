@@ -3,8 +3,8 @@
 // Requiere: nivel de usuario ≥ 30 y costo 30,000 créditos.
 // Crea clan nivel 1, con bodega y registra al líder.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COSTO_CREAR_CLAN = 30000;
 
@@ -126,4 +126,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["crearclan"];
-module.exports = handler;
+export default handler;

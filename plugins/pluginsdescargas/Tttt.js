@@ -1,13 +1,13 @@
 
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 const ENDPOINT = "https://api-sky.ultraplus.click/tiktok";
 const API_KEY = "Russellxz";
 const TIMEOUT = 25000;
 
-module.exports = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const url = (args.join(" ") || "").trim();
 
@@ -70,7 +70,9 @@ module.exports = async (msg, { conn, args }) => {
   }
 };
 
-module.exports.command = ["ttt", "tiktoktest"];
-module.exports.help = ["tt <url>", "tiktok <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["ttt", "tiktoktest"];
+handler.help = ["tt <url>", "tiktok <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

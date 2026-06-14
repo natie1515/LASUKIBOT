@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from 'axios';
 
 const handler = async (msg, { conn, args, text }) => {
   const chatId = msg.key.remoteJid;
@@ -61,4 +61,4 @@ const handler = async (msg, { conn, args, text }) => {
 };
 
 handler.command = ["yts", "ytsearch"];
-module.exports = handler;
+export default handler;

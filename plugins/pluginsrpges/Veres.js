@@ -3,8 +3,8 @@
 // Lista los esclavos del dueño con tiempo restante del contrato,
 // próxima recompensa, y acumulados Ganado / Perdido / Neto.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function cargarDB(p) {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
@@ -111,4 +111,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["veres", "veresclavos"];
-module.exports = handler;
+export default handler;

@@ -6,9 +6,9 @@
 // ✅ DESCARGA REAL (direct url) y ENVÍA el MP4 por WhatsApp
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 const API_BASE = "https://api-sky.ultraplus.click";
 const API_KEY = "Russellxz";
@@ -396,4 +396,4 @@ handler.help = ["porn <url> [240|480|720|1080]"];
 handler.tags = ["descargas"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

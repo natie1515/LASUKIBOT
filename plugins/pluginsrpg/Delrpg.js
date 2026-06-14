@@ -1,9 +1,9 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const pendingDelete = {};
 
-module.exports = async (msg, { conn }) => {
+const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
   const sender = msg.key.participant || msg.key.remoteJid;
   const numero = sender.replace(/[^0-9]/g, "");
@@ -153,4 +153,6 @@ module.exports = async (msg, { conn }) => {
   }
 };
 
-module.exports.command = ["delrpg"];
+handler.command = ["delrpg"];
+
+export default handler;

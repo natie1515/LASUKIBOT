@@ -5,8 +5,8 @@
 //   .darnivel -3 @user      → disminuye 3 niveles (mín 1)
 // También funciona respondiendo al mensaje del usuario objetivo.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p){ return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}; }
 function saveDB(p,o){ fs.writeFileSync(p, JSON.stringify(o, null, 2)); }
@@ -128,4 +128,4 @@ ${detalle}`,
 };
 
 handler.command = ["darnivel"];
-module.exports = handler;
+export default handler;

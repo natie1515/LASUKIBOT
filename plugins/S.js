@@ -1,9 +1,12 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/sticker.js
-const fs = require("fs");
-const path = require("path");
-const Crypto = require("crypto");
-const ffmpeg = require("fluent-ffmpeg");
-const webp = require("node-webpmux");
+import fs from 'fs';
+import path from 'path';
+import Crypto from 'crypto';
+import ffmpeg from 'fluent-ffmpeg';
+import webp from 'node-webpmux';
 
 // === Carpeta temporal ===
 const tempFolder = path.join(__dirname, "../tmp/");
@@ -105,7 +108,7 @@ const handler = async (msg, { conn, wa }) => {
 };
 
 handler.command = ["s"];
-module.exports = handler;
+export default handler;
 
 // === Funciones auxiliares ===
 async function imageToWebp(media) {

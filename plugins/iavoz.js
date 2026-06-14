@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 async function streamToBuffer(stream) {
   const chunks = [];
@@ -48,4 +48,4 @@ const handler = async (msg, { conn, args, command }) => {
 handler.command = ['iavoz'];
 handler.tags = ['ia'];
 handler.help = ['iavoz <texto>'];
-module.exports = handler;
+export default handler;

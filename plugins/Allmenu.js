@@ -43,4 +43,4 @@ handler.command = ["allmenu"];
 handler.help = ["allmenu"];
 handler.tags = ["menu"];
 
-module.exports = handler;
+export default handler;

@@ -5,9 +5,9 @@
 
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY  || "Russellxz";
@@ -364,4 +364,4 @@ handler.help = ["tiktok <url>", "tt <url>"];
 handler.tags = ["descargas"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

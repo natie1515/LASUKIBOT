@@ -1,7 +1,7 @@
 // plugins/toaudio.js
-const fs = require("fs");
-const path = require("path");
-const { toAudio } = requireFromRoot("libs/converter.js");
+import fs from 'fs';
+import path from 'path';
+import { toAudio } from '../libs/converter.js';
 
 // ——— Helpers ———
 function unwrapMessage(m) {
@@ -136,4 +136,4 @@ handler.help = ["toaudio"];
 handler.tags = ["conversores"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

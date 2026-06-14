@@ -1,9 +1,9 @@
 // plugins/guar.js
 // Usa wa.downloadContentFromMessage inyectado desde index.js (o conn.wa / global.wa)
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 // Carpeta raíz donde se guardarán los multimedia
 const MEDIA_ROOT = path.resolve("./guar_media");
@@ -213,4 +213,4 @@ const handler = async (msg, { conn, args, wa }) => {
 };
 
 handler.command = ["guar"];
-module.exports = handler;
+export default handler;

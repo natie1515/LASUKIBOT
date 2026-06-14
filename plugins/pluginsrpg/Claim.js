@@ -1,6 +1,6 @@
 // plugins/claim.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 horas
 const NIVEL_MINIMO = 20;
@@ -129,4 +129,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["claim"];
-module.exports = handler;
+export default handler;

@@ -63,4 +63,4 @@ const handler = async (msg, { conn, wa }) => {
 };
 
 handler.command = ["ping"];
-module.exports = handler;
+export default handler;

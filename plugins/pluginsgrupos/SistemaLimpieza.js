@@ -1,9 +1,9 @@
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const chalk = require("chalk");
-const { readdirSync, statSync, lstatSync, unlinkSync, rmdirSync } = require("fs");
-const { getAntideleteDB, saveAntideleteDB } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import chalk from 'chalk';
+import { readdirSync, statSync, lstatSync, unlinkSync, rmdirSync } from 'fs';
+import { getAntideleteDB, saveAntideleteDB } from '../../db.js';
 
 // --- Config ---
 const RETENTION_MS = 1 * 60 * 1000;     // borrar archivos con >= 1 minuto
@@ -167,4 +167,4 @@ function run() {
   tick();
 }
 
-module.exports = { run };
+export default { run };

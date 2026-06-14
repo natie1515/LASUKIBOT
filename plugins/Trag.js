@@ -5,9 +5,9 @@
 //   .trag 1  → migra 1 paquete
 //   .trag 5  → migra los primeros 5 paquetes
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 const RUTA_VIEJA = path.resolve("./guar.json");
 const RUTA_NUEVA = path.resolve("./guar_files.json");
@@ -201,4 +201,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["trag"];
-module.exports = handler;
+export default handler;

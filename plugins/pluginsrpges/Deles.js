@@ -2,8 +2,8 @@
 // Comando: .deles <número>
 // Elimina un esclavo comprado por el dueño
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function cargarDB(p) { return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}; }
 function guardarDB(p, obj) { fs.writeFileSync(p, JSON.stringify(obj, null, 2)); }
@@ -84,4 +84,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["deles", "eliminaresclavo"];
-module.exports = handler;
+export default handler;

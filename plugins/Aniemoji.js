@@ -1,8 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const axios = require("axios");
-const Crypto = require("crypto");
-const webp = require("node-webpmux");
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import Crypto from 'crypto';
+import webp from 'node-webpmux';
 
 const tempFolder = path.join(__dirname, "../tmp/");
 if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
@@ -74,7 +77,7 @@ const handler = async (msg, { conn, args, text }) => {
 };
 
 handler.command = ["aniemoji"];
-module.exports = handler;
+export default handler;
 
 /* === FUNCIONES DE EXIF DIRECTO === */
 

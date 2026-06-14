@@ -1,6 +1,6 @@
 // plugins/checkTiempoGrupos.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const OPEN_FILE  = path.resolve("tiempo_grupo.json");   // abrir
 const CLOSE_FILE = path.resolve("tiempogrupo2.json");  // cerrar
@@ -112,4 +112,4 @@ const handler = async (conn) => {
 };
 
 handler.run = handler;
-module.exports = handler;
+export default handler;

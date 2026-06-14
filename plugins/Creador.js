@@ -25,4 +25,4 @@ Si tienes dudas, preguntas o sugerencias sobre el bot, puedes contactar a mi cre
 };
 
 handler.command = ['creador', 'owner', 'contacto'];
-module.exports = handler;
+export default handler;

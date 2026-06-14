@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const gifUrls = [
   "https://cdn.russellxz.click/f66ec014.mp4",
@@ -117,4 +117,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["slap"];
-module.exports = handler;
+export default handler;

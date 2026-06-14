@@ -1,4 +1,4 @@
-const moment = require("moment-timezone");
+import moment from 'moment-timezone';
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
@@ -111,4 +111,4 @@ ${horaMsg}
 };
 
 handler.command = ['guerr'];
-module.exports = handler;
+export default handler;

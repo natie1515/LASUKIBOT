@@ -1,8 +1,11 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/hd.js
-const fs = require("fs");
-const path = require("path");
-const FormData = require("form-data");
-const axios = require("axios");
+import fs from 'fs';
+import path from 'path';
+import FormData from 'form-data';
+import axios from 'axios';
 
 // Desencapsula viewOnce/ephemeral
 function unwrapMessage(m) {
@@ -131,4 +134,4 @@ handler.command  = ["hd"];
 handler.help     = ["hd"];
 handler.tags     = ["tools"];
 handler.register = true;
-module.exports   = handler;
+export default handler;

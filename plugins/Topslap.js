@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const SLAP_PATH = path.resolve("slap_data.json");
 
@@ -71,4 +71,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["topslap"];
-module.exports = handler;
+export default handler;

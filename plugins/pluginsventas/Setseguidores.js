@@ -1,7 +1,7 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // (helpers idénticos a setlotes)
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
@@ -137,4 +137,4 @@ const handler = async (msg, { conn, args, text, wa }) => {
 };
 
 handler.command = ["setseguidores"];
-module.exports = handler;
+export default handler;

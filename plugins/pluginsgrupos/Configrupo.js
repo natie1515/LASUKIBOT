@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { getAllConfigs } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import { getAllConfigs } from '../../db.js';
 
 const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
@@ -59,4 +59,4 @@ ${stateLines}`;
 };
 
 handler.command = ["configrupo"];
-module.exports = handler;
+export default handler;

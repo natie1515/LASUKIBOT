@@ -79,4 +79,4 @@ function rand() {
 }
 
 handler.command = ["personalidad"];
-module.exports = handler;
+export default handler;

@@ -1,6 +1,6 @@
 // plugins/mododiablo.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000;
 const XP_PERSONAJE_BASE = 150;
@@ -135,4 +135,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["mododiablo"];
-module.exports = handler;
+export default handler;

@@ -1,7 +1,7 @@
 // plugins/depositarall.js
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
@@ -96,4 +96,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["depositarall", "depall"];
-module.exports = handler;
+export default handler;

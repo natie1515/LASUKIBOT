@@ -1,6 +1,6 @@
 // plugins/setreglas.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ——— Helpers LID-aware ———
 // ✅ Patrón seguro para extraer solo números
@@ -169,4 +169,4 @@ const handler = async (msg, { conn, text, args, wa }) => {
 };
 
 handler.command = ["setreglas"];
-module.exports = handler;
+export default handler;

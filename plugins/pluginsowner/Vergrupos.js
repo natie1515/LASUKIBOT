@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { getAllConfigs, getConfig } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import { getAllConfigs, getConfig } from '../../db.js';
 
 const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
@@ -72,4 +72,4 @@ ${stateLines}
 };
 
 handler.command = ["vergrupos"];
-module.exports = handler;
+export default handler;

@@ -128,4 +128,4 @@ const handler = async (msg, { conn, command }) => {
 };
 
 handler.command = ["ac", "ac2"];
-module.exports = handler;
+export default handler;

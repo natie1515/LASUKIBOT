@@ -1,7 +1,7 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // helpers comunes
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
@@ -134,4 +134,4 @@ const handler = async (msg, { conn, args, text, wa }) => {
 };
 
 handler.command = ["setstock3"];
-module.exports = handler;
+export default handler;

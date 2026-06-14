@@ -2,9 +2,9 @@
 
 // plugins/pluginsowner/Apikey.js
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 const API_KEYS_PATH = path.resolve("./api_keys.json");
 const RELAY_STATE_PATH = path.resolve("./relay_client_state.json");
@@ -436,4 +436,4 @@ handler.command = ["apikey", "api"];
 handler.tags = ["owner"];
 handler.help = ["apikey"];
 
-module.exports = handler;
+export default handler;

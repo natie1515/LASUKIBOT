@@ -1,7 +1,7 @@
-const fs = require('fs');
-const FormData = require('form-data');
-const axios = require('axios');
-const path = require('path');
+import fs from 'fs';
+import FormData from 'form-data';
+import axios from 'axios';
+import path from 'path';
 
 async function quAx(filePath) {
   try {
@@ -36,4 +36,4 @@ async function quAx(filePath) {
   }
 }
 
-module.exports = quAx;
+export default quAx;

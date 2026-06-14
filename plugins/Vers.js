@@ -2,8 +2,8 @@
 // Muestra la lista de paquetes de stickers guardados con .guars
 // Uso: .vers
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const PACKS_DB = path.resolve("./guars_packs.json");
 
@@ -95,4 +95,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["versk"];
-module.exports = handler;
+export default handler;

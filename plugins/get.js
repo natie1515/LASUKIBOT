@@ -1,7 +1,7 @@
 // plugins/get.js
-const fs = require("fs");
-const path = require("path");
-const { createCanvas } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas } from 'canvas';
 
 // — helpers —
 function unwrapMessage(m) {
@@ -123,4 +123,4 @@ const handler = async (msg, { conn, wa }) => {
 };
 
 handler.command = ["get"];
-module.exports = handler;
+export default handler;

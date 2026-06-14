@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
@@ -145,4 +145,4 @@ ctx.drawImage(personajeImg, 30, 170, 180, 260); // ← Aquí ajustamos el Y de 9
 };
 
 handler.command = ["comprar"];
-module.exports = handler;
+export default handler;

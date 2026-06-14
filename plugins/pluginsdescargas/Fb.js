@@ -5,9 +5,9 @@
 
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 // === Config API ===
 const API_BASE = "https://api-sky.ultraplus.click";
@@ -104,7 +104,7 @@ async function downloadVideoToTmp(srcUrl, filenameBase) {
   });
 }
 
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
   let text = (args.join(" ") || "").trim();
@@ -388,7 +388,9 @@ async function sendVideo(conn, job, asDocument, triggerMsg) {
   }
 }
 
-module.exports.command = ["facebook", "fb"];
-module.exports.help = ["facebook <url>", "fb <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["facebook", "fb"];
+handler.help = ["facebook <url>", "fb <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

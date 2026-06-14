@@ -1,7 +1,7 @@
 // plugins/transferir.js
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 // ⏳ igual que en banco
 function formatoTiempo(msRestante) {
@@ -160,4 +160,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["transferir", "tran"];
-module.exports = handler;
+export default handler;

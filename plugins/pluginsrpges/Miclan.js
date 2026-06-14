@@ -2,8 +2,8 @@
 // Comando: .miclan / .vermiclan
 // Muestra detalles del clan al que pertenece el usuario y SIEMPRE responde citando el mensaje.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p) {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
@@ -121,4 +121,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["miclan", "vermiclan"];
-module.exports = handler;
+export default handler;

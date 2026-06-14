@@ -1,9 +1,12 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/py.js — YT -> MP4 usando https://ytpy.ultraplus.click + ffmpeg
-const fetch = require('node-fetch');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const fs = require('fs');
-const path = require('path');
+import fetch from 'node-fetch';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 
 const execPromise = promisify(exec);
 
@@ -141,4 +144,4 @@ handler.help = ['py <url>'];
 handler.tags = ['downloader'];
 handler.command = ['py'];
 
-module.exports = handler;
+export default handler;

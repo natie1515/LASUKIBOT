@@ -1,6 +1,6 @@
 // plugins/entrenar.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000; // 7 min
 const XP_MASCOTA_BASE = 120;
@@ -137,4 +137,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["entrenar"];
-module.exports = handler;
+export default handler;

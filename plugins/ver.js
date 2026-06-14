@@ -110,4 +110,4 @@ const handler = async (msg, ctx = {}) => {
 };
 
 handler.command = ["ver"];
-module.exports = handler;
+export default handler;

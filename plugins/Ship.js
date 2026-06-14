@@ -68,4 +68,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["ship"];
-module.exports = handler;
+export default handler;

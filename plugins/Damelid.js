@@ -26,4 +26,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ['damelid'];
-module.exports = handler;
+export default handler;

@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const RUTA_VIEJA = path.resolve("./guar.json");       // legacy (base64)
 const RUTA_NUEVA = path.resolve("./guar_files.json"); // nuevo (rutas)
@@ -176,4 +176,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["del"];
-module.exports = handler;
+export default handler;

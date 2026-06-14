@@ -4,8 +4,8 @@
 // - Luego envía UN SOLO listado enumerado de todos los clanes (Supremo #1), citando.
 // - Muestra: nivel, bodega, líder, #miembros, nivel mínimo, e instrucción: .unirme <número>
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p) {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
@@ -130,4 +130,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["verclanes", "verclan"];
-module.exports = handler;
+export default handler;
