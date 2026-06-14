@@ -1,19 +1,19 @@
 "use strict";
 
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
-const axios = require("axios");
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import axios from "axios";
 
-const {
+import {
   getConfig,
   setConfig,
   deleteConfig,
   getAllConfigs
-} = require("./db");
+} from "./db.js";
 
 /*
   webserver.js para La Suki Bot
@@ -2308,6 +2308,6 @@ ${notificationFooter()}`
   });
 }
 
-module.exports = {
+export {
   startWebServer
 };

@@ -1,6 +1,6 @@
 // plugins/tag.js — ESM-safe, respeta texto original y orden
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ✅ Usamos el patrón seguro para extraer solo números
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
@@ -255,4 +255,4 @@ const handler = async (msg, { conn, args, text, wa }) => {
 };
 
 handler.command = ["tag", "n", "notify"];
-module.exports = handler;
+export default handler;

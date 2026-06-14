@@ -1,6 +1,6 @@
 // plugins/verfactura.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function formatearTiempoRestante(ms) {
   if (ms <= 0) return "0s";
@@ -72,4 +72,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["verfactura", "verfac"];
-module.exports = handler;
+export default handler;

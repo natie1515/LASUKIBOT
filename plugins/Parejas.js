@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from 'axios';
 
 const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
@@ -92,4 +92,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["pareja", "parejas"];
-module.exports = handler;
+export default handler;

@@ -5,9 +5,9 @@
 
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 // === Config API ===
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
@@ -204,7 +204,7 @@ ${date ? `📅 *Fecha:* ${date}\n` : ""}📦 *Formato:* ${asDocument ? "Document
   }
 }
 
-module.exports = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
   const text = (args.join(" ") || "").trim();
@@ -423,7 +423,9 @@ Cita este mensaje y escribe:
   }
 };
 
-module.exports.command = ["twitter", "tw", "xdl", "x"];
-module.exports.help = ["tw <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["twitter", "tw", "xdl", "x"];
+handler.help = ["tw <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

@@ -5,8 +5,8 @@
 // 3) Confisca VARIAS mascotas (de mayor a menor precio)
 // Si cubre la deuda → préstamo eliminado. Si el usuario queda sin nada → deuda cancelada.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const INTERVALO_MS = 15000; // 15s (test)
 const COOLDOWN_MS = 5000;   // evita doble proceso del mismo préstamo
@@ -275,4 +275,4 @@ const runChecker = (conn) => {
 
 const handler = {};
 handler.run = runChecker;
-module.exports = handler;
+export default handler;

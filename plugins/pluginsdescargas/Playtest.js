@@ -1,11 +1,14 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // commands/playtest.js
-const axios = require("axios");
-const yts = require("yt-search");
-const fs = require("fs");
-const path = require("path");
-const ffmpeg = require("fluent-ffmpeg");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import yts from 'yt-search';
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== CONFIG DE TU API ====
@@ -42,7 +45,7 @@ async function callMyApi(url, format) {
   return r.data.data;
 }
 
-module.exports = async (msg, { conn, text }) => {
+const handler = async (msg, { conn, text }) => {
   const pref = global.prefixes?.[0] || ".";
 
   if (!text || !text.trim()) {
@@ -285,4 +288,6 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   try { fs.unlinkSync(file); } catch {}
 }
 
-module.exports.command = ["playtest"];
+handler.command = ["playtest"];
+
+export default handler;

@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 
 const handler = async (msg, { conn, text, args, usedPrefix, command }) => {
   const chatId = msg.key.remoteJid;
@@ -62,4 +62,4 @@ handler.help = ['tiktoksearch <query>'];
 handler.tags = ['buscadores'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

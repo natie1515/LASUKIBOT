@@ -1,12 +1,15 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/whatmusic.js — ESM-safe (usa wa.download y fallback dinámico)
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const ffmpeg = require('fluent-ffmpeg');
-const FormData = require('form-data');
-const { promisify } = require('util');
-const { pipeline } = require('stream');
-const yts = require('yt-search');
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
+import FormData from 'form-data';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
+import yts from 'yt-search';
 
 const streamPipeline = promisify(pipeline);
 
@@ -222,4 +225,4 @@ handler.help = ['whatmusic'];
 handler.tags = ['audio', 'tools'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

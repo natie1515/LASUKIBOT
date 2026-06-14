@@ -26,4 +26,4 @@ handler.tags = ["info"];
 handler.help = ["code", "sercode", "qr", "serbot", "jadibot"];
 handler.register = false;
 
-module.exports = handler;
+export default handler;

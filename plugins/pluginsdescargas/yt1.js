@@ -1,7 +1,7 @@
 // yt1.js — YouTube -> AUDIO
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 const API_BASE = process.env.API_BASE || "https://api-sky.ultraplus.click";
 const API_KEY  = process.env.API_KEY  || "Russellxz";
@@ -91,4 +91,4 @@ const handler = async (msg, { conn, args, command }) => {
 };
 
 handler.command = ["yt1"];
-module.exports = handler;
+export default handler;

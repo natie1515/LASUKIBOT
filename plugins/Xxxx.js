@@ -1,11 +1,11 @@
 // plugins/xxx2.js — ESM-safe NSFW checker
 "use strict";
 
-const Checker = require("../libs/nsfw");
-const ffmpeg  = require("fluent-ffmpeg");
-const fs      = require("fs");
-const os      = require("os");
-const path    = require("path");
+import Checker from '../libs/nsfw.js';
+import ffmpeg from 'fluent-ffmpeg';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 // —— helpers ——
 function unwrapMessage(m) {
@@ -153,4 +153,4 @@ handler.tags     = ["tools"];
 handler.help     = ["xxx <responde a un video, imagen o sticker>"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

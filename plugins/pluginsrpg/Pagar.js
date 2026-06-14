@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
@@ -174,4 +174,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["pagar"];
-module.exports = handler;
+export default handler;

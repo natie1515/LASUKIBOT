@@ -1,10 +1,13 @@
-const fs = require("fs");
-const path = require("path");
-const fetch = require("node-fetch");
-const Crypto = require("crypto");
-const { tmpdir } = require("os");
-const ffmpeg = require("fluent-ffmpeg");
-const webp = require("node-webpmux");
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
+import fs from 'fs';
+import path from 'path';
+import fetch from 'node-fetch';
+import Crypto from 'crypto';
+import { tmpdir } from 'os';
+import ffmpeg from 'fluent-ffmpeg';
+import webp from 'node-webpmux';
 
 const tempFolder = path.join(__dirname, "../tmp/");
 if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
@@ -71,7 +74,7 @@ const handler = async (msg, { conn, args, text }) => {
 handler.command = ["mixemoji"];
 handler.tags = ["sticker"];
 handler.help = ["mixemoji 😳+😩"];
-module.exports = handler;
+export default handler;
 
 /* === FUNCIONES DE STICKER CON EXIF Y CONVERSIÓN === */
 

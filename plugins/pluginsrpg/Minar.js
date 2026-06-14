@@ -1,6 +1,6 @@
 // plugins/minar.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000; // 7 min
 const XP_NIVEL_BASE = 100;
@@ -169,4 +169,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["minar"];
-module.exports = handler;
+export default handler;

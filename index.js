@@ -42,19 +42,21 @@ let canalNombre = ["👑 LA SUKI BOT 👑"]
 
 
 // (sin los require de Baileys aquí)
-const { readdirSync } = require("fs");
-const fs = require("fs");
-const path = require("path");
-const chalk = require("chalk");
-const figlet = require("figlet");
-const readline = require("readline");
-const pino = require("pino");
-const { setConfig, getConfig } = require("./db");
+import fs, { readdirSync } from "fs";
+import path from "path";
+import { pathToFileURL } from "url";
+import chalk from "chalk";
+import figlet from "figlet";
+import readline from "readline";
+import pino from "pino";
+import axios from "axios";
+import { setConfig, getConfig, getAntideleteDB, saveAntideleteDB } from "./db.js";
+import { startWebServer } from "./webserver.js";
+import "./config.js";
 
 // 🌐 Prefijos personalizados desde prefijos.json o por defecto
 let defaultPrefixes = [".", "#"];
 const prefixPath = "./prefijos.json";
-global.requireFromRoot = (mod) => require(path.join(__dirname, mod));
 if (fs.existsSync(prefixPath)) {
   try {
     const contenido = fs.readFileSync(prefixPath, "utf-8").trim();
@@ -74,7 +76,7 @@ if (!fs.existsSync(ownerPath)) fs.writeFileSync(ownerPath, JSON.stringify([["151
 global.owner = JSON.parse(fs.readFileSync(ownerPath));
 
 // 📂 Cargar plugins
-const loadPluginsRecursively = (dir) => {
+const loadPluginsRecursively = async (dir) => {
   if (!fs.existsSync(dir)) return;
 
   const items = fs.readdirSync(dir, { withFileTypes: true });
@@ -82,10 +84,11 @@ const loadPluginsRecursively = (dir) => {
   for (const item of items) {
     const fullPath = path.join(dir, item.name);
     if (item.isDirectory()) {
-      loadPluginsRecursively(fullPath); // Recurse en subcarpetas
+      await loadPluginsRecursively(fullPath); // Recurse en subcarpetas
     } else if (item.isFile() && item.name.endsWith(".js")) {
       try {
-        const plugin = require(path.resolve(fullPath));
+        const mod = await import(pathToFileURL(path.resolve(fullPath)).href);
+        const plugin = mod.default || mod;
         global.plugins.push(plugin);
         console.log(chalk.green(`✅ Plugin cargado: ${fullPath}`));
       } catch (err) {
@@ -97,7 +100,7 @@ const loadPluginsRecursively = (dir) => {
 
 // 👉 Cargar todos los .js dentro de ./plugins y subcarpetas
 global.plugins = [];
-loadPluginsRecursively("./plugins");
+await loadPluginsRecursively("./plugins");
 
 // 🎯 Función global para verificar si es owner
 global.isOwner = function (jid) {
@@ -175,7 +178,6 @@ let phoneNumber = "";
 
       // 🌐 INICIAR API WEB DE LA SUKI BOT
 try {
-  const { startWebServer } = require("./webserver");
   startWebServer(sock);
 } catch (e) {
   console.error("❌ Error iniciando API web:", e);
@@ -506,7 +508,6 @@ Soy un bot *sencillo y fácil de usar*, ¡gracias por tenerme en el grupo! 💖
   
 // === INICIO LÓGICA CHATGPT POR GRUPO CON activos.db ===
 try {
-  const { getConfig } = requireFromRoot("db");
   const isGroup = m.key.remoteJid.endsWith("@g.us");
   const chatId = m.key.remoteJid;
   const fromMe = m.key.fromMe;
@@ -523,7 +524,6 @@ try {
     const sessionID = "1727468410446638";
     const apiUrl = `https://api.neoxr.eu/api/gpt4-session?q=${encodedText}&session=${sessionID}&apikey=russellxz`;
 
-    const axios = require("axios");
     const res = await axios.get(apiUrl);
     const respuesta = res.data?.data?.message;
 
@@ -540,8 +540,6 @@ try {
 
 // === LÓGICA DE RESPUESTA AUTOMÁTICA CON PALABRA CLAVE (híbrida: carpeta + base64) ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const activossPath = path.resolve("./activoss.json");
 
@@ -663,7 +661,6 @@ try {
   const stickerMsg = m.message?.stickerMessage || m.message?.ephemeralMessage?.message?.stickerMessage;
 
   if (isGroup && !fromMe && stickerMsg) {
-    const { getConfig } = requireFromRoot("db");
     const antisActivo = await getConfig(chatId, "antis");
 
     if (antisActivo == 1) {
@@ -745,8 +742,6 @@ try {
 
 // === ✅ INICIO CONTEO DE MENSAJES EN setwelcome.json PN / LID ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
   const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
@@ -930,7 +925,6 @@ try {
 try {
   const isGroup = chatId.endsWith("@g.us");
 
-  const { getConfig, getAntideleteDB, saveAntideleteDB } = requireFromRoot("db");
   const antideleteGroupActive = isGroup ? await getConfig(chatId, "antidelete") == 1 : false;
   const antideletePrivActive = !isGroup ? await getConfig("global", "antideletepri") == 1 : false;
 
@@ -1005,7 +999,6 @@ if (m.message?.protocolMessage?.type === 0) {
 
     if (!antideleteEnabled) return;
 
-    const fs = require("fs");
     const dbPath = "./antidelete.db";
 
     if (!fs.existsSync(dbPath)) return;
@@ -1076,8 +1069,6 @@ if (m.message?.protocolMessage?.type === 0) {
 
 // 🔗 LÓGICA ANTILINK desde activos.db compatible PN / LID
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
   const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
@@ -1470,8 +1461,6 @@ try {
 
   // === LÓGICA LINKALL DESDE activos.db compatible PN / LID ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
   const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
@@ -1867,8 +1856,6 @@ try {
 
 // === INICIO BLOQUEO DE MENSAJES DE USUARIOS MUTEADOS ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
@@ -2176,8 +2163,6 @@ try {
 
 // === INICIO BLOQUEO DE COMANDOS A USUARIOS BANEADOS ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
@@ -2376,9 +2361,6 @@ try {
 
 // === 🔐 INICIO FILTRO PRIVADO + MODO PRIVADO GLOBAL CORREGIDO ===
 try {
-  const fs = require("fs");
-  const path = require("path");
-  const { getConfig } = requireFromRoot("db");
 
   const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 
@@ -2537,8 +2519,6 @@ try {
   
 // === ✅ INICIO LÓGICA DE APAGADO POR GRUPO (solo responde al dueño) ===
 try {
-  const { getConfig } = requireFromRoot("db");
-  const fs = require("fs");
 
   const chatId = m.key.remoteJid;
   const senderId = m.key.participant || m.key.remoteJid;
@@ -2559,8 +2539,6 @@ try {
 // === ✅ FIN LÓGICA DE APAGADO POR GRUPO ===  
 // === INICIO BLOQUEO DE COMANDOS RESTRINGIDOS POR GRUPO ===
 try {
-  const fs = require("fs");
-  const path = require("path");
 
   const chatId = m.key.remoteJid;
   const senderId = m.key.participant || m.key.remoteJid;

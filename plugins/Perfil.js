@@ -57,4 +57,4 @@ const handler = async (msg, { conn, text, usedPrefix }) => {
 };
 
 handler.command = ['perfil'];
-module.exports = handler;
+export default handler;

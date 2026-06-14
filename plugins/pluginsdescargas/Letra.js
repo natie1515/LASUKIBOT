@@ -5,7 +5,7 @@
 
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY  || "Russellxz";
@@ -117,4 +117,4 @@ handler.help = ["letra <canción y artista>", "lyrics <song and artist>"];
 handler.tags = ["tools"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

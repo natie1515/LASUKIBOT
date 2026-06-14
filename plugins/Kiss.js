@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const gifUrls = [
   "https://cdn.russellxz.click/5b056a4b.mp4",
@@ -118,4 +118,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["kiss"];
-module.exports = handler;
+export default handler;

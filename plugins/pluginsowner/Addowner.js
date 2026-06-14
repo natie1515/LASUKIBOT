@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const handler = async (msg, { conn, args }) => {
   const sender = msg.realJid || msg.key.participant || msg.key.remoteJid;
@@ -217,4 +217,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["addowner"];
-module.exports = handler;
+export default handler;

@@ -4,7 +4,7 @@
 // commands/spotify.js — Spotify interactivo (👍 audio normal / ❤️ documento o 1/2)
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 // === Config API ===
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
@@ -92,7 +92,7 @@ function safeBaseFromTitle(title) {
   return String(title || "spotify").slice(0, 70).replace(/[^A-Za-z0-9_\-.]+/g, "_");
 }
 
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || "."; // prefijo real del bot
   let text = (args.join(" ") || "").trim();
@@ -212,7 +212,9 @@ module.exports = async (msg, { conn, args, command }) => {
   }
 };
 
-module.exports.command = ["spotify", "sp"];
-module.exports.help = ["spotify <canción o url>", "sp <canción o url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["spotify", "sp"];
+handler.help = ["spotify <canción o url>", "sp <canción o url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

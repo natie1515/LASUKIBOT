@@ -1,5 +1,5 @@
-requireFromRoot = (mod) => require(require('path').join(__dirname, '..', mod));
-requireFromRoot('config.js'); // 🔁 Cargar config.js para acceder a global.reto
+
+import '../config.js'; // 🔁 Cargar config.js para acceder a global.reto
 
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
@@ -43,4 +43,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ['reto'];
-module.exports = handler;
+export default handler;

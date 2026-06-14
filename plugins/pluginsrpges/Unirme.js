@@ -3,8 +3,8 @@
 // costo 500 créditos (se suman a la bodega del clan).
 // Reacciona al inicio y al final.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p){ return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}; }
 function saveDB(p,o){ fs.writeFileSync(p, JSON.stringify(o, null, 2)); }
@@ -99,4 +99,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["unirme"];
-module.exports = handler;
+export default handler;

@@ -2,8 +2,8 @@
 // .comprares <1..5> respondiendo o mencionando
 // Alinea nextRewardAt a bucket (~2min) para que caigan juntas las recompensas.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BASE_TICK_MS = 2 * 60 * 1000; // mismo que el watcher (modo test)
@@ -217,4 +217,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["compraresclavo","comprares"];
-module.exports = handler;
+export default handler;

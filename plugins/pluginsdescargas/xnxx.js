@@ -2,7 +2,7 @@
 // commands/xnxx.js — XNXX/TXNHH interactivo (👍 normal / ❤️ documento o 1/2) usando tu API
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 // === Config API ===
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
@@ -134,7 +134,7 @@ async function sendVideo(conn, job, asDocument, triggerMsg) {
   }
 }
 
-module.exports = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   let text = normalizeInputUrl(args.join(" "));
 
@@ -278,7 +278,9 @@ module.exports = async (msg, { conn, args }) => {
   }
 };
 
-module.exports.command = ["xnxx", "xx"];
-module.exports.help = ["xnxx <url>", "x <url>"];
-module.exports.tags = ["descargas", "nsfw"];
-module.exports.register = true;
+handler.command = ["xnxx", "xx"];
+handler.help = ["xnxx <url>", "x <url>"];
+handler.tags = ["descargas", "nsfw"];
+handler.register = true;
+
+export default handler;

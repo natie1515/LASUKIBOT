@@ -1,11 +1,11 @@
 
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== CONFIG API ====
@@ -215,4 +215,4 @@ async function processSend(conn, job, asDocument) {
 }
 
 handler.command = ["y4", "yt4"];
-module.exports = handler;
+export default handler;

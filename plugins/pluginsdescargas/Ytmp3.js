@@ -1,3 +1,6 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // comandos/ytmp3.js — YouTube MP3 (URL)
 // ✅ MP3 cambiado a Neoxr API
 // ✅ Botones directos: 🎵 Audio / 📄 Audio Documento
@@ -7,13 +10,13 @@
 
 "use strict";
 
-const axios = require("axios");
-const yts = require("yt-search");
-const fs = require("fs");
-const path = require("path");
-const ffmpeg = require("fluent-ffmpeg");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import yts from 'yt-search';
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== NEOXR API PARA MP3 ====
@@ -204,7 +207,7 @@ async function callYoutubeResolve(videoUrl) {
 }
 
 // ---------- main ----------
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const pref = global.prefixes?.[0] || ".";
   const url = (args[0] || "").trim();
 
@@ -665,7 +668,9 @@ async function downloadAudio(conn, job, asDocument, quoted) {
   } catch {}
 }
 
-module.exports.command = ["ytmp3", "yta"];
-module.exports.help = ["ytmp3 <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["ytmp3", "yta"];
+handler.help = ["ytmp3 <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

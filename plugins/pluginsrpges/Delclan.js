@@ -3,8 +3,8 @@
 // Borra el clan del usuario (solo si es LÍDER) tras confirmación respondiendo "si" al mensaje.
 // No permite borrar el clan supremo. Responde siempre citando y caduca en 2 minutos.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const pendingDelClan = {};
 
@@ -181,4 +181,4 @@ Esta acción es permanente y eliminará todos sus miembros del clan.
 };
 
 handler.command = ["delclan"];
-module.exports = handler;
+export default handler;

@@ -1,6 +1,6 @@
 // plugins/topmillonarios.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const LIMIT_TOP = 15; // cambia si quieres más/menos en el ranking
 
@@ -88,4 +88,4 @@ const handler = async (msg, { conn, command }) => {
 };
 
 handler.command = ["topmillonarios", "topmillo"];
-module.exports = handler;
+export default handler;

@@ -4,8 +4,8 @@
 // Cooldown: 7 min. Topes diarios (para el ladrón): 8,000 créditos / 10,000 XP.
 // Al acertar: sube nivel del usuario y 1 habilidad del ladrón (misma lógica que minar).
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000;
 const TOPE_CREDITOS_DIA = 8000;
@@ -237,4 +237,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["robar"];
-module.exports = handler;
+export default handler;

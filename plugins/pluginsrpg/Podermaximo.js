@@ -1,6 +1,6 @@
 // plugins/podermaximo.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // Mismos parámetros que luchar/otromundo
 const COOLDOWN_MS = 7 * 60 * 1000;
@@ -132,4 +132,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["podermaximo", "podermax"];
-module.exports = handler;
+export default handler;

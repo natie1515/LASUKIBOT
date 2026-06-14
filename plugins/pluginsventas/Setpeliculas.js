@@ -1,6 +1,6 @@
 // plugins/setpeliculas.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ——— Helpers LID-aware + texto ———
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
@@ -178,4 +178,4 @@ const handler = async (msg, { conn, args, text, wa }) => {
 };
 
 handler.command = ["setpeliculas"];
-module.exports = handler;
+export default handler;

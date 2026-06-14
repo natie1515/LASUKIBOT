@@ -1,4 +1,4 @@
-const { setConfig } = requireFromRoot("db");
+import { setConfig } from '../../db.js';
 
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
@@ -52,4 +52,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["antiarabe2"];
-module.exports = handler;
+export default handler;

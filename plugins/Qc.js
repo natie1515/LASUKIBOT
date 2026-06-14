@@ -1,5 +1,5 @@
-const axios = require('axios');
-const { writeExifImg } = require('../libs/fuctions'); // ajusta la ruta si hace falta
+import axios from 'axios';
+import { writeExifImg } from '../libs/fuctions.js'; // ajusta la ruta si hace falta
 
 const flagMap = [
   ['598', '🇺🇾'], ['595', '🇵🇾'], ['593', '🇪🇨'], ['591', '🇧🇴'],
@@ -143,4 +143,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['qc'];
-module.exports = handler;
+export default handler;

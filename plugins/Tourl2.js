@@ -1,7 +1,7 @@
 // plugins/tourl2.js — Upload con extensión por mimetype + WA inyectado
-const path = require("path");
-const fetch = require("node-fetch");
-const FormData = require("form-data");
+import path from 'path';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
 
 const UPLOAD_ENDPOINT = "https://cdn.skyultraplus.com/upload.php"; // .php requerido
 const API_KEY = "russellxzomega";
@@ -222,4 +222,4 @@ handler.help = ["tourl2 (o tourl) — responde a un media o pasa URL"];
 handler.tags = ["herramientas"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

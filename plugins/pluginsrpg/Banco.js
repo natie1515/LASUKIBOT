@@ -1,6 +1,6 @@
 // plugins/banco.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function formatoTiempo(msRestante) {
   if (!Number.isFinite(msRestante) || msRestante <= 0) return "⏳ Tiempo vencido";
@@ -128,4 +128,4 @@ Ej: .pagar 2000
 };
 
 handler.command = ["banco"];
-module.exports = handler;
+export default handler;

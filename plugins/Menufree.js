@@ -47,4 +47,4 @@ handler.help = ['menufree'];
 handler.tags = ['menu'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

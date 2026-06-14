@@ -1,6 +1,6 @@
 // plugins/setfoto.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ✅ Patrón seguro para extraer solo números
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
@@ -161,4 +161,4 @@ const handler = async (msg, { conn, wa }) => {
 };
 
 handler.command = ["setfoto"];
-module.exports = handler;
+export default handler;

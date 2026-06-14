@@ -42,4 +42,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ['mapas'];
-module.exports = handler;
+export default handler;

@@ -107,4 +107,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['4vs4'];
-module.exports = handler;
+export default handler;

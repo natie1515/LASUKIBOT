@@ -1,6 +1,6 @@
 "use strict";
 
-const crypto = require("crypto");
+import crypto from 'crypto';
 
 const AYARI_STEPS = [
   {
@@ -128,7 +128,7 @@ async function sendStep(conn, chatId, quoted, sessionId, stepIndex) {
   return await conn.sendMessage(chatId, { text: step.text }, { quoted });
 }
 
-module.exports = async (msg, { conn }) => {
+const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
   const sessionId = makeId();
 
@@ -209,7 +209,9 @@ module.exports = async (msg, { conn }) => {
   }
 };
 
-module.exports.command = ["ayari"];
-module.exports.help = ["ayari"];
-module.exports.tags = ["fun"];
-module.exports.register = true;
+handler.command = ["ayari"];
+handler.help = ["ayari"];
+handler.tags = ["fun"];
+handler.register = true;
+
+export default handler;

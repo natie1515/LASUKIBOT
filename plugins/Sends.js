@@ -3,8 +3,8 @@
 // (la tarjeta con botón "Ver paquete de stickers").
 // Uso: .sends <nombre_del_paquete>
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const PACKS_DB = path.resolve("./guars_packs.json");
 
@@ -117,4 +117,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["sendsk"];
-module.exports = handler;
+export default handler;

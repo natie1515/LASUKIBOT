@@ -1,6 +1,6 @@
 // plugins/delmenuowner.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
 
@@ -51,4 +51,4 @@ handler.command = ["delmenuowner"];
 handler.tags = ["menu"];
 handler.help = ["delmenuowner"];
 
-module.exports = handler;
+export default handler;

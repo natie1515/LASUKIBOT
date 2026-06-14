@@ -4,12 +4,12 @@
 
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
-const Crypto = require("crypto");
-const axios = require("axios");
-const ffmpeg = require("fluent-ffmpeg");
-const SpeakEngine = require("google-tts-api");
+import fs from 'fs';
+import path from 'path';
+import Crypto from 'crypto';
+import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
+import SpeakEngine from 'google-tts-api';
 
 const TMP_DIR = path.resolve("./tmp");
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -122,4 +122,4 @@ const handler = async (msg, { conn, args }) => {
 handler.command = ["tts"];
 handler.help = ["tts <texto>"];
 handler.tags = ["audio"];
-module.exports = handler;
+export default handler;

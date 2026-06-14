@@ -1,8 +1,8 @@
 // plugins/tourl3.js — ToURL via tu API (/cdn/tourl) usando apikey Russellxz
 "use strict";
 
-const path = require("path");
-const fetch = require("node-fetch");
+import path from 'path';
+import fetch from 'node-fetch';
 
 // ==== CONFIG ====
 const API_BASE = "https://api-sky.ultraplus.click"; // <-- CAMBIA ESTO (ej: https://dash.skyultraplus.com)
@@ -297,4 +297,4 @@ handler.help = ["tourl3 — responde a un media o pasa URL"];
 handler.tags = ["herramientas"];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

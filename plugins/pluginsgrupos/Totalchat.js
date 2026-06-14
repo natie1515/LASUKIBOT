@@ -1,6 +1,6 @@
 // plugins/totalchat.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
 const JID_NUM = (jid = "") => DIGITS(String(jid || "").split("@")[0].split(":")[0]);
@@ -231,4 +231,4 @@ ${ranking}`;
 };
 
 handler.command = ["totalchat"];
-module.exports = handler;
+export default handler;

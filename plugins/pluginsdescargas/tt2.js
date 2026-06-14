@@ -1,5 +1,5 @@
 // comandos/tiktok2.js
-const axios = require("axios");
+import axios from 'axios';
 
 const API_BASE = process.env.API_BASE || "https://api-sky.ultraplus.click";
 const API_KEY  = process.env.API_KEY  || "Russellxz"; // tu key
@@ -72,4 +72,4 @@ const handler = async (msg, { conn, args, command }) => {
 };
 
 handler.command = ["tiktok2","tt2"];
-module.exports = handler;
+export default handler;

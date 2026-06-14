@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ——— Helpers LID-aware ———
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
@@ -153,4 +153,4 @@ const handler = async (msg, { conn, args, text, wa }) => {
 };
 
 handler.command = ["setpromo"];
-module.exports = handler;
+export default handler;

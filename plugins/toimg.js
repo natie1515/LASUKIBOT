@@ -1,7 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
+import { exec as _cpExec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+const exec = promisify(_cpExec);
 
 // Desencapsula view-once/ephemeral
 const unwrap = (m) => {
@@ -99,4 +103,4 @@ handler.help = [
   "stickerimg <responder a sticker> - Convierte sticker a imagen",
 ];
 
-module.exports = handler;
+export default handler;

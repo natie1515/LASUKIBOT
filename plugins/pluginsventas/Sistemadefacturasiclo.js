@@ -3,9 +3,9 @@
 // envía una factura-recordatorio (mismo diseño que addfactura)
 // al CLIENTE y al VENDEDOR. Evita bucles con `recordatorioEnviado`.
 
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
 
 const CHECK_INTERVAL_MS = 15 * 1000;
 
@@ -210,4 +210,4 @@ const handler = async (conn) => {
 
 // Para que tu loader lo ejecute como otros sistemas
 handler.run = handler;
-module.exports = handler;
+export default handler;

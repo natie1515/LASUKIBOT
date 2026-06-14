@@ -127,4 +127,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["mylid"];
-module.exports = handler;
+export default handler;

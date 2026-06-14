@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from 'axios';
 
 async function ytdl(url) {
 const apis = [
@@ -16,4 +16,4 @@ return { status: "success", creador: "eliasaryt", dl: api };
 return { status: "error", creador: "eliasaryt", dl: null };
 }
 
-module.exports = ytdl;
+export default ytdl;

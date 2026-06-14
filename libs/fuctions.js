@@ -1,8 +1,11 @@
-const fs = require('fs'); 
-const Crypto = require("crypto"); 
-const ff = require('fluent-ffmpeg'); 
-const webp = require("node-webpmux"); 
-const path = require("path"); 
+import fs from 'fs';
+import Crypto from "crypto";
+import ff from 'fluent-ffmpeg';
+import webp from "node-webpmux";
+import path from "path";
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 // Ruta a la carpeta "tmp" en el mismo directorio que este script
 const tempFolder = path.join(__dirname, "../tmp/");
@@ -138,4 +141,4 @@ async function writeExif(media, metadata) {
     } 
 }
 
-module.exports = { imageToWebp, videoToWebp, writeExifImg, writeExifVid, writeExif };
+export { imageToWebp, videoToWebp, writeExifImg, writeExifVid, writeExif };

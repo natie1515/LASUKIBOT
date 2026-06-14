@@ -3,8 +3,8 @@
 // Solo owners (según global.isOwner / fromMe / botID).
 // No cobra. Crea el clan "supremo" (único) con banner especial y líder "La Suki Bot".
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const SUPREMO_BANNER_URL = "https://cdn.russellxz.click/e1749448.jpeg";
 
@@ -132,4 +132,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["clansupremo"];
-module.exports = handler;
+export default handler;

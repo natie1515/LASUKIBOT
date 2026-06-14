@@ -1,4 +1,4 @@
-const fetch = require("node-fetch");
+import fetch from 'node-fetch';
 
 const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
@@ -54,4 +54,4 @@ const handler = async (msg, { conn, args, command }) => {
 };
 
 handler.command = ["chatgpt"];
-module.exports = handler;
+export default handler;

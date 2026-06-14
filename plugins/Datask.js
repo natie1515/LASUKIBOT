@@ -1,6 +1,9 @@
-const fs = require("fs");
-const path = require("path");
-const { execSync } = require("child_process");
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
 
 function unwrapMessage(m) {
 
@@ -341,5 +344,4 @@ handler.tags =
 handler.register =
 true;
 
-module.exports =
-handler;
+export default handler;

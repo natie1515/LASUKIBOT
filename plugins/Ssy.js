@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const DB = "./ssy_db.json";
 const IMG_DIR = "./ssy_images";
@@ -139,4 +139,4 @@ text:
 
 handler.command=["ssy"];
 
-module.exports=handler;
+export default handler;

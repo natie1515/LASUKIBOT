@@ -121,4 +121,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["menurpg", "menuRPG"];
-module.exports = handler;
+export default handler;

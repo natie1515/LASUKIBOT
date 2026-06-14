@@ -1,7 +1,7 @@
 // commands/ytmp3.js — YouTube MP3 simple
 "use strict";
 
-const axios = require("axios");
+import axios from 'axios';
 
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY  = process.env.API_KEY || "Russellxz";
@@ -38,7 +38,7 @@ async function getYtMp3(url) {
   return mp3Url;
 }
 
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
   let text = (args.join(" ") || "").trim();
@@ -81,7 +81,9 @@ module.exports = async (msg, { conn, args, command }) => {
   }
 };
 
-module.exports.command = ["yt3", "ytmp33"];
-module.exports.help = ["ytmp3 <url>", "yta <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["yt3", "ytmp33"];
+handler.help = ["ytmp3 <url>", "yta <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

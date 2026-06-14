@@ -2,8 +2,8 @@
 // Uso: .darlider <numOpcional>  (o responde/mention a la persona)
 // Solo owners. Asigna a un usuario como LÍDER del CLAN SUPREMO.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function loadDB(p){ return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,"utf8")) : {}; }
 function saveDB(p,o){ fs.writeFileSync(p, JSON.stringify(o,null,2)); }
@@ -123,4 +123,4 @@ Si deseas cambiarlo de nuevo, repite *.darlider* con otro usuario.`,
 };
 
 handler.command = ["darlider"];
-module.exports = handler;
+export default handler;

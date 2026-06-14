@@ -1,6 +1,6 @@
-const { createCanvas, loadImage } = require('canvas');
-const fs = require('fs');
-const path = require('path');
+import { createCanvas, loadImage } from 'canvas';
+import fs from 'fs';
+import path from 'path';
 
 const flagMap = [
   ['598', '🇺🇾'], ['595', '🇵🇾'], ['593', '🇪🇨'], ['591', '🇧🇴'],
@@ -167,4 +167,4 @@ draw.drawImage(logo, x, y, logoWidth, logoHeight);
 };
 
 handler.command = ['texto'];
-module.exports = handler;
+export default handler;

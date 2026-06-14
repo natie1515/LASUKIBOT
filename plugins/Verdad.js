@@ -1,5 +1,5 @@
-requireFromRoot = (mod) => require(require('path').join(__dirname, '..', mod));
-requireFromRoot('config.js'); // 🔁 Asegura cargar el archivo donde están los arrays
+
+import '../config.js'; // 🔁 Asegura cargar el archivo donde están los arrays
 
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
@@ -42,4 +42,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ['verdad'];
-module.exports = handler;
+export default handler;

@@ -40,4 +40,4 @@ handler.tags = ['info'];
 handler.help = ['info'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

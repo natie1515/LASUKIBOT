@@ -1,6 +1,6 @@
 // plugins/chantime.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 function parseTiempo(str) {
   const m = String(str || "").toLowerCase().trim().match(/^(\d+)\s*([mh])$/i);
@@ -118,4 +118,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["chantime"];
-module.exports = handler;
+export default handler;

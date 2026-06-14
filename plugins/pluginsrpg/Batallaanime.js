@@ -1,6 +1,6 @@
 // plugins/batallaanime.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const COOLDOWN_MS = 7 * 60 * 1000; // 7 min
 const RETO_MS = 2 * 60 * 1000;     // 2 min
@@ -120,4 +120,4 @@ ${habsOpp}
 };
 
 handler.command = ["batallaanime", "batallaani"];
-module.exports = handler;
+export default handler;

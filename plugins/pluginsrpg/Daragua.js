@@ -1,6 +1,6 @@
 // plugins/daragua.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // Cooldown y escalados
 const COOLDOWN_MS = 7 * 60 * 1000; // 7 min
@@ -180,4 +180,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["daragua"];
-module.exports = handler;
+export default handler;

@@ -38,4 +38,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["infogrupo", "grupoinfo", "infogp"];
-module.exports = handler;
+export default handler;

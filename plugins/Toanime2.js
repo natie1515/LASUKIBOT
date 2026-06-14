@@ -1,5 +1,6 @@
-const axios = require("axios");
-const FormData = require("form-data");
+import axios from 'axios';
+import FormData from 'form-data';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
 const handler = async (msg, { conn }) => {
   const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -17,7 +18,6 @@ const handler = async (msg, { conn }) => {
   });
 
   try {
-    const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
     const stream = await downloadContentFromMessage(quoted.imageMessage, "image");
 
     let buffer = Buffer.alloc(0);
@@ -67,4 +67,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["toanime2"];
-module.exports = handler;
+export default handler;

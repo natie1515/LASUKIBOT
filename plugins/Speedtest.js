@@ -1,8 +1,8 @@
-const cp = require("child_process");
-const { promisify } = require("util");
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import cp from 'child_process';
+import { promisify } from 'util';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 const exec = promisify(cp.exec).bind(cp);
 
@@ -75,4 +75,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["speedtest", "speed"];
-module.exports = handler;
+export default handler;

@@ -1,12 +1,15 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 "use strict";
 
-const axios = require("axios");
-const yts = require("yt-search");
-const fs = require("fs");
-const path = require("path");
-const ffmpeg = require("fluent-ffmpeg");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import yts from 'yt-search';
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== API VIEJA PARA VIDEO ====
@@ -307,7 +310,7 @@ async function callNeoxrAudio(videoUrl) {
 }
 
 // ---------- main ----------
-module.exports = async (msg, { conn, text }) => {
+const handler = async (msg, { conn, text }) => {
   const pref = global.prefixes?.[0] || ".";
   const { query, quality } = splitQueryAndQuality(text);
 
@@ -1066,4 +1069,6 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   } catch {}
 }
 
-module.exports.command = ["play"];
+handler.command = ["play"];
+
+export default handler;

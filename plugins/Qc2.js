@@ -1,5 +1,5 @@
-const axios = require('axios');
-const { writeExifImg } = require('../libs/fuctions');
+import axios from 'axios';
+import { writeExifImg } from '../libs/fuctions.js';
 
 const flagMap = [
   ['598', '🇺🇾'], ['595', '🇵🇾'], ['593', '🇪🇨'], ['591', '🇧🇴'],
@@ -137,4 +137,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['qc2'];
-module.exports = handler;
+export default handler;

@@ -1,9 +1,12 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/addfactura.js — ESM-safe + wa.download fallback
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
-const FormData = require("form-data");
-const axios = require("axios");
+import fs from 'fs';
+import path from 'path';
+import { createCanvas, loadImage } from 'canvas';
+import FormData from 'form-data';
+import axios from 'axios';
 
 // ——— helpers Baileys (sin importar ESM en top) ———
 async function getDownloader(wa) {
@@ -254,4 +257,4 @@ const handler = async (msg, { conn, args, command, wa }) => {
 };
 
 handler.command = ["addfactura"];
-module.exports = handler;
+export default handler;

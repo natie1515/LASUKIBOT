@@ -1,6 +1,6 @@
 // plugins/delmenugrupo.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const DIGITS = (s = "") => String(s).replace(/\D/g, "");
 
@@ -48,4 +48,4 @@ const handler = async (msg, { conn }) => {
 handler.command = ["delmenugrupo", "delmenug"];
 handler.help = ["delmenugrupo", "delmenug"];
 handler.tags = ["menu"];
-module.exports = handler;
+export default handler;

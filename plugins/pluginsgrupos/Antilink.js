@@ -1,7 +1,7 @@
 // plugins/antilink.js
-const fs = require("fs");
-const path = require("path");
-const { getConfig, setConfig, deleteConfig } = requireFromRoot("db");
+import fs from 'fs';
+import path from 'path';
+import { getConfig, setConfig, deleteConfig } from '../../db.js';
 
 // ✅ Patrón seguro para extraer solo números
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
@@ -120,4 +120,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["antilink"];
-module.exports = handler;
+export default handler;

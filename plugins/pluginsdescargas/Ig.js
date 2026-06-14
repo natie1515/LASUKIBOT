@@ -7,11 +7,11 @@
 
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 const NEOXR_BASE = "https://api.neoxr.eu/api";
@@ -445,7 +445,7 @@ function findLatestJob(chatId) {
 }
 
 // 3. HANDLER PRINCIPAL
-module.exports = async (msg, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
   let text = (args.join(" ") || "").trim();
@@ -801,7 +801,9 @@ async function processSend(conn, job, asDocument, triggerMsg) {
   }
 }
 
-module.exports.command = ["instagram", "ig"];
-module.exports.help = ["instagram <url>", "ig <url>"];
-module.exports.tags = ["descargas"];
-module.exports.register = true;
+handler.command = ["instagram", "ig"];
+handler.help = ["instagram <url>", "ig <url>"];
+handler.tags = ["descargas"];
+handler.register = true;
+
+export default handler;

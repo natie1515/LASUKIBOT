@@ -26,9 +26,9 @@
 //   .trag2 1               → migra el primer paquete
 //   .trag2 5               → migra los primeros 5
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 // 📂 Rutas
 const RUTA_VIEJA = path.resolve("./guar2.json");           // guar.json del otro bot
@@ -304,4 +304,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["trag2"];
-module.exports = handler;
+export default handler;

@@ -8,8 +8,8 @@
 
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const CONFIG_FILE = path.resolve("./activoss.json");
 
@@ -141,4 +141,4 @@ ${extra}
 };
 
 handler.command = ["botones"];
-module.exports = handler;
+export default handler;

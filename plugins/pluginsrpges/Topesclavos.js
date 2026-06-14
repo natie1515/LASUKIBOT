@@ -2,8 +2,8 @@
 // Comando: .topesclavos / .topes
 // Muestra el top de dueños con más esclavos ACTIVOS (únicos), con imagen y menciones de TODOS los esclavos.
 
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 const PORTADA_URL = "https://cdn.russellxz.click/42bd53d7.jpeg";
 const MAX_ITEMS = 10; // muestra top 10
@@ -105,4 +105,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["topesclavos", "topes"];
-module.exports = handler;
+export default handler;

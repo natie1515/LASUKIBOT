@@ -1,6 +1,6 @@
 // plugins/bc2.js
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ——— Estado en memoria ———
 const pendingBc2 = Object.create(null); // msgId -> job
@@ -124,7 +124,7 @@ function attachBc2Listener(conn) {
 }
 
 // ——— Handler principal ———
-module.exports = async (msg, { conn, wa }) => {
+const handler = async (msg, { conn, wa }) => {
   const chatId   = msg.key.remoteJid;
   const senderId = (msg.key.participant || chatId).replace(/\D/g, "");
 
@@ -215,4 +215,6 @@ module.exports = async (msg, { conn, wa }) => {
   attachBc2Listener(conn);
 };
 
-module.exports.command = ["bc2"];
+handler.command = ["bc2"];
+
+export default handler;

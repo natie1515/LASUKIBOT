@@ -3,9 +3,9 @@
 // guarda TODOS los stickers del paquete de una sola vez.
 // Uso: .guars <nombre_del_paquete>
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 const PACKS_ROOT = path.resolve("./guars_media");
 const PACKS_DB = path.resolve("./guars_packs.json");
@@ -207,4 +207,4 @@ const handler = async (msg, { conn, args, wa }) => {
 };
 
 handler.command = ["guarsk"];
-module.exports = handler;
+export default handler;

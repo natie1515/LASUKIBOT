@@ -1,7 +1,10 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // plugins/ff2.js
-const fs = require('fs');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
 
 // — helpers —
 function unwrapMessage(m) {
@@ -133,4 +136,4 @@ handler.help = ['ff2'];
 handler.tags = ['herramientas'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

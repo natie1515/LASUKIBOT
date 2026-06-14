@@ -1,5 +1,5 @@
-const axios = require('axios');
-const fetch = require('node-fetch');
+import axios from 'axios';
+import fetch from 'node-fetch';
 
 const handler = async (msg, { conn, args, command }) => {
     const text = args.join(' ');
@@ -102,4 +102,4 @@ handler.command = ['luminai', 'ia', 'ai', 'ask'];
 handler.tags = ['ai'];
 handler.register = true;
 
-module.exports = handler;
+export default handler;

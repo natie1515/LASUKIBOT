@@ -1,11 +1,14 @@
+import { fileURLToPath as __fileURLToPath } from 'url';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
 // commands/pinterestvideo.js
 "use strict";
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 const streamPipe = promisify(pipeline);
 
 // ==== CONFIG API ====
@@ -92,7 +95,7 @@ async function downloadToFile(url, outPath) {
 }
 
 // ---------------- COMMAND ----------------
-module.exports = async (msg, { conn, text }) => {
+const handler = async (msg, { conn, text }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
@@ -178,4 +181,6 @@ module.exports = async (msg, { conn, text }) => {
 };
 
 // alias del comando
-module.exports.command = ["pinterestvideo", "pinvideo"];
+handler.command = ["pinterestvideo", "pinvideo"];
+
+export default handler;

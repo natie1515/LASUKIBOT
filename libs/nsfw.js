@@ -5,13 +5,13 @@
 /****************/
 
 // libs/nsfw.js
-const axios = require("axios");
-const cheerio = require("cheerio");
-const { Blob, FormData } = require("formdata-node");
-const { FormDataEncoder } = require("form-data-encoder");
-const { Readable } = require("stream");
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { Blob, FormData } from 'formdata-node';
+import { FormDataEncoder } from 'form-data-encoder';
+import { Readable } from 'stream';
 
-module.exports = class Checker {
+export default class Checker {
   constructor() {
     this.base = "https://www.nyckel.com";
     this.invokeEndpoint = "/v1/functions";

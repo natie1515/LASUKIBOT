@@ -1,5 +1,5 @@
 // Adaptado a tu bot (CommonJS + conn.sendMessage)
-const fetch = require("node-fetch");
+import fetch from 'node-fetch';
 
 const handler = async (msg, { conn, text, args }) => {
   const chatId = msg.key.remoteJid;
@@ -125,4 +125,4 @@ const handler = async (msg, { conn, text, args }) => {
 };
 
 handler.command = ["r", "rc", "channelreact"];
-module.exports = handler;
+export default handler;

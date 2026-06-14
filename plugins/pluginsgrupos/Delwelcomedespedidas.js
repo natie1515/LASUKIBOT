@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
 
 // ✅ Patrón seguro para extraer solo números
 const DIGITS = (s = "") => String(s || "").replace(/[^0-9]/g, "");
@@ -121,4 +121,4 @@ const handler = async (msg, { conn }) => {
 };
 
 handler.command = ["delwelcome"];
-module.exports = handler;
+export default handler;

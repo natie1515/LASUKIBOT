@@ -111,4 +111,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ['20vs20'];
-module.exports = handler;
+export default handler;

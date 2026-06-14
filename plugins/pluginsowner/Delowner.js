@@ -1,4 +1,4 @@
-const fs = require("fs");
+import fs from 'fs';
 
 const handler = async (msg, { conn, args }) => {
   const sender = msg.realJid || msg.key.participant || msg.key.remoteJid;
@@ -219,4 +219,4 @@ const handler = async (msg, { conn, args }) => {
 };
 
 handler.command = ["delowner"];
-module.exports = handler;
+export default handler;
