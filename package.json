@@ -14,7 +14,7 @@
   "license": "ISC",
   "engines": { "node": ">=18.17" },
   "dependencies": {
-    "@whiskeysockets/baileys": "github:itsliaaa/baileys",
+    "@whiskeysockets/baileys": "npm:@itsliaaa/baileys@latest",
     "awesome-phonenumber": "^5.10.0",
     "axios": "^0.24.0",
     "cfonts": "^2.10.0",
@@ -28,7 +28,6 @@
     "formdata-node": "^6.0.3",
     "hispamemes": "^1.0.7",
     "canvas": "^3.0.0-rc2",
-    "child_process": "^1.0.2",
     "form-data-encoder": "^4.0.2",
     "figlet": "^1.8.0",
     "google-tts-api": "^2.0.2",
