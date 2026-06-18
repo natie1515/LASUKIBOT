@@ -48,7 +48,7 @@ const SKY_ULTRA_PLUS_URL = normalizeUrl(
 
 function notificationFooter() {
   return `
-╭━━━〔 🌐 LA SUKI BOT 〕━━━╮
+╭━━━〔 🌐 Nekotina BOT 〕━━━╮
 ┃ 💜 Página oficial:
 ┃ ${SUKI_PUBLIC_WEB_URL}
 ┃
