@@ -20,7 +20,7 @@ const handler = async (msg, { conn }) => {
 
   const caption = `
 ╔════════════════════╗
-║🤖 *ALL MENU LA SUKI BOT*
+║🤖 *ALL MENU Nekotina BOT*
 ╚════════════════════╝
 
 🧠 *Bot creado desde cero.*
