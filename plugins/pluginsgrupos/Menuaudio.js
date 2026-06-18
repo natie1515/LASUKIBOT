@@ -80,7 +80,7 @@ const handler = async (msg, { conn }) => {
 🎧 Audios, 🎞️ videos, 🖼️ imágenes, 🧩 stickers y más...
 
 📝 *¿Cómo funciona?*
-Solo escribe el *nombre del paquete* en el chat y *La Suki Bot* enviará al azar uno de los archivos guardados dentro de ese paquete.
+Solo escribe el *nombre del paquete* en el chat y *Nekotina Bot* enviará al azar uno de los archivos guardados dentro de ese paquete.
 
 📥 Para *guardar multimedia* responde a cualquier imagen, audio, sticker o video con:
 ➤ *.guar nombreDelPaquete*
