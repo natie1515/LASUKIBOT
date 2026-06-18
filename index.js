@@ -1,5 +1,5 @@
-let canalId = ["120363266665814365@newsletter"];  
-let canalNombre = ["👑 LA SUKI BOT 👑"]
+let canalId = ["120363188537623366@newsletter"];  
+let canalNombre = ["'ೃ࿔ ɳεҡσƭเɳα ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ"]
   function setupConnection(conn) {
   conn.sendMessage2 = async (chat, content, m, options = {}) => {
     const firstChannel = { 
@@ -490,7 +490,7 @@ try {
         caption: `
 🎉 ¡Hola a todos! 🎉
 
-👋 Soy *La Suki Bot*, un bot programado 🤖.  
+👋 Soy *Nekotina Bot*, un bot programado 🤖.  
 📸 A veces reacciono o envío multimedia porque así me diseñaron.  
 
 ⚠️ *Lo que diga no debe ser tomado en serio.* 😉
