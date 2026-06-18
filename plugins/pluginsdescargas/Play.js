@@ -364,12 +364,12 @@ const handler = async (msg, { conn, text }) => {
 Toca el botón *📥 Menú de descarga* abajo del mensaje. Se abrirá una lista con todas las opciones de audio y video en distintas calidades.
 
 ━━━━━━━━━━━━━━━━━
-🤖 *La Suki Bot*
+🤖 *Nekotina Bot*
 ━━━━━━━━━━━━━━━━━
 `.trim()
     : `
 ╭━━━━━━━━━━━━━━━━╮
-   ❦ 𝑳𝑨 𝑺𝑼𝑲𝑰 𝑩𝑶𝑻 ❦
+   ❦ Nekotina 𝑩𝑶𝑻 ❦
 ╰━━━━━━━━━━━━━━━━╯
 
 ━━━━━━━━━━━━━━━━━
@@ -943,7 +943,7 @@ async function downloadAudio(conn, job, asDocument, quoted) {
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
 ━━━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
+🤖 *Bot:* Nekotina Bot
 🔗 *API:* Neoxr API
 ━━━━━━━━━━━━━━━━━━━━`;
 
@@ -1049,7 +1049,7 @@ async function downloadVideo(conn, job, asDocument, quoted) {
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB
 
 ━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* La Suki Bot
+🤖 *Bot:* Nekotina Bot
 🔗 *API:* ${API_BASE}
 ━━━━━━━━━━━━━━━━━━`;
 
