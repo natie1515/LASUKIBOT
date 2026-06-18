@@ -46,7 +46,7 @@ const handler = async (msg, { conn }) => {
   const caption = `╔════════════════╗
      💠 𝙱𝙸𝙴𝙽𝚅𝙴𝙽𝙸𝙳𝙾 💠
 ╚════════════════╝
-*𝐴𝑙 𝑚𝑒𝑛𝑢 𝑑𝑒 𝑔𝑟𝑢𝑝𝑜 𝑑𝑒 𝐿𝑎 𝑆𝑢𝑘𝑖 𝐵𝑜𝑡*
+*𝐴𝑙 𝑚𝑒𝑛𝑢 𝑑𝑒 𝑔𝑟𝑢𝑝𝑜 𝑑𝑒 Nekotina 𝐵𝑜𝑡*
 
 🛠️ *CONFIGURACIONES*
 ╭─────◆
@@ -101,7 +101,7 @@ const handler = async (msg, { conn }) => {
 │๛ ${pref}cerrargrupo
 ╰─────◆
 
-🤖 *La Suki Bot - Panel de control grupal*
+🤖 *Nekotina Bot - Panel de control grupal*
 `.trim();
 
   await conn.sendMessage2(
